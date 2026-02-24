@@ -2,14 +2,9 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
-// Auto-detect backend host from Expo dev server connection
+// Point to Railway Production Backend
 const getApiUrl = () => {
-    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
-    if (debuggerHost) {
-        const host = debuggerHost.split(':')[0];
-        return `http://${host}:5000/api`;
-    }
-    return 'http://localhost:5000/api';
+    return 'https://growary-production.up.railway.app/api';
 };
 
 const API_URL = getApiUrl();
