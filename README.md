@@ -1,112 +1,99 @@
-# 🌱 Growary - Ứng dụng Quản lý Công việc & Tích điểm
+# 🌱 Growary - Unified Productivity & Gamification Suite
 
-Ứng dụng giúp bạn lập kế hoạch, theo dõi tiến độ công việc hàng ngày và đổi điểm thưởng.
-
-## 📁 Cấu trúc dự án
-
-```
-Growary/
-├── backend/          # Node.js + Express API
-│   ├── src/
-│   │   ├── config/   # Database config
-│   │   ├── models/   # Mongoose schemas
-│   │   ├── routes/   # API endpoints
-│   │   └── middleware/
-│   └── package.json
-│
-└── mobile/           # React Native (Expo)
-    ├── src/
-    │   ├── screens/  # App screens
-    │   ├── services/ # API calls
-    │   ├── context/  # Global state
-    │   └── navigation/
-    └── package.json
-```
-
-## 🚀 Bắt đầu
-
-### 1. Cài đặt MongoDB
-
-**Option A: Local**
-- Download tại: https://www.mongodb.com/try/download/community
-- Chạy MongoDB server
-
-**Option B: Cloud (MongoDB Atlas)**
-- Tạo tài khoản tại: https://www.mongodb.com/cloud/atlas
-- Tạo cluster free tier
-- Copy connection string vào `.env`
-
-### 2. Chạy Backend
-
-```bash
-cd backend
-npm install        # Đã cài sẵn
-npm run dev        # Khởi động server
-```
-
-Server sẽ chạy tại: http://localhost:5000
-
-### 3. Chạy Mobile App
-
-```bash
-cd mobile
-npm install        # Đã cài sẵn
-npx expo start     # Khởi động Expo
-```
-
-Scan QR code bằng **Expo Go** app trên điện thoại.
-
-### 4. Cấu hình API URL (quan trọng!)
-
-Mở file `mobile/src/services/api.ts`, sửa `API_URL`:
-
-```typescript
-// Nếu test trên thiết bị thật cùng mạng WiFi:
-const API_URL = 'http://YOUR_IP_ADDRESS:5000/api';
-
-// Nếu dùng Android Emulator:
-const API_URL = 'http://10.0.2.2:5000/api';
-```
-
-## 📱 Tính năng
-
-| Tab | Chức năng |
-|-----|-----------|
-| 🏠 Hôm nay | Xem & hoàn thành việc đã lên lịch |
-| 📝 Lập kế hoạch | Thêm việc cho ngày mai |
-| 📖 Nhật ký | Xem lịch sử & ghi chép |
-| 🎁 Đổi thưởng | Đổi điểm lấy phần thưởng |
-| 👤 Tài khoản | Thông tin cá nhân |
-
-## 🔧 API Endpoints
-
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| POST | `/api/auth/register` | Đăng ký |
-| POST | `/api/auth/login` | Đăng nhập |
-| GET | `/api/tasks` | Lấy danh sách task templates |
-| GET | `/api/plans/today` | Kế hoạch hôm nay |
-| GET | `/api/plans/tomorrow` | Kế hoạch ngày mai |
-| PATCH | `/api/plans/:id/tasks/:idx/complete` | Đánh dấu hoàn thành |
-| GET | `/api/journals` | Lấy nhật ký |
-| GET | `/api/rewards` | Danh sách phần thưởng |
-
-## 🗄️ Database Collections
-
-- `users` - Tài khoản & điểm
-- `tasktemplates` - Kho mẫu nhiệm vụ
-- `dailyplans` - Kế hoạch theo ngày
-- `journals` - Nhật ký
-- `rewards` - Phần thưởng
-- `vouchers` - Phiếu đã đổi
-
-## 📝 Việc cần làm tiếp
-
-- [ ] Thêm Cron Job reset ngày (00:00)
-- [ ] Tích hợp AI phân tích task
-- [ ] Thêm Push Notifications
-- [ ] Seed data mẫu
+**Growary** là một hệ sinh thái ứng dụng giúp tối ưu hóa hiệu suất làm việc thông qua cơ chế Gamification (Trò chơi hóa). Ứng dụng tích hợp quản lý nhiệm vụ, hệ thống cấp độ, săn Boss kỷ luật và đổi thưởng vật phẩm thực tế.
 
 ---
 
-Made with 💜 for productivity
+## 📁 Cấu trúc Dự án (Monorepo)
+
+Dự án được tổ chức theo cấu trúc monorepo bao gồm 3 thành phần chính:
+
+```bash
+Growary/
+├── backend/          # Node.js + Express API & MongoDB (Mongoose)
+│   ├── src/models/   # Schemas cho User, Boss, Level, Reward...
+│   ├── src/routes/   # API logic cho mobile & admin
+│   └── src/utils/    # Xử lý Logic thưởng & Leveling
+├── admin/            # React + Vite (Dashboard Quản trị)
+│   └── src/pages/    # Quản lý Quest, Shop, User & Boss Timeline
+└── mobile/           # React Native + Expo (Ứng dụng cho User)
+    └── src/screens/  # HomeScreen, Boss Event, Shop...
+```
+
+---
+
+## ✨ Tính năng Nổi bật
+
+### 🎮 Gamification & Hệ thống Cấp độ
+- **Thăng cấp (Level System):** Tích lũy XP từ nhiệm vụ để lên cấp. Nhận thưởng tự động (Coins, Vé Gacha, Voucher) mỗi khi thăng cấp.
+- **Săn Boss Kỷ luật (Boss Hunting):** Sự kiện cộng đồng. XP nhiệm vụ biến thành sát thương đánh Boss. Nhận rương báu lớn khi Boss bị tiêu diệt.
+- **Chuỗi Kỷ luật (Streak):** Duy trì hoàn thành ít nhất 3 nhiệm vụ/ngày để nhận mốc thưởng Streak đặc biệt.
+
+### 📝 Quản lý Nhiệm vụ Thông minh
+- **Kho nhiệm vụ hệ thống:** Thư viện nhiệm vụ đa dạng đã được thiết lập sẵn.
+- **Nghiệm vụ tùy chỉnh:** Người dùng có thể tự đề xuất nhiệm vụ, chờ Admin phê duyệt để nhận thưởng.
+- **Nhật ký tiến độ:** Tự động lưu lại lịch sử làm việc hàng ngày.
+
+### 🛍️ Cửa hàng & Phần thưởng
+- **Shop Vật phẩm:** Đổi Coin tích lũy lấy Voucher hoặc quà tặng vật lý.
+- **Quản lý Voucher:** Hệ thống mã QR và trạng thái sử dụng (Chưa dùng, Đã dùng, Hết hạn).
+- **Vòng quay may mắn:** Sử dụng vé Gacha nhận được từ Level-up/Boss để thử vận may.
+
+### 🛠️ Bảng Quản trị (Admin Dashboard)
+- **Boss Timeline:** Quản lý sự kiện Boss qua biểu đồ trục thời gian (Roadmap) trực quan.
+- **Duyệt nhiệm vụ:** Phê duyệt nhanh chóng các yêu cầu từ User.
+- **Thống kê:** Theo dõi tăng trưởng người dùng và hiệu quả hoàn thành mục tiêu.
+
+---
+
+## 🚀 Hướng dẫn Cài đặt
+
+### 1. Yêu cầu hệ thống
+- **Node.js**: Phiên bản 18+
+- **MongoDB**: Local hoặc MongoDB Atlas (Cloud)
+
+### 2. Khởi chạy Backend
+```bash
+cd backend
+npm install
+npm run dev
+```
+*Tạo file `.env` dựa trên `.env.example` và cấu hình `MONGODB_URI`.*
+
+### 3. Khởi chạy Admin Panel
+```bash
+cd admin
+npm install
+npm run dev
+```
+*Truy cập tại: `http://localhost:5173`*
+
+### 4. Khởi chạy Mobile App
+```bash
+cd mobile
+npm install
+npx expo start
+```
+*Dùng **Expo Go** để scan mã QR trên thiết bị thật.*
+
+---
+
+## 🛠️ Stack Công nghệ
+
+- **Frontend (Web):** React, Vite, CSS Vanilla (Modern UI/UX).
+- **Mobile:** React Native, Expo, Reanimated.
+- **Backend:** Node.js, Express, Mongoose.
+- **Database:** MongoDB.
+- **UI Architecture:** Claymorphism & Glassmorphism Design Styles.
+
+---
+
+## 📝 Milestone Đã Hoàn Thành
+- [x] Hệ thống Level & Logic Delta XP.
+- [x] Giao diện Boss Timeline (Roadmap) trên Admin.
+- [x] Cơ chế trao thưởng Unified Reward (Coins + Gacha + Items).
+- [x] Tích hợp Cloudinary cho minh chứng hoàn thành nhiệm vụ.
+
+---
+
+Made with 💜 by Antigravity Team
