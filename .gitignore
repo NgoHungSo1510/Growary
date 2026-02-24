@@ -1,0 +1,47 @@
+# dependencies
+node_modules/
+
+# local env files
+.env
+.env*.local
+
+# dist and logs
+dist/
+dist-ssr/
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+.agent/
+.gemini/
+
+# Mobile / Expo
+.expo/
+web-build/
+expo-env.d.ts
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+/ios
+/android
+
+# Typescript
+*.tsbuildinfo
+
+# Debug files
+checklist_out.txt
+typescript-errors.txt
+tsc-errors.txt
+build_output.log
+error.log
