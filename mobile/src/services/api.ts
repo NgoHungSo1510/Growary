@@ -9,7 +9,8 @@ const getApiUrl = () => {
         const host = debuggerHost.split(':')[0];
         return `http://${host}:5000/api`;
     }
-    return 'http://localhost:5000/api';
+    // Fallback to production API if not running in a debugger/dev host
+    return 'https://growary-production.up.railway.app/api';
 };
 
 const API_URL = getApiUrl();
