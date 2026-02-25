@@ -188,6 +188,15 @@ export default function BossEventScreen() {
 
     const hpPercent = Math.max(0, Math.min(100, (displayHp / boss.maxHp) * 100));
 
+    const getTimeLeftText = () => {
+        if (!boss.endTime) return "HOT EVENT";
+        const diff = new Date(boss.endTime).getTime() - new Date().getTime();
+        const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        if (days > 0) return `CÒN ${days} NGÀY`;
+        if (days === 0) return "CÒN < 24 GIỜ";
+        return "SẮP TIÊU DIỆT";
+    };
+
     // Slash transforms
     const slashScale = slashAnim.interpolate({
         inputRange: [0, 0.5, 1],
@@ -222,7 +231,7 @@ export default function BossEventScreen() {
 
                 <View style={styles.timerBadge}>
                     <MaterialIcons name="timer" size={20} color={COLORS.clayAccent2} />
-                    <Text style={styles.timerText}>HOT EVENT</Text>
+                    <Text style={styles.timerText}>{getTimeLeftText()}</Text>
                 </View>
             </View>
 

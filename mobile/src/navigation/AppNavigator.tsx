@@ -15,8 +15,11 @@ import ShopScreen from '../screens/ShopScreen';
 import NewTaskScreen from '../screens/NewTaskScreen';
 import EventScreen from '../screens/EventScreen';
 import BossEventScreen from '../screens/BossEventScreen';
+// @ts-ignore - Temporary fix for TS Server caching issue
+import GachaEventScreen from '../screens/GachaEventScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 // Stack Navigator types
 export type AuthStackParamList = {
@@ -35,7 +38,9 @@ export type MainTabParamList = {
 export type RootStackParamList = {
     MainTabs: undefined;
     BossEvent: undefined;
+    GachaEvent: undefined;
     EditProfile: undefined;
+    Notifications: undefined;
 };
 
 const AuthStack = createStackNavigator<AuthStackParamList>();
@@ -130,11 +135,13 @@ const MainNavigator = () => (
         <RootStack.Navigator screenOptions={{ headerShown: false }}>
             <RootStack.Screen name="MainTabs" component={TabNavigator} />
             <RootStack.Screen name="BossEvent" component={BossEventScreen} />
+            <RootStack.Screen name="GachaEvent" component={GachaEventScreen} />
             <RootStack.Screen
                 name="EditProfile"
                 component={EditProfileScreen}
                 options={{ presentation: 'modal' }}
             />
+            <RootStack.Screen name="Notifications" component={NotificationsScreen} />
         </RootStack.Navigator>
         <GlobalNotification />
     </>

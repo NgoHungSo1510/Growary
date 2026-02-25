@@ -556,7 +556,7 @@ export default function ShopScreen() {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.warmBg },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.warmBg },
-    scrollContent: { paddingBottom: 120 },
+    scrollContent: { paddingBottom: 20 },
 
     // Section Header
     sectionHeader: {

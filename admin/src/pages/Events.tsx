@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import BossManagementPage from './BossManagementPage';
+import GachaManagement from './GachaManagement';
 
 export default function Events() {
     const [activeTab, setActiveTab] = useState<'boss' | 'battlepass' | 'gacha'>('boss');
@@ -67,10 +68,7 @@ export default function Events() {
                 </div>
             )}
             {activeTab === 'gacha' && (
-                <div className="empty-state">
-                    <div className="empty-state__icon">🚧</div>
-                    <div className="empty-state__text">Vòng Quay Nhân Phẩm: Tính năng đang được phát triển...</div>
-                </div>
+                <GachaManagement />
             )}
         </div>
     );

@@ -131,15 +131,15 @@ export default function Dashboard() {
                 <div className="stat-card">
                     <div className="stat-card__icon stat-card__icon--blue">👤</div>
                     <div className="stat-card__info">
-                        <div className="stat-card__label">User mới hôm nay</div>
-                        <div className="stat-card__value">{stats?.newUsersToday ?? 0}</div>
+                        <div className="stat-card__label">User online hôm nay</div>
+                        <div className="stat-card__value">{stats?.activeUsersToday ?? 0}</div>
                     </div>
                 </div>
                 <div className="stat-card">
                     <div className="stat-card__icon stat-card__icon--amber">⭐</div>
                     <div className="stat-card__info">
-                        <div className="stat-card__label">Tổng XP đã cấp</div>
-                        <div className="stat-card__value">{(stats?.totalXPGranted ?? 0).toLocaleString()}</div>
+                        <div className="stat-card__label">Tasks hoàn thành hôm nay</div>
+                        <div className="stat-card__value">{(stats?.tasksCompletedToday ?? 0).toLocaleString()}</div>
                     </div>
                 </div>
                 <div className="stat-card">

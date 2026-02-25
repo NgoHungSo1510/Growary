@@ -1,7 +1,6 @@
 export interface User {
     _id: string;
     username: string;
-    displayName?: string;
     email: string;
     role: 'admin' | 'user';
     coins: number;
@@ -96,6 +95,8 @@ export interface DashboardStats {
     pendingVouchers: number;
     pendingTasks: number;
     activeUsers: number;
+    activeUsersToday: number;
+    tasksCompletedToday: number;
 }
 
 export interface ActivityData {

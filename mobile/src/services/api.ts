@@ -2,9 +2,14 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
-// Point to Railway Production Backend
+// Auto-detect backend host from Expo dev server connection
 const getApiUrl = () => {
-    return 'https://growary-production.up.railway.app/api';
+    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+    if (debuggerHost) {
+        const host = debuggerHost.split(':')[0];
+        return `http://${host}:5000/api`;
+    }
+    return 'http://localhost:5000/api';
 };
 
 const API_URL = getApiUrl();
@@ -83,8 +88,29 @@ class ApiService {
         return response.data;
     }
 
-    async updateProfile(data: { displayName?: string; email?: string; currentPassword?: string; newPassword?: string; avatar?: string }) {
+    async updateProfile(data: { username?: string; email?: string; currentPassword?: string; newPassword?: string; avatar?: string }) {
         const response = await this.api.put('/auth/me', data);
+        return response.data;
+    }
+
+    async clearPendingPenalties() {
+        const response = await this.api.delete('/auth/me/penalties');
+        return response.data;
+    }
+
+    // ============ NOTIFICATIONS ============
+    async getNotifications(page = 1, limit = 20) {
+        const response = await this.api.get(`/notifications?page=${page}&limit=${limit}`);
+        return response.data;
+    }
+
+    async markNotificationAsRead(id: string) {
+        const response = await this.api.patch(`/notifications/${id}/read`);
+        return response.data;
+    }
+
+    async getUnreadNotificationCount() {
+        const response = await this.api.get(`/notifications/unread-count`);
         return response.data;
     }
 
@@ -100,6 +126,11 @@ class ApiService {
     }
 
     // ============ DAILY PLANS ============
+    async getPenaltyConfig() {
+        const response = await this.api.get('/plans/penalty-config');
+        return response.data;
+    }
+
     async getTodayPlan() {
         const response = await this.api.get('/plans/today');
         return response.data;
@@ -200,6 +231,22 @@ class ApiService {
     // ============ LEVELS ============
     async getLevels() {
         const response = await this.api.get('/levels');
+        return response.data;
+    }
+
+    // ============ GACHA ============
+    async getGachaItems() {
+        const response = await this.api.get('/gacha/items');
+        return response.data;
+    }
+
+    async spinGacha() {
+        const response = await this.api.post('/gacha/spin');
+        return response.data;
+    }
+
+    async getGachaHistory() {
+        const response = await this.api.get('/gacha/history');
         return response.data;
     }
 }

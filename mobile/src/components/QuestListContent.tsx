@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndi
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { DailyTask } from '../types';
+import { DailyTask, PenaltyConfig } from '../types';
 import { COLORS } from '../theme';
 import { apiService } from '../services/api';
 
@@ -48,7 +48,9 @@ const AnimatedQuestCard: React.FC<{
     onComplete: (index: number, proofUrl: string) => void;
     onUncomplete: (index: number) => void;
     onShowProofPicker: (index: number) => void;
-}> = ({ task, index, planId, onComplete, onUncomplete, onShowProofPicker }) => {
+    currentTime: Date;
+    penaltyConfig: PenaltyConfig | null;
+}> = ({ task, index, planId, onComplete, onUncomplete, onShowProofPicker, currentTime, penaltyConfig }) => {
     const flashAnim = useRef(new Animated.Value(0)).current;
     const [justCompleted, setJustCompleted] = useState(false);
 
@@ -70,6 +72,41 @@ const AnimatedQuestCard: React.FC<{
     const iconColor = getCategoryColor(task.category);
     const isPending = task.adminApprovalStatus === 'pending';
 
+    let displayCoin = task.coinReward ?? 5;
+    let displayXp = task.pointsReward;
+    let latePercentage = 0;
+
+    if (task.scheduledTime && currentTime && penaltyConfig && !task.isCompleted && !isPending) {
+        const [h, m] = task.scheduledTime.split(':').map(Number);
+        const scheduledDate = new Date(currentTime);
+        scheduledDate.setHours(h, m, 0, 0);
+
+        if (task.durationMinutes) {
+            scheduledDate.setMinutes(scheduledDate.getMinutes() + task.durationMinutes);
+        }
+
+        const diffMinutes = Math.floor((currentTime.getTime() - scheduledDate.getTime()) / 60000);
+
+        if (diffMinutes >= 15 && penaltyConfig.lateThresholds && penaltyConfig.lateThresholds.length > 0) {
+            // Find the highest threshold that diffMinutes has exceeded
+            let applicableThreshold: { thresholdMinutes: number; deductionPercentage: number } | null = null;
+
+            for (const t of penaltyConfig.lateThresholds) {
+                if (diffMinutes >= t.thresholdMinutes) {
+                    if (!applicableThreshold || t.thresholdMinutes > applicableThreshold.thresholdMinutes) {
+                        applicableThreshold = t;
+                    }
+                }
+            }
+
+            if (applicableThreshold) {
+                latePercentage = applicableThreshold.deductionPercentage;
+                displayCoin = Math.max(0, Math.floor((task.coinReward ?? 5) * (1 - latePercentage / 100)));
+                displayXp = Math.max(0, Math.floor(task.pointsReward * (1 - latePercentage / 100)));
+            }
+        }
+    }
+
     if (task.isCompleted) {
         return null; // Completed tasks rendered separately at bottom
     }
@@ -89,8 +126,26 @@ const AnimatedQuestCard: React.FC<{
                     </View>
                 </View>
 
-                <View style={styles.rewardBadge}>
-                    <Text style={styles.rewardText}>+{task.coinReward ?? 5} G</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={styles.rewardBadge}>
+                        {latePercentage > 0 ? (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                <Text style={[styles.rewardText, { textDecorationLine: 'line-through', opacity: 0.5 }]}>
+                                    {task.coinReward ?? 5} G
+                                </Text>
+                                <Text style={[styles.rewardText, { color: '#B45309' }]}>
+                                    +{displayCoin} G
+                                </Text>
+                            </View>
+                        ) : (
+                            <Text style={styles.rewardText}>+{displayCoin} G</Text>
+                        )}
+                    </View>
+                    {latePercentage > 0 && (
+                        <View style={{ backgroundColor: '#FEF2F2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8, borderWidth: 1, borderColor: '#FCA5A5' }}>
+                            <Text style={{ fontSize: 10, color: '#EF4444', fontWeight: 'bold' }}>-{latePercentage}% Trễ</Text>
+                        </View>
+                    )}
                 </View>
             </View>
 
@@ -101,9 +156,29 @@ const AnimatedQuestCard: React.FC<{
                 </View>
             )}
 
+            {task.penaltyStatus && task.penaltyStatus !== 'none' && (
+                <View style={[styles.pendingBanner, { backgroundColor: '#FEF2F2' }]}>
+                    <MaterialIcons name="warning" size={14} color="#EF4444" />
+                    <Text style={[styles.pendingText, { color: '#EF4444' }]}>
+                        {task.penaltyStatus === 'late' ? 'Nộp trễ hạn' : 'Đã bỏ lỡ'} (-{task.penaltyAmount || 0} 🪙)
+                    </Text>
+                </View>
+            )}
+
             <View style={styles.cardFooter}>
                 <View style={styles.xpBadge}>
-                    <Text style={styles.xpBadgeText}>⚡ {task.pointsReward} XP</Text>
+                    {latePercentage > 0 ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Text style={[styles.xpBadgeText, { textDecorationLine: 'line-through', opacity: 0.5 }]}>
+                                ⚡ {task.pointsReward} XP
+                            </Text>
+                            <Text style={[styles.xpBadgeText, { color: '#B45309' }]}>
+                                ⚡ {displayXp} XP
+                            </Text>
+                        </View>
+                    ) : (
+                        <Text style={styles.xpBadgeText}>⚡ {displayXp} XP</Text>
+                    )}
                 </View>
 
                 {!isPending && (
@@ -143,7 +218,7 @@ const launchLibrary = async (): Promise<string | null> => {
         return null;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-        quality: 0.6, base64: true, allowsEditing: true, aspect: [1, 1],
+        quality: 0.6, base64: true, allowsEditing: false, aspect: [1, 1],
     });
     if (!result.canceled && result.assets[0].base64) {
         return `data:image/jpeg;base64,${result.assets[0].base64}`;
@@ -158,8 +233,27 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
     const [proofPickerIndex, setProofPickerIndex] = useState<number | null>(null);
     const celebrationScale = useRef(new Animated.Value(0)).current;
 
-    const activeTasks = tasks.filter(t => !t.isCompleted);
-    const completedTasks = tasks.filter(t => t.isCompleted);
+    const [currentTime, setCurrentTime] = useState<Date>(new Date());
+    const [penaltyConfig, setPenaltyConfig] = useState<PenaltyConfig | null>(null);
+
+    useEffect(() => {
+        apiService.getPenaltyConfig().then((data) => {
+            if (data.config) setPenaltyConfig(data.config);
+        }).catch(err => console.log('Failed to fetch penalty config', err));
+
+        const timer = setInterval(() => setCurrentTime(new Date()), 30000); // Check every 30s
+        return () => clearInterval(timer);
+    }, []);
+
+    const sortedTasks = [...tasks].sort((a, b) => {
+        if (!a.scheduledTime && !b.scheduledTime) return 0;
+        if (!a.scheduledTime) return 1;
+        if (!b.scheduledTime) return -1;
+        return a.scheduledTime.localeCompare(b.scheduledTime);
+    });
+
+    const activeTasks = sortedTasks.filter(t => !t.isCompleted);
+    const completedTasks = sortedTasks.filter(t => t.isCompleted);
 
     const handleProofPick = async (source: 'camera' | 'library') => {
         const idx = proofPickerIndex;
@@ -201,8 +295,10 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
             const { plan, grantedRewards } = await apiService.completeTask(planId, realIndex, true, url);
             onPlanUpdated(plan, grantedRewards);
 
-            // Show celebration
-            showCelebration(taskToComplete.title, taskToComplete.pointsReward);
+            // Show celebration using the ACTUAL granted rewards from backend (which includes penalties)
+            const actualXp = grantedRewards?.xp !== undefined ? grantedRewards.xp : (grantedRewards?.points !== undefined ? grantedRewards.points : taskToComplete.pointsReward);
+
+            showCelebration(taskToComplete.title, actualXp);
         } catch (error: any) {
             Alert.alert('Lỗi', error.response?.data?.error || 'Không thể hoàn thành quest.');
         } finally {
@@ -261,6 +357,8 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
                     onComplete={handleComplete}
                     onUncomplete={handleUncomplete}
                     onShowProofPicker={(i) => setProofPickerIndex(i)}
+                    currentTime={currentTime}
+                    penaltyConfig={penaltyConfig}
                 />
             ))}
 

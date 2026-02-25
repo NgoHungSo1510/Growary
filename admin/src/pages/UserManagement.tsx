@@ -4,7 +4,6 @@ import { adminApi } from '../services/api';
 interface UserData {
     _id: string;
     username: string;
-    displayName?: string;
     email: string;
     role: string;
     coins: number;
@@ -141,7 +140,7 @@ export default function UserManagement() {
                                                     </div>
                                                 )}
                                                 <div>
-                                                    <div style={{ fontWeight: 600 }}>{u.displayName || u.username}</div>
+                                                    <div style={{ fontWeight: 600 }}>{u.username}</div>
                                                     <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u.email}</div>
                                                 </div>
                                             </div>
@@ -173,7 +172,7 @@ export default function UserManagement() {
                 <div className="modal-backdrop" onClick={() => setSelectedUser(null)}>
                     <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
                         <div className="modal__header">
-                            <span className="modal__title">👤 Chi tiết: {selectedUser.displayName || selectedUser.username}</span>
+                            <span className="modal__title">👤 Chi tiết: {selectedUser.username}</span>
                             <button className="modal__close" onClick={() => setSelectedUser(null)}>×</button>
                         </div>
                         <div className="modal__body">

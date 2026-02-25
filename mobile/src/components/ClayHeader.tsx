@@ -55,7 +55,7 @@ const ClayHeader: React.FC<ClayHeaderProps> = ({
     const xpPercent = Math.min((displayCurrentXP / displayMaxXP) * 100, 100) + '%';
 
     // Fallbacks
-    const name = user?.displayName || user?.username || username;
+    const name = user?.username || username;
     const avatar = user?.avatar || avatarUrl;
     const coins = user?.coins || 0;
     const tickets = user?.gachaTickets || 0;

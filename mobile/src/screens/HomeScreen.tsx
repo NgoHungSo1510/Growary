@@ -18,6 +18,7 @@ import ClayHeader from '../components/ClayHeader';
 import QuestListContent from '../components/QuestListContent';
 import AdventureLog from '../components/AdventureLog';
 import RewardCelebrationModal from '../components/RewardCelebrationModal';
+import PenaltyModal from '../components/PenaltyModal';
 import { requestNotificationPermissions, scheduleAllQuestReminders } from '../services/notifications';
 import { COLORS } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,7 +36,11 @@ export default function HomeScreen() {
     const [editorText, setEditorText] = useState('');
 
     // Reward Celebration Modal State
+    // Reward Celebration Modal State
     const [grantedRewards, setGrantedRewards] = useState<any | null>(null);
+
+    // Penalty Modal State
+    const [showPenaltyModal, setShowPenaltyModal] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -69,7 +74,11 @@ export default function HomeScreen() {
         useCallback(() => {
             requestNotificationPermissions();
             fetchData();
-            refreshUser();
+            refreshUser().then(updatedUser => {
+                if (updatedUser?.pendingPenalties && updatedUser.pendingPenalties.length > 0) {
+                    setShowPenaltyModal(true);
+                }
+            });
         }, [])
     );
 
@@ -233,6 +242,15 @@ export default function HomeScreen() {
                 visible={!!grantedRewards}
                 rewards={grantedRewards}
                 onClose={() => setGrantedRewards(null)}
+            />
+
+            <PenaltyModal
+                visible={showPenaltyModal}
+                penalties={user?.pendingPenalties || []}
+                onClose={() => {
+                    setShowPenaltyModal(false);
+                    refreshUser(); // Refresh user after clearing penalties to update UI
+                }}
             />
         </View>
     );

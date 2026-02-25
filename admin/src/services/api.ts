@@ -1,4 +1,4 @@
-const API_URL = 'https://growary-production.up.railway.app/api';
+const API_URL = 'http://localhost:5000/api';
 
 class AdminApi {
     private token: string | null;
@@ -67,7 +67,7 @@ class AdminApi {
     // Dashboard
     async getStats() {
         return this.request<{
-            stats: { totalUsers: number; newUsersToday: number; pendingVouchers: number; pendingTasks: number; activeUsers: number; totalXPGranted: number };
+            stats: { totalUsers: number; newUsersToday: number; pendingVouchers: number; pendingTasks: number; activeUsers: number; totalXPGranted: number; activeUsersToday: number; tasksCompletedToday: number };
             activity: { labels: string[]; tasksCompleted: number[]; xpGranted: number[] };
         }>('/admin/stats');
     }
@@ -203,6 +203,28 @@ class AdminApi {
 
     async deleteLevel(id: string) {
         return this.request<{ message: string }>(`/admin/levels/${id}`, { method: 'DELETE' });
+    }
+
+    // Penalty Config
+    async getPenaltyConfig() {
+        return this.request<{ config: any }>('/admin/penalty-config');
+    }
+    async updatePenaltyConfig(data: any) {
+        return this.request<{ config: any }>('/admin/penalty-config', { method: 'PUT', body: JSON.stringify(data) });
+    }
+
+    // Notifications
+    async getNotifications() {
+        return this.request<{ configs: any[] }>('/admin/notifications');
+    }
+    async createNotification(data: any) {
+        return this.request<{ config: any }>('/admin/notifications', { method: 'POST', body: JSON.stringify(data) });
+    }
+    async updateNotification(id: string, data: any) {
+        return this.request<{ config: any }>(`/admin/notifications/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    }
+    async deleteNotification(id: string) {
+        return this.request<{ message: string }>(`/admin/notifications/${id}`, { method: 'DELETE' });
     }
 }
 

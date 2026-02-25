@@ -48,8 +48,8 @@ export default function RewardCelebrationModal({ visible, rewards, onClose }: Re
 
     if (!visible || !rewards) return null;
 
-    const hasRewards = rewards.coins > 0 || rewards.gachaTickets > 0 || rewards.items.length > 0;
-    if (!hasRewards && rewards.levelUps.length === 0) return null;
+    const hasRewards = (rewards.coins || 0) > 0 || (rewards.gachaTickets || 0) > 0 || (rewards.xp || 0) > 0 || (rewards.items?.length || 0) > 0;
+    if (!hasRewards && (rewards.levelUps?.length || 0) === 0 && !(rewards as any).isTierUnlock) return null;
 
     return (
         <Modal visible={visible} transparent animationType="none">
@@ -63,15 +63,20 @@ export default function RewardCelebrationModal({ visible, rewards, onClose }: Re
                     >
                         <MaterialIcons name="auto-awesome" size={48} color="#D97706" style={styles.icon} />
 
-                        {rewards.levelUps.length > 0 ? (
+                        {rewards.levelUps?.length > 0 ? (
                             <>
                                 <Text style={styles.title}>THĂNG CẤP!</Text>
                                 <Text style={styles.subtitle}>Cấp độ mới: {rewards.levelUps.join(', ')}</Text>
                             </>
+                        ) : (rewards as any).isTierUnlock ? (
+                            <>
+                                <Text style={styles.title}>VƯỢT THÁP!</Text>
+                                <Text style={styles.subtitle}>{(rewards as any).message}</Text>
+                            </>
                         ) : (
                             <>
                                 <Text style={styles.title}>CHÚC MỪNG!</Text>
-                                <Text style={styles.subtitle}>Bạn nhận được phần thưởng tự động</Text>
+                                <Text style={styles.subtitle}>{(rewards as any).message || 'Bạn nhận được phần thưởng'}</Text>
                             </>
                         )}
 
@@ -85,6 +90,15 @@ export default function RewardCelebrationModal({ visible, rewards, onClose }: Re
                                 </View>
                             )}
 
+                            {(rewards as any).xp > 0 && (
+                                <View style={styles.rewardItem}>
+                                    <View style={[styles.rewardIconBg, { backgroundColor: '#E0F2FE' }]}>
+                                        <MaterialIcons name="star" size={24} color="#0284C7" />
+                                    </View>
+                                    <Text style={styles.rewardText}>+{(rewards as any).xp} XP</Text>
+                                </View>
+                            )}
+
                             {rewards.gachaTickets > 0 && (
                                 <View style={styles.rewardItem}>
                                     <View style={[styles.rewardIconBg, { backgroundColor: '#FCE7F3' }]}>
@@ -94,7 +108,7 @@ export default function RewardCelebrationModal({ visible, rewards, onClose }: Re
                                 </View>
                             )}
 
-                            {rewards.items.map((item, idx) => (
+                            {rewards.items?.map((item, idx) => (
                                 <View key={idx} style={styles.rewardItem}>
                                     <View style={[styles.rewardIconBg, { backgroundColor: '#E0E7FF' }]}>
                                         <MaterialIcons name="card-giftcard" size={24} color="#6366F1" />
@@ -103,7 +117,7 @@ export default function RewardCelebrationModal({ visible, rewards, onClose }: Re
                                 </View>
                             ))}
 
-                            {rewards.items.length > 0 && (
+                            {rewards.items?.length > 0 && (
                                 <Text style={{ fontSize: 11, color: '#B45309', textAlign: 'center', marginTop: 8, fontStyle: 'italic' }}>
                                     (Vật phẩm đã được gửi vào kho Quà của bạn)
                                 </Text>

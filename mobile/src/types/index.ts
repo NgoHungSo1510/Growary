@@ -5,12 +5,14 @@ export interface GrantedRewards {
     gachaTickets: number;
     items: string[];
     levelUps: number[];
+    isTierUnlock?: boolean;
+    message?: string;
+    xp?: number;
 }
 
 export interface User {
     id: string;
     username: string;
-    displayName?: string;
     email: string;
     avatar?: string;
     role: 'admin' | 'user';
@@ -25,6 +27,13 @@ export interface User {
         pushNotifications: boolean;
         timezone: string;
     };
+    pendingPenalties?: {
+        questId?: string;
+        questTitle?: string;
+        penaltyAmount: number;
+        reason: 'missed' | 'late';
+        createdAt: string;
+    }[];
 }
 
 export interface TaskTemplate {
@@ -56,6 +65,8 @@ export interface DailyTask {
     completedAt?: string;
     proofImageUrl?: string;
     category?: string;
+    penaltyStatus?: 'none' | 'late' | 'missed';
+    penaltyAmount?: number;
 }
 
 export interface BacklogItem {
@@ -63,6 +74,15 @@ export interface BacklogItem {
     originalDate: string;
     skipCount: number;
     pointsReward: number;
+}
+
+export interface PenaltyConfig {
+    _id: string;
+    lateThresholds: {
+        thresholdMinutes: number;
+        deductionPercentage: number;
+    }[];
+    missedQuestPenaltyCoin: number;
 }
 
 export interface DailyPlan {

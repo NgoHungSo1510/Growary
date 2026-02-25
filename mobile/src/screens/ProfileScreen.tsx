@@ -111,7 +111,7 @@ export default function ProfileScreen() {
 
                     {/* User Info */}
                     <View style={styles.userInfo}>
-                        <Text style={styles.userName}>{user?.displayName || user?.username || 'Adventurer'}</Text>
+                        <Text style={styles.userName}>{user?.username || 'Adventurer'}</Text>
                         <Text style={styles.userLevel}>
                             Level {level} • {levelTitle}
                         </Text>
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: 24,
         paddingTop: 60,
-        paddingBottom: 40,
+        paddingBottom: 40
     },
 
     // Blobs

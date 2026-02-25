@@ -9,6 +9,8 @@ import UserManagement from './pages/UserManagement';
 import Events from './pages/Events';
 import RewardManagement from './pages/RewardManagement';
 import BossManagementPage from './pages/BossManagementPage';
+import PenaltyManagement from './pages/PenaltyManagement.tsx';
+import NotificationManagement from './pages/NotificationManagement.tsx';
 import Login from './pages/Login';
 import { adminApi } from './services/api';
 import './App.css';
@@ -33,6 +35,8 @@ export default function App() {
                     <Route path="/events" element={<Events />} />
                     <Route path="/boss" element={<BossManagementPage />} />
                     <Route path="/rewards" element={<RewardManagement />} />
+                    <Route path="/penalty" element={<PenaltyManagement />} />
+                    <Route path="/notifications" element={<NotificationManagement />} />
                     <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
             </main>

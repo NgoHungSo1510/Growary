@@ -6,6 +6,8 @@ export const mockStats: DashboardStats = {
     pendingVouchers: 5,
     pendingTasks: 8,
     activeUsers: 47,
+    activeUsersToday: 10,
+    tasksCompletedToday: 120,
     totalUsers: 156,
 };
 

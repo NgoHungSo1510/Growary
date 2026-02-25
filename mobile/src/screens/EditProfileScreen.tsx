@@ -19,7 +19,7 @@ import { COLORS, FONT_SIZES } from '../theme';
 export default function EditProfileScreen({ navigation }: any) {
     const { user, refreshUser } = useAuth();
 
-    const [displayName, setDisplayName] = useState(user?.displayName || '');
+    const [username, setUsername] = useState(user?.username || '');
     const [email, setEmail] = useState(user?.email || '');
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -29,7 +29,7 @@ export default function EditProfileScreen({ navigation }: any) {
         setIsSaving(true);
         try {
             const data: any = {};
-            if (displayName !== (user?.displayName || '')) data.displayName = displayName;
+            if (username && username !== (user?.username || '')) data.username = username;
             if (email !== (user?.email || '')) data.email = email;
             if (newPassword) {
                 data.currentPassword = currentPassword;
@@ -83,14 +83,14 @@ export default function EditProfileScreen({ navigation }: any) {
                         <Text style={styles.sectionLabel}>Thông tin cá nhân</Text>
 
                         <View style={styles.inputGroup}>
-                            <Text style={styles.label}>Tên hiển thị</Text>
+                            <Text style={styles.label}>Tên tài khoản (Tên hiển thị)</Text>
                             <View style={styles.inputContainer}>
                                 <MaterialIcons name="badge" size={20} color={COLORS.clayAccent2} />
                                 <TextInput
                                     style={styles.input}
-                                    value={displayName}
-                                    onChangeText={setDisplayName}
-                                    placeholder="Nhập tên hiển thị"
+                                    value={username}
+                                    onChangeText={setUsername}
+                                    placeholder="Nhập tên tài khoản"
                                     placeholderTextColor="rgba(93,64,55,0.3)"
                                 />
                             </View>

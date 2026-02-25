@@ -96,4 +96,4 @@ npx expo start
 
 ---
 
-Made with 💜 by Antigravity Team
+Made with 💜 by Ostro-Ngô Hùng Sở-0369402764

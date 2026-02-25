@@ -93,8 +93,9 @@ export default function EventScreen({ navigation }: any) {
 
                 {/* Concept 3: Vòng Quay Nhân Phẩm */}
                 <TouchableOpacity
-                    style={[styles.cardContainer, { opacity: 0.8 }]}
-                    activeOpacity={0.9}
+                    style={styles.cardContainer}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.navigate('GachaEvent')}
                 >
                     <LinearGradient
                         colors={['#8b5cf6', '#5b21b6']}
@@ -107,12 +108,12 @@ export default function EventScreen({ navigation }: any) {
                                 <MaterialIcons name="casino" size={40} color="#FFF" />
                             </View>
                             <View style={styles.textContainer}>
-                                <Text style={styles.cardTitle}>Vòng Quay Kỷ Luật</Text>
-                                <Text style={styles.cardSubtitle}>Concept 3</Text>
-                                <Text style={styles.cardDesc}>Dùng Vé Quay thưởng để thử vận may nhận mã giảm giá và vật phẩm đặc biệt.</Text>
+                                <Text style={styles.cardTitle}>Vòng Quay Nhân Phẩm</Text>
+                                <Text style={styles.cardSubtitle}>Mở 24/7</Text>
+                                <Text style={styles.cardDesc}>Dùng Vé Quay thưởng để thử vận may nhận thiết bị, xp, xu, và vật phẩm đặc biệt.</Text>
                             </View>
-                            <View style={[styles.actionBtn, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
-                                <MaterialIcons name="lock" size={20} color="#FFF" />
+                            <View style={styles.actionBtn}>
+                                <MaterialIcons name="chevron-right" size={24} color="#FFF" />
                             </View>
                         </View>
                         <MaterialIcons name="motion-photos-auto" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
@@ -133,6 +134,7 @@ const styles = StyleSheet.create({
         padding: 24,
         paddingTop: 16,
         gap: 20,
+        paddingBottom: 120
     },
     sectionDesc: {
         fontSize: 14,
