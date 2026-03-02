@@ -161,6 +161,13 @@ export default function LoginScreen() {
                             )}
                         </LinearGradient>
                     </TouchableOpacity>
+                    {/* --- SIGN UP LINK --- */}
+                    <View style={styles.footer}>
+                        <Text style={styles.footerText}>New here? </Text>
+                        <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                            <Text style={styles.signUpText}>Sign Up</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
                 {/* --- DIVIDER --- */}
@@ -180,13 +187,6 @@ export default function LoginScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {/* --- SIGN UP LINK --- */}
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>New here? </Text>
-                    <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                        <Text style={styles.signUpText}>Sign Up</Text>
-                    </TouchableOpacity>
-                </View>
             </ScrollView>
         </KeyboardAvoidingView>
     );
@@ -405,7 +405,6 @@ const styles = StyleSheet.create({
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
-        marginTop: 30,
     },
     footerText: {
         color: COLORS.clayText,
