@@ -8,6 +8,10 @@ export interface GrantedRewards {
     isTierUnlock?: boolean;
     message?: string;
     xp?: number;
+    questCoins?: number;
+    questXp?: number;
+    isLate?: boolean;
+    latePercentage?: number;
 }
 
 export interface User {

@@ -229,7 +229,7 @@ const launchLibrary = async (): Promise<string | null> => {
 const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPlanUpdated }) => {
     const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
     const [proofPreview, setProofPreview] = useState<string | null>(null);
-    const [celebrationData, setCelebrationData] = useState<{ title: string; xp: number } | null>(null);
+    const [celebrationData, setCelebrationData] = useState<{ title: string; xp: number; coin: number; isLate: boolean; latePercentage: number } | null>(null);
     const [proofPickerIndex, setProofPickerIndex] = useState<number | null>(null);
     const celebrationScale = useRef(new Animated.Value(0)).current;
 
@@ -263,8 +263,8 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
         if (base64) handleComplete(idx, base64);
     };
 
-    const showCelebration = (title: string, xp: number) => {
-        setCelebrationData({ title, xp });
+    const showCelebration = (title: string, xp: number, coin: number, isLate: boolean, latePercentage: number) => {
+        setCelebrationData({ title, xp, coin, isLate, latePercentage });
         celebrationScale.setValue(0);
         Animated.spring(celebrationScale, {
             toValue: 1,
@@ -296,9 +296,12 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
             onPlanUpdated(plan, grantedRewards);
 
             // Show celebration using the ACTUAL granted rewards from backend (which includes penalties)
-            const actualXp = grantedRewards?.xp !== undefined ? grantedRewards.xp : (grantedRewards?.points !== undefined ? grantedRewards.points : taskToComplete.pointsReward);
+            const actualXp = grantedRewards?.questXp !== undefined ? grantedRewards.questXp : (grantedRewards?.xp !== undefined ? grantedRewards.xp : taskToComplete.pointsReward);
+            const actualCoin = grantedRewards?.questCoins !== undefined ? grantedRewards.questCoins : (grantedRewards?.coins || (taskToComplete.coinReward ?? 5));
+            const isLate = grantedRewards?.isLate || false;
+            const latePercentage = grantedRewards?.latePercentage || 0;
 
-            showCelebration(taskToComplete.title, actualXp);
+            showCelebration(taskToComplete.title, actualXp, actualCoin, isLate, latePercentage);
         } catch (error: any) {
             Alert.alert('Lỗi', error.response?.data?.error || 'Không thể hoàn thành quest.');
         } finally {
@@ -406,7 +409,18 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
                                         +{celebrationData?.xp} XP
                                     </Text>
                                 </View>
+                                <View style={[styles.celebrationXpBadge, { marginTop: 8, backgroundColor: 'rgba(254,240,138,0.5)', borderColor: 'rgba(234,179,8,0.5)' }]}>
+                                    <Text style={[styles.celebrationXpText, { color: '#92400E' }]}>
+                                        +{celebrationData?.coin} 🪙
+                                    </Text>
+                                </View>
                             </View>
+
+                            {celebrationData?.isLate && (
+                                <View style={{ backgroundColor: '#FEF2F2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: '#FCA5A5', marginBottom: 12 }}>
+                                    <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: 'bold', textAlign: 'center' }}>⏰ Trễ hạn: -{celebrationData.latePercentage}% phạt</Text>
+                                </View>
+                            )}
 
                             <View style={styles.celebrationStars}>
                                 {['⭐', '🌟', '⭐'].map((star, i) => (
