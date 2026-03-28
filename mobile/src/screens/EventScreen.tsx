@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
     Text,
@@ -15,12 +16,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ClayHeader from '../components/ClayHeader';
 import { COLORS, FONT_SIZES } from '../theme';
 import { useAuth } from '../context/AuthContext';
+import { apiService } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
 export default function EventScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
+    const [hasBoss, setHasBoss] = useState<boolean | null>(null);
+
+    useFocusEffect(
+        useCallback(() => {
+            const checkBoss = async () => {
+                try {
+                    const res = await apiService.get('/events/boss/active');
+                    setHasBoss(!!res.activeBoss);
+                } catch {
+                    setHasBoss(false);
+                }
+            };
+            checkBoss();
+        }, [])
+    );
 
     return (
         <View style={[styles.container]}>
@@ -31,13 +48,13 @@ export default function EventScreen({ navigation }: any) {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                <Text style={styles.sectionDesc}>Hệ thống Gamification độc quyền chia làm 3 mùa. Tham gia ngay để thu thập vật phẩm hiếm!</Text>
+                <Text style={styles.sectionDesc}>Hệ thống Gamification độc quyền chia làm 4 mùa. Tham gia ngay để thu thập vật phẩm hiếm!</Text>
 
                 {/* Concept 1: Săn Boss */}
                 <TouchableOpacity
                     style={styles.cardContainer}
-                    activeOpacity={0.8}
-                    onPress={() => navigation.navigate('BossEvent')}
+                    activeOpacity={hasBoss ? 0.8 : 1}
+                    onPress={() => hasBoss && navigation.navigate('BossEvent')}
                 >
                     <LinearGradient
                         colors={['#ef4444', '#991b1b']}
@@ -55,11 +72,18 @@ export default function EventScreen({ navigation }: any) {
                                 <Text style={styles.cardDesc}>Tích lũy XP để gây sát thương và chia nhau Rương Thưởng khổng lồ khi Boss bị hạ gục.</Text>
                             </View>
                             <View style={styles.actionBtn}>
-                                <MaterialIcons name="chevron-right" size={24} color="#FFF" />
+                                <MaterialIcons name={hasBoss ? "chevron-right" : "lock"} size={24} color="#FFF" />
                             </View>
                         </View>
-                        {/* Overlay visual decoration */}
                         <MaterialIcons name="pets" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
+
+                        {/* Lock overlay when no active boss */}
+                        {hasBoss === false && (
+                            <View style={styles.lockOverlay}>
+                                <MaterialIcons name="lock" size={28} color="rgba(255,255,255,0.9)" />
+                                <Text style={styles.lockText}>Chưa có Boss</Text>
+                            </View>
+                        )}
                     </LinearGradient>
                 </TouchableOpacity>
 
@@ -117,6 +141,35 @@ export default function EventScreen({ navigation }: any) {
                             </View>
                         </View>
                         <MaterialIcons name="motion-photos-auto" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
+                    </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Concept 4: Bộ Sưu Tập */}
+                <TouchableOpacity
+                    style={styles.cardContainer}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.navigate('Collection')}
+                >
+                    <LinearGradient
+                        colors={['#10b981', '#047857']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.cardGradient}
+                    >
+                        <View style={styles.contentWrap}>
+                            <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                                <MaterialIcons name="collections-bookmark" size={40} color="#FFF" />
+                            </View>
+                            <View style={styles.textContainer}>
+                                <Text style={styles.cardTitle}>Bộ Sưu Tập</Text>
+                                <Text style={styles.cardSubtitle}>Concept 4</Text>
+                                <Text style={styles.cardDesc}>Chụp ảnh, thu thập và ghi lại vật phẩm theo chủ đề. AI xác nhận, nhận thưởng ngay!</Text>
+                            </View>
+                            <View style={styles.actionBtn}>
+                                <MaterialIcons name="chevron-right" size={24} color="#FFF" />
+                            </View>
+                        </View>
+                        <MaterialIcons name="eco" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
                     </LinearGradient>
                 </TouchableOpacity>
 
@@ -214,5 +267,19 @@ const styles = StyleSheet.create({
         bottom: -20,
         transform: [{ rotate: '-15deg' }],
         zIndex: 1,
-    }
+    },
+    lockOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.45)',
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 20,
+        gap: 4,
+    },
+    lockText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: 'rgba(255,255,255,0.9)',
+    },
 });

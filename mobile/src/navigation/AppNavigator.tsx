@@ -20,6 +20,7 @@ import GachaEventScreen from '../screens/GachaEventScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import CollectionScreen from '../screens/CollectionScreen';
 
 // Stack Navigator types
 export type AuthStackParamList = {
@@ -39,6 +40,7 @@ export type RootStackParamList = {
     MainTabs: undefined;
     BossEvent: undefined;
     GachaEvent: undefined;
+    Collection: undefined;
     EditProfile: undefined;
     Notifications: undefined;
 };
@@ -136,6 +138,7 @@ const MainNavigator = () => (
             <RootStack.Screen name="MainTabs" component={TabNavigator} />
             <RootStack.Screen name="BossEvent" component={BossEventScreen} />
             <RootStack.Screen name="GachaEvent" component={GachaEventScreen} />
+            <RootStack.Screen name="Collection" component={CollectionScreen} />
             <RootStack.Screen
                 name="EditProfile"
                 component={EditProfileScreen}

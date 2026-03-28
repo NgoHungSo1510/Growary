@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES } from '../theme';
 import { apiService } from '../services/api';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import ClayHeader from '../components/ClayHeader';
 
@@ -112,8 +112,14 @@ export default function BossEventScreen() {
             ])
         ).start();
 
-        fetchData();
+        // fetchData mapped to useFocusEffect instead
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [])
+    );
 
     const triggerSlashAnimation = (targetHp: number) => {
         // 1. Slash appears
