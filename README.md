@@ -1,7 +1,7 @@
 # 🌱 Growary - Unified Productivity & Gamification Suite
 
 **Growary** là một hệ sinh thái ứng dụng giúp tối ưu hóa hiệu suất làm việc thông qua cơ chế Gamification (Trò chơi hóa). Ứng dụng tích hợp quản lý nhiệm vụ, hệ thống cấp độ, săn Boss kỷ luật và đổi thưởng vật phẩm thực tế.
-
+Có thể trải nghiệm thông qua ứng dụng: https://drive.google.com/file/d/1q6-nLC-blY0GwsL9wdk3SJmTDbrM1SVx/view?usp=sharing
 ---
 
 ## 📁 Cấu trúc Dự án (Monorepo)
