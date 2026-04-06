@@ -4,13 +4,13 @@ import Constants from 'expo-constants';
 
 // Auto-detect backend host from Expo dev server connection
 const getApiUrl = () => {
-    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
-    if (debuggerHost) {
-        const host = debuggerHost.split(':')[0];
-        return `http://${host}:5000/api`;
-    }
-    // Fallback to production API if not running in a debugger/dev host
-    return 'https://growary-production.up.railway.app/api';
+    // 🔴 FORCING RENDER URL CHO VIỆC TEST CODE 🔴
+    // const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+    // if (debuggerHost) {
+    //     const host = debuggerHost.split(':')[0];
+    //     return `http://${host}:5000/api`;
+    // }
+    return 'https://growary-backend.onrender.com/api';
 };
 
 const API_URL = getApiUrl();

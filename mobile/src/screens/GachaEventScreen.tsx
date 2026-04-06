@@ -124,38 +124,78 @@ export default function GachaEventScreen({ navigation }: any) {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <MaterialIcons name="arrow-back" size={24} color={COLORS.clayText} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Vòng Quay Nhân Phẩm</Text>
+                <Text style={styles.title}>Lucky Spin Event</Text>
                 <TouchableOpacity onPress={loadHistory} style={styles.historyBtn}>
                     <MaterialIcons name="history" size={24} color={COLORS.clayAccent2} />
                 </TouchableOpacity>
             </View>
 
-
-            {/* Lucky Wheel Canvas */}
-            <View style={styles.wheelWrapper}>
-                {/* Floating Info */}
-                <View style={styles.floatingInfo}>
-                    <View style={styles.floatingBadge}>
-                        <Text style={styles.floatingLabel}>Cấp Độ: ⭐ Tầng {currentTier}</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.timerBadgeContainer}>
+                    <View style={styles.timerBadge}>
+                        <MaterialIcons name="schedule" size={20} color="#4f2b13" />
+                        <Text style={styles.timerText}>Event Ends in 12h 30m</Text>
                     </View>
                 </View>
 
-                {/* Banner Deco Card behind the wheel occasionally */}
-                <View style={styles.bannerBackdrop} />
+                {/* Lucky Wheel Canvas */}
+                <View style={styles.wheelWrapper}>
+                    {/* Floating Decorative Icons */}
+                    <View style={[styles.floatingIcon, styles.iconStar]}>
+                        <MaterialIcons name="auto-awesome" size={24} color="#f43f5e" />
+                    </View>
+                    <View style={[styles.floatingIcon, styles.iconMood]}>
+                        <MaterialIcons name="stars" size={28} color="#000" />
+                    </View>
+                    <View style={[styles.floatingIcon, styles.iconDiamond]}>
+                        <MaterialIcons name="diamond" size={20} color="#7c5137" />
+                    </View>
 
-                <LuckyWheel
-                    items={items}
-                    onSpinRequest={handleSpinRequest}
-                    onSpinComplete={handleSpinComplete}
-                    size={320}
-                />
-            </View>
+                    {/* Floating Info */}
+                    <View style={styles.floatingInfo}>
+                        <View style={styles.floatingBadge}>
+                            <Text style={styles.floatingLabel}>Cấp Độ: ⭐ Tầng {currentTier}</Text>
+                        </View>
+                    </View>
 
-            <View style={styles.footerInstruction}>
-                <Text style={styles.instructionText}>
-                    {user && (user as any).gachaTickets > 0 ? "Nhấn nút vòng tròn giữa tâm để quay!" : "Hoàn thành nhiệm vụ hoặc thăng cấp để nhận thêm Vé."}
-                </Text>
-            </View>
+                    <LuckyWheel
+                        items={items}
+                        onSpinRequest={handleSpinRequest}
+                        onSpinComplete={handleSpinComplete}
+                        size={320}
+                    />
+                </View>
+
+                {/* Reward Bento Grid */}
+                <View style={styles.bentoGrid}>
+                    <View style={styles.bentoCard}>
+                        <View style={{ zIndex: 10 }}>
+                            <Text style={styles.bentoSub}>TODAY'S LUCK</Text>
+                            <Text style={styles.bentoVal}>Great!</Text>
+                        </View>
+                        <MaterialIcons name="mood" size={70} color="#6366F1" style={styles.bentoIcon} />
+                    </View>
+                    <View style={styles.bentoCard}>
+                        <View style={{ zIndex: 10 }}>
+                            <Text style={styles.bentoSub}>STREAK</Text>
+                            <Text style={styles.bentoVal}>{(user as any)?.currentStreak || 0} Days</Text>
+                        </View>
+                        <MaterialIcons name="local-fire-department" size={70} color="#f43f5e" style={styles.bentoIcon} />
+                    </View>
+                    <View style={styles.bentoLong}>
+                        <View style={{ flex: 1, zIndex: 10 }}>
+                            <Text style={styles.bentoLongTitle}>Spin 5 times to unlock</Text>
+                            <Text style={styles.bentoLongSub}>Get an Epic Reward chest guaranteed!</Text>
+                        </View>
+                        <View style={styles.bentoLockBg}>
+                            <MaterialIcons name="lock" size={24} color="#FFF" />
+                        </View>
+                        <MaterialIcons name="redeem" size={80} color="#f43f5e" style={[styles.bentoIcon, { opacity: 0.05, top: -10, left: 10 }]} />
+                    </View>
+                </View>
+
+                <View style={{ height: 40 }} />
+            </ScrollView>
 
             {/* History Modal */}
             <Modal visible={showHistory} animationType="slide" transparent>
@@ -368,5 +408,132 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontSize: 10,
         fontWeight: 'bold',
+    },
+    bentoGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 16,
+        paddingHorizontal: 20,
+        marginTop: 24,
+    },
+    bentoCard: {
+        flex: 1,
+        minWidth: '45%',
+        backgroundColor: '#faf2c4',
+        padding: 20,
+        borderRadius: 20,
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    bentoLong: {
+        width: '100%',
+        backgroundColor: 'rgba(253, 125, 159, 0.15)',
+        borderColor: 'rgba(253, 125, 159, 0.3)',
+        borderWidth: 2,
+        padding: 20,
+        borderRadius: 20,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+    },
+    bentoSub: {
+        fontSize: 10,
+        fontWeight: '900',
+        color: 'rgba(97, 92, 60, 0.6)',
+        letterSpacing: 1,
+        marginBottom: 4,
+    },
+    bentoVal: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#615c3c',
+    },
+    bentoIcon: {
+        position: 'absolute',
+        bottom: -10,
+        right: -10,
+        opacity: 0.1,
+        transform: [{ rotate: '15deg' }],
+    },
+    bentoLongTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#9f3456',
+    },
+    bentoLongSub: {
+        fontSize: 12,
+        color: 'rgba(159, 52, 86, 0.7)',
+        marginTop: 4,
+    },
+    bentoLockBg: {
+        width: 48,
+        height: 48,
+        backgroundColor: '#fd9c90',
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#fd9c90',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 5,
+        elevation: 5,
+    },
+    timerBadgeContainer: {
+        alignItems: 'center',
+        marginBottom: 30,
+        marginTop: 10,
+    },
+    timerBadge: {
+        backgroundColor: '#ffc5a4',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 20,
+        shadowColor: '#ffc5a4',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 5,
+        elevation: 6,
+    },
+    timerText: {
+        fontSize: 14,
+        fontWeight: '900',
+        color: '#4f2b13',
+    },
+    floatingIcon: {
+        position: 'absolute',
+        width: 48,
+        height: 48,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.4)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 5,
+        elevation: 4,
+        zIndex: 10,
+    },
+    iconStar: {
+        top: -10,
+        left: '5%',
+        transform: [{ rotate: '12deg' }],
+    },
+    iconMood: {
+        top: 30,
+        right: '0%',
+        transform: [{ rotate: '-12deg' }],
+        borderRadius: 24,
+    },
+    iconDiamond: {
+        bottom: 50,
+        left: '-5%',
+        transform: [{ rotate: '45deg' }],
+        borderRadius: 24,
     },
 });

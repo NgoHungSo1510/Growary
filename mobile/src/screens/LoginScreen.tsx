@@ -183,7 +183,7 @@ export default function LoginScreen() {
                         <AntDesign name="google" size={24} color="#DB4437" />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.socialBtn}>
-                        <AntDesign name={"apple-o" as any} size={24} color="#000" />
+                        <AntDesign name="apple" size={24} color="#000" />
                     </TouchableOpacity>
                 </View>
 

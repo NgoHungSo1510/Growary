@@ -37,11 +37,28 @@ export default function RegisterScreen() {
 
     const handleRegister = async () => {
         if (!name || !email || !password) {
-            Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
+            Alert.alert('Thiếu thông tin', 'Vui lòng điền đầy đủ thông tin (Tên, Email, Mật khẩu)');
             return;
         }
+        
+        if (name.trim().length < 3) {
+            Alert.alert('Tên quá ngắn', 'Tên nhân vật phải có ít nhất 3 ký tự.');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+            Alert.alert('Email không hợp lệ', 'Vui lòng nhập đúng định dạng email (VD: hero@quest.com)');
+            return;
+        }
+
+        if (password.length < 6) {
+            Alert.alert('Mật khẩu yếu', 'Mật khẩu phải có ít nhất 6 ký tự để đảm bảo an toàn.');
+            return;
+        }
+
         if (!agreed) {
-            Alert.alert('Lỗi', 'Vui lòng đồng ý với điều khoản sử dụng');
+            Alert.alert('Chưa đồng ý', 'Vui lòng đồng ý với các điều khoản sử dụng bằng cách tích vào ô phía dưới.');
             return;
         }
 

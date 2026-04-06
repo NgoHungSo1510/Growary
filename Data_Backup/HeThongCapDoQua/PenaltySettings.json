@@ -1,0 +1,61 @@
+[
+  {
+    "_id": "699dd7d95198387e58dbee3b",
+    "lateThresholds": [
+      {
+        "thresholdMinutes": 30,
+        "deductionPercentage": 15,
+        "_id": "699dda8e5198387e58dbf01a"
+      },
+      {
+        "thresholdMinutes": 60,
+        "deductionPercentage": 20,
+        "_id": "699e5a35c318d328f4b44ab7"
+      },
+      {
+        "thresholdMinutes": 120,
+        "deductionPercentage": 25,
+        "_id": "699e5a35c318d328f4b44ab8"
+      },
+      {
+        "thresholdMinutes": 240,
+        "deductionPercentage": 30,
+        "_id": "699e5a35c318d328f4b44ab9"
+      },
+      {
+        "thresholdMinutes": 480,
+        "deductionPercentage": 35,
+        "_id": "699e5a35c318d328f4b44aba"
+      },
+      {
+        "thresholdMinutes": 720,
+        "deductionPercentage": 40,
+        "_id": "699e5a35c318d328f4b44abb"
+      },
+      {
+        "thresholdMinutes": 960,
+        "deductionPercentage": 45,
+        "_id": "699e5a35c318d328f4b44abc"
+      },
+      {
+        "thresholdMinutes": 1080,
+        "deductionPercentage": 50,
+        "_id": "699e5a35c318d328f4b44abd"
+      },
+      {
+        "thresholdMinutes": 1200,
+        "deductionPercentage": 55,
+        "_id": "699e5a35c318d328f4b44abe"
+      },
+      {
+        "thresholdMinutes": 0,
+        "deductionPercentage": 0,
+        "_id": "69ae6f5f09a30390481d0473"
+      }
+    ],
+    "missedQuestPenaltyCoin": 50,
+    "createdAt": "2026-02-24T16:54:49.125Z",
+    "updatedAt": "2026-03-09T06:57:35.981Z",
+    "__v": 5
+  }
+]

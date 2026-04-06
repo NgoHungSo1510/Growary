@@ -9,9 +9,11 @@ interface CollectionTopic {
     colorBg: string;
     colorAccent: string;
     totalSlots: number;
+    completionRewardPool: { coins: number; xp: number; gachaTickets: number };
     rewardPerEntry: { coins: number; xp: number; gachaTickets: number };
     milestoneRewards: { target: number; coins: number; xp: number; gachaTickets: number }[];
     isActive: boolean;
+    isCompleted: boolean;
     order: number;
 }
 
@@ -90,95 +92,141 @@ export default function CollectionManagementPage() {
         setEditTopic({ ...editTopic, milestoneRewards: milestones });
     };
 
+    // Group entries by user
+    const groupedEntries = () => {
+        if (!viewEntries) return [];
+        const groups: Record<string, { user: any, entries: any[] }> = {};
+        viewEntries.entries.forEach(entry => {
+            const userId = entry.userId?._id || 'unknown';
+            if (!groups[userId]) {
+                groups[userId] = {
+                    user: entry.userId || { username: 'Unknown User' },
+                    entries: []
+                };
+            }
+            groups[userId].entries.push(entry);
+        });
+        return Object.values(groups);
+    };
+
     return (
-        <div className="collection-management-container">
-            <div className="action-row" style={{ marginTop: 0 }}>
-                <div></div>
-                <button className="btn btn--primary" onClick={() => {
-                    setEditTopic({ isActive: true, totalSlots: 20, order: topics.length, colorBg: '#10b981', colorAccent: '#ffffff', rewardPerEntry: { coins: 10, xp: 5, gachaTickets: 0 }, milestoneRewards: [] });
-                    setShowModal(true);
-                }}>
-                    + Tạo Chủ Đề
+        <div style={{ padding: '24px', backgroundColor: '#fff7cf', minHeight: '100vh', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <h1 style={{ margin: 0, color: '#332f13', fontSize: '28px', fontWeight: 900 }}>Bộ Sưu Tập (Global)</h1>
+                <button 
+                    onClick={() => {
+                        setEditTopic({ 
+                            isActive: true, 
+                            isCompleted: false,
+                            totalSlots: 20, 
+                            order: topics.length + 1, 
+                            colorBg: '#fd7d9f', 
+                            colorAccent: '#ffffff', 
+                            rewardPerEntry: { coins: 10, xp: 5, gachaTickets: 0 }, 
+                            milestoneRewards: [] 
+                        });
+                        setShowModal(true);
+                    }}
+                    style={{ backgroundColor: '#9f3456', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 8px 16px rgba(159,52,86,0.3)' }}
+                >
+                    + Create Topic
                 </button>
             </div>
 
             {/* Topics Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, marginTop: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
                 {topics.map(topic => (
-                    <div key={topic._id} className="card" style={{ borderTop: `4px solid ${topic.colorBg}` }}>
-                        <div className="card__header" style={{ flexDirection: 'column', gap: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <div style={{
-                                    width: 48, height: 48, borderRadius: 12, backgroundColor: topic.colorBg,
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: topic.colorAccent,
-                                    fontSize: 24, flexShrink: 0,
-                                }}>
-                                    📚
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <div className="card__title" style={{ fontSize: 16, margin: 0 }}>{topic.title}</div>
-                                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                        {topic.totalSlots} ô · Thứ tự: {topic.order}
-                                        {!topic.isActive && <span className="badge badge--danger" style={{ marginLeft: 8 }}>Ẩn</span>}
-                                    </div>
-                                </div>
+                    <div key={topic._id} style={{ 
+                        backgroundColor: '#fff', borderRadius: '24px', padding: '24px', 
+                        boxShadow: '0 10px 30px rgba(51,47,19,0.05)', position: 'relative', overflow: 'hidden',
+                        opacity: topic.isCompleted ? 0.7 : 1
+                    }}>
+                        {/* Status Badge */}
+                        <div style={{ position: 'absolute', top: 16, right: 16, backgroundColor: topic.isCompleted ? '#10b981' : (topic.isActive ? '#fd9c90' : '#fb5151'), color: '#fff', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+                            {topic.isCompleted ? 'Completed' : (topic.isActive ? 'Active' : 'Inactive')}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                            <div style={{ 
+                                width: 64, height: 64, borderRadius: '16px', backgroundColor: topic.colorBg || '#fd7d9f', 
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '28px',
+                                boxShadow: `0 8px 16px ${topic.colorBg}40`
+                            }}>
+                                📸
+                            </div>
+                            <div style={{ flex: 1, paddingRight: 60 }}>
+                                <h3 style={{ margin: '0 0 4px 0', color: '#332f13', fontSize: '18px', fontWeight: 800 }}>Tầng {topic.order}: {topic.title}</h3>
+                                <p style={{ margin: 0, color: '#615c3c', fontSize: '13px', lineHeight: 1.4 }}>{topic.description || 'No description provided.'}</p>
                             </div>
                         </div>
-                        <div className="card__body" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{topic.description || 'Chưa có mô tả'}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                🎁 Mỗi mục: {topic.rewardPerEntry.coins}💰 {topic.rewardPerEntry.xp}⭐ {topic.rewardPerEntry.gachaTickets > 0 ? `${topic.rewardPerEntry.gachaTickets}🎟️` : ''}
+
+                        <div style={{ marginTop: '20px', backgroundColor: '#faf2c4', padding: '16px', borderRadius: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                                <span style={{ color: '#615c3c', fontSize: '13px', fontWeight: 600 }}>Cần thu thập: <strong style={{ color: '#9f3456' }}>{topic.totalSlots} ô</strong></span>
                             </div>
-                            {topic.milestoneRewards.length > 0 && (
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                    🏆 Mốc: {topic.milestoneRewards.map(m => m.target).join(', ')}
-                                </div>
-                            )}
-                            <div className="table-actions" style={{ justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-                                <button className="btn btn--secondary btn--sm" onClick={() => handleViewEntries(topic._id, topic.title)}>👁️ Xem bài gửi</button>
-                                <button className="btn btn--secondary btn--sm" onClick={() => { setEditTopic(topic); setShowModal(true); }}>✏️ Sửa</button>
-                                <button className="btn btn--danger btn--sm" onClick={() => handleDelete(topic._id)}>🗑️</button>
+                            <div style={{ fontSize: '13px', color: '#615c3c', fontWeight: 600, borderTop: '1px solid #e7dea9', paddingTop: '8px' }}>
+                                🎁 Điểm gốc (Mỗi slot): {topic.rewardPerEntry?.coins||0}💰 {topic.rewardPerEntry?.xp||0}⭐ {topic.rewardPerEntry?.gachaTickets > 0 ? `${topic.rewardPerEntry.gachaTickets}🎟️` : ''}
                             </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                            <button onClick={() => handleViewEntries(topic._id, topic.title)} style={{ flex: 1, backgroundColor: '#ece4b1', color: '#4f2b13', border: 'none', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>👁️ Xem đóng góp</button>
+                            <button onClick={() => { setEditTopic(topic); setShowModal(true); }} style={{ flex: 1, backgroundColor: '#ffc5a4', color: '#653e24', border: 'none', padding: '10px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>✏️ Sửa</button>
+                            <button onClick={() => handleDelete(topic._id)} style={{ width: '40px', backgroundColor: '#ffefee', color: '#b31b25', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>🗑️</button>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {topics.length === 0 && (
-                <div className="empty-state">
-                    <div className="empty-state__icon">📚</div>
-                    <div className="empty-state__text">Chưa có chủ đề bộ sưu tập nào.</div>
-                </div>
-            )}
-
-            {/* Entries Viewer Modal */}
+            {/* Entries Viewer Modal - Grouped By User */}
             {viewEntries && (
-                <div className="modal-backdrop" onClick={() => setViewEntries(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 700 }}>
-                        <div className="modal__header">
-                            <span className="modal__title">📋 Bài gửi: {viewEntries.topicTitle}</span>
-                            <button className="modal__close" onClick={() => setViewEntries(null)}>×</button>
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(51,47,19,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div style={{ backgroundColor: '#fff7cf', borderRadius: '24px', width: '100%', maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+                        <div style={{ padding: '24px', borderBottom: '1px solid #e7dea9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#332f13' }}>📸 Chi tiết bộ: {viewEntries.topicTitle}</span>
+                            <button onClick={() => setViewEntries(null)} style={{ background: 'transparent', border: 'none', fontSize: '28px', cursor: 'pointer', color: '#9f3456' }}>×</button>
                         </div>
-                        <div className="modal__body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                        <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             {viewEntries.entries.length === 0 ? (
-                                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>Chưa có bài gửi nào</div>
+                                <div style={{ textAlign: 'center', color: '#a09d84', padding: '32px', fontSize: 16 }}>Chưa có ai đóng góp.</div>
                             ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                    {viewEntries.entries.map((entry: any) => (
-                                        <div key={entry._id} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, display: 'flex', gap: 10 }}>
-                                            {entry.imageUrl && <img src={entry.imageUrl} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }} />}
+                                groupedEntries().map((group, idx) => (
+                                    <div key={idx} style={{ backgroundColor: '#ffffff', borderRadius: '20px', padding: '20px', boxShadow: '0 4px 12px rgba(51,47,19,0.05)' }}>
+                                        {/* User Header */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px dashed #e7dea9' }}>
+                                            <div style={{ width: 44, height: 44, borderRadius: '22px', backgroundColor: '#faf2c4', overflow: 'hidden' }}>
+                                                {group.user.avatar ? (
+                                                    <img src={group.user.avatar} alt="avatar" style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+                                                ) : (
+                                                    <div style={{width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20}}>👤</div>
+                                                )}
+                                            </div>
                                             <div>
-                                                <div style={{ fontWeight: 600, fontSize: 14 }}>{entry.title}</div>
-                                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                                    Slot #{entry.slotIndex} · {entry.status === 'approved' ? '✅' : entry.status === 'rejected' ? '❌' : '⏳'}
-                                                </div>
-                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                                                    bởi {entry.userId?.username || 'N/A'}
-                                                </div>
+                                                <div style={{ fontWeight: '800', fontSize: '16px', color: '#332f13' }}>{group.user.username} {group.user.email ? `(${group.user.email})` : ''}</div>
+                                                <div style={{ fontSize: '12px', color: '#9f3456', fontWeight: 600 }}>Tổng đóng góp: {group.entries.length} ảnh</div>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+
+                                        {/* User Entries Grid */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
+                                            {group.entries.map((entry: any) => (
+                                                <div key={entry._id} style={{ border: '1px solid #e7dea9', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#faf2c4' }}>
+                                                    {entry.imageUrl ? (
+                                                        <img src={entry.imageUrl} alt="" style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        <div style={{width:'100%', height:'100px', display:'flex', alignItems:'center', justifyContent:'center', color: '#a09d84'}}>No Image</div>
+                                                    )}
+                                                    <div style={{ padding: '8px' }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '13px', color: '#332f13', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
+                                                        <div style={{ fontSize: '11px', color: '#615c3c', marginTop: '2px' }}>
+                                                            Ô #{entry.slotIndex + 1}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
                             )}
                         </div>
                     </div>
@@ -187,101 +235,87 @@ export default function CollectionManagementPage() {
 
             {/* Create/Edit Modal */}
             {showModal && (
-                <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 600 }}>
-                        <div className="modal__header">
-                            <span className="modal__title">{editTopic?._id ? '✏️ Sửa Chủ Đề' : '➕ Tạo Chủ Đề Mới'}</span>
-                            <button className="modal__close" onClick={() => setShowModal(false)}>×</button>
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(51,47,19,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                    <div style={{ backgroundColor: '#fff', borderRadius: '24px', width: '100%', maxWidth: '600px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+                        <div style={{ padding: '24px', borderBottom: '1px solid #faf2c4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ margin: 0, color: '#332f13', fontSize: '20px', fontWeight: 800 }}>{editTopic?._id ? '✏️ Edit Topic' : '➕ Create New Topic'}</h2>
+                            <button onClick={() => setShowModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#615c3c' }}>×</button>
                         </div>
-                        <div className="modal__body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                            <div className="form-group">
-                                <label>Tên Chủ Đề *</label>
-                                <input type="text" value={editTopic?.title || ''} onChange={e => setEditTopic({ ...editTopic, title: e.target.value })} placeholder="VD: Cây cối quanh nhà" />
+                        
+                        <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#4f2b13', fontSize: '14px' }}>Topic Name *</label>
+                                <input type="text" value={editTopic?.title || ''} onChange={e => setEditTopic({ ...editTopic, title: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e7dea9', backgroundColor: '#faf2c4', fontSize: '15px' }} placeholder="e.g. Summer Memories" />
                             </div>
-                            <div className="form-group">
-                                <label>Mô tả</label>
-                                <textarea value={editTopic?.description || ''} onChange={e => setEditTopic({ ...editTopic, description: e.target.value })} placeholder="Mô tả chủ đề..." />
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#4f2b13', fontSize: '14px' }}>Description</label>
+                                <textarea value={editTopic?.description || ''} onChange={e => setEditTopic({ ...editTopic, description: e.target.value })} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e7dea9', backgroundColor: '#faf2c4', fontSize: '15px', minHeight: '80px' }} placeholder="Cùng mọi người khám phá..." />
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                <div className="form-group">
-                                    <label>Số ô (slots) *</label>
-                                    <input type="number" value={editTopic?.totalSlots || 20} onChange={e => setEditTopic({ ...editTopic, totalSlots: Number(e.target.value) })} />
+                            
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#4f2b13', fontSize: '14px' }}>Tổng số khay thu thập *</label>
+                                    <input type="number" value={editTopic?.totalSlots || 20} onChange={e => setEditTopic({ ...editTopic, totalSlots: Number(e.target.value) })} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e7dea9', backgroundColor: '#faf2c4', fontSize: '15px' }} />
                                 </div>
-                                <div className="form-group">
-                                    <label>Thứ tự hiển thị</label>
-                                    <input type="number" value={editTopic?.order || 0} onChange={e => setEditTopic({ ...editTopic, order: Number(e.target.value) })} />
-                                </div>
-                            </div>
-                            <div className="form-group">
-                                <label>URL ảnh chủ đề</label>
-                                <input type="text" value={editTopic?.imageUrl || ''} onChange={e => setEditTopic({ ...editTopic, imageUrl: e.target.value })} placeholder="https://..." />
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                <div className="form-group">
-                                    <label>Màu nền</label>
-                                    <input type="color" value={editTopic?.colorBg || '#10b981'} onChange={e => setEditTopic({ ...editTopic, colorBg: e.target.value })} style={{ height: 40 }} />
-                                </div>
-                                <div className="form-group">
-                                    <label>Màu chữ</label>
-                                    <input type="color" value={editTopic?.colorAccent || '#ffffff'} onChange={e => setEditTopic({ ...editTopic, colorAccent: e.target.value })} style={{ height: 40 }} />
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', color: '#4f2b13', fontSize: '14px' }}>Tầng (Order) *</label>
+                                    <input type="number" value={editTopic?.order || 1} onChange={e => setEditTopic({ ...editTopic, order: Number(e.target.value) })} style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e7dea9', backgroundColor: '#faf2c4', fontSize: '15px' }} />
                                 </div>
                             </div>
+                            
+                            <div style={{ backgroundColor: '#fff7cf', padding: '16px', borderRadius: '16px', border: '1px solid #e7dea9' }}>
+                                <label style={{ display: 'block', marginBottom: '12px', fontWeight: 'bold', color: '#332f13', fontSize: '14px' }}>🎁 Điểm tĩnh (Tặng mỗi ảnh được gửi vào khay)</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: '#615c3c', marginBottom: '4px', display: 'block' }}>Coins</label>
+                                        <input type="number" value={editTopic?.rewardPerEntry?.coins || 0} onChange={e => setEditTopic({ ...editTopic, rewardPerEntry: { ...(editTopic?.rewardPerEntry || { coins: 0, xp: 0, gachaTickets: 0 }), coins: Number(e.target.value) } })} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e7dea9' }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: '#615c3c', marginBottom: '4px', display: 'block' }}>XP</label>
+                                        <input type="number" value={editTopic?.rewardPerEntry?.xp || 0} onChange={e => setEditTopic({ ...editTopic, rewardPerEntry: { ...(editTopic?.rewardPerEntry || { coins: 0, xp: 0, gachaTickets: 0 }), xp: Number(e.target.value) } })} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e7dea9' }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: '12px', color: '#615c3c', marginBottom: '4px', display: 'block' }}>Gacha Tkts</label>
+                                        <input type="number" value={editTopic?.rewardPerEntry?.gachaTickets || 0} onChange={e => setEditTopic({ ...editTopic, rewardPerEntry: { ...(editTopic?.rewardPerEntry || { coins: 0, xp: 0, gachaTickets: 0 }), gachaTickets: Number(e.target.value) } })} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e7dea9' }} />
+                                    </div>
+                                </div>
+                            </div>
+                            
 
-                            <fieldset style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginTop: 16 }}>
-                                <legend style={{ fontWeight: 'bold', padding: '0 8px' }}>🎁 Phần thưởng mỗi mục</legend>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-                                    <div className="form-group">
-                                        <label>Coins</label>
-                                        <input type="number" value={editTopic?.rewardPerEntry?.coins || 0} onChange={e => setEditTopic({ ...editTopic, rewardPerEntry: { ...(editTopic?.rewardPerEntry || { coins: 0, xp: 0, gachaTickets: 0 }), coins: Number(e.target.value) } })} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>XP</label>
-                                        <input type="number" value={editTopic?.rewardPerEntry?.xp || 0} onChange={e => setEditTopic({ ...editTopic, rewardPerEntry: { ...(editTopic?.rewardPerEntry || { coins: 0, xp: 0, gachaTickets: 0 }), xp: Number(e.target.value) } })} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Vé Gacha</label>
-                                        <input type="number" value={editTopic?.rewardPerEntry?.gachaTickets || 0} onChange={e => setEditTopic({ ...editTopic, rewardPerEntry: { ...(editTopic?.rewardPerEntry || { coins: 0, xp: 0, gachaTickets: 0 }), gachaTickets: Number(e.target.value) } })} />
-                                    </div>
-                                </div>
-                            </fieldset>
 
-                            <fieldset style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, marginTop: 16 }}>
-                                <legend style={{ fontWeight: 'bold', padding: '0 8px' }}>🏆 Mốc thưởng chuỗi</legend>
+                            <div style={{ backgroundColor: '#fff7cf', padding: '16px', borderRadius: '16px', border: '1px solid #e7dea9' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                    <label style={{ fontWeight: 'bold', color: '#4f2b13', fontSize: '14px', margin: 0 }}>🏆 Cột mốc cá nhân (Trúng bấy nhiêu ảnh thì thưởng)</label>
+                                    <button onClick={addMilestone} style={{ backgroundColor: '#ffc5a4', color: '#653e24', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>+ Add</button>
+                                </div>
+                                
                                 {(editTopic?.milestoneRewards || []).map((m, i) => (
-                                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 1fr 1fr 40px', gap: 8, marginBottom: 8, alignItems: 'end' }}>
-                                        <div className="form-group">
-                                            <label style={{ fontSize: 11 }}>Mốc</label>
-                                            <input type="number" value={m.target} onChange={e => updateMilestone(i, 'target', Number(e.target.value))} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label style={{ fontSize: 11 }}>Coins</label>
-                                            <input type="number" value={m.coins} onChange={e => updateMilestone(i, 'coins', Number(e.target.value))} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label style={{ fontSize: 11 }}>XP</label>
-                                            <input type="number" value={m.xp} onChange={e => updateMilestone(i, 'xp', Number(e.target.value))} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label style={{ fontSize: 11 }}>Vé</label>
-                                            <input type="number" value={m.gachaTickets} onChange={e => updateMilestone(i, 'gachaTickets', Number(e.target.value))} />
-                                        </div>
-                                        <button className="btn btn--danger btn--sm" onClick={() => removeMilestone(i)} style={{ height: 36 }}>×</button>
+                                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr 1fr 30px', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+                                        <input type="number" value={m.target} placeholder="Target" onChange={e => updateMilestone(i, 'target', Number(e.target.value))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e7dea9' }} />
+                                        <input type="number" value={m.coins} placeholder="Coins" onChange={e => updateMilestone(i, 'coins', Number(e.target.value))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e7dea9' }} />
+                                        <input type="number" value={m.xp} placeholder="XP" onChange={e => updateMilestone(i, 'xp', Number(e.target.value))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e7dea9' }} />
+                                        <input type="number" value={m.gachaTickets} placeholder="Tkts" onChange={e => updateMilestone(i, 'gachaTickets', Number(e.target.value))} style={{ width: '100%', padding: '8px', borderRadius: '8px', border: '1px solid #e7dea9' }} />
+                                        <button onClick={() => removeMilestone(i)} style={{ backgroundColor: '#ffefee', color: '#b31b25', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer' }}>×</button>
                                     </div>
                                 ))}
-                                <button className="btn btn--secondary btn--sm" onClick={addMilestone}>+ Thêm mốc</button>
-                            </fieldset>
+                            </div>
 
-                            <div className="form-group" style={{ marginTop: 16 }}>
-                                <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <input type="checkbox" checked={editTopic?.isActive ?? true} onChange={e => setEditTopic({ ...editTopic, isActive: e.target.checked })} />
-                                    Hiển thị (Active)
+                            <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold', color: '#332f13' }}>
+                                    <input type="checkbox" checked={editTopic?.isActive ?? true} onChange={e => setEditTopic({ ...editTopic, isActive: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#9f3456' }} />
+                                    Active 🟢
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 'bold', color: '#332f13' }}>
+                                    <input type="checkbox" checked={editTopic?.isCompleted ?? false} onChange={e => setEditTopic({ ...editTopic, isCompleted: e.target.checked })} style={{ width: 20, height: 20, accentColor: '#10b981' }} />
+                                    Đã Hoàn Thành ✅ (Đóng tầng)
                                 </label>
                             </div>
                         </div>
-                        <div className="modal__footer">
-                            <button className="btn btn--secondary" onClick={() => setShowModal(false)}>Hủy</button>
-                            <button className="btn btn--primary" onClick={handleSave} disabled={isLoading}>
-                                {isLoading ? 'Đang lưu...' : (editTopic?._id ? 'Cập nhật' : 'Tạo')}
+                        
+                        <div style={{ padding: '20px 24px', borderTop: '1px solid #faf2c4', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button onClick={() => setShowModal(false)} style={{ backgroundColor: '#ece4b1', color: '#4f2b13', border: 'none', padding: '12px 24px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Cancel</button>
+                            <button onClick={handleSave} disabled={isLoading} style={{ backgroundColor: '#9f3456', color: '#fff', border: 'none', padding: '12px 32px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                                {isLoading ? 'Saving...' : 'Save Topic'}
                             </button>
                         </div>
                     </div>

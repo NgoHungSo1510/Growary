@@ -1,0 +1,112 @@
+[
+  {
+    "_id": "699db6cbd843ce8d8164bd26",
+    "type": "streak",
+    "target": 5,
+    "coins": 50,
+    "gachaTickets": 0,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:33:47.987Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "699db6d4d843ce8d8164bd37",
+    "type": "streak",
+    "target": 10,
+    "coins": 100,
+    "gachaTickets": 1,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:33:56.226Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "699db6e4d843ce8d8164bd42",
+    "type": "streak",
+    "target": 15,
+    "coins": 150,
+    "gachaTickets": 0,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:34:12.580Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "699db6eed843ce8d8164bd53",
+    "type": "streak",
+    "target": 20,
+    "coins": 200,
+    "gachaTickets": 1,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:34:22.603Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "699db6fad843ce8d8164bd5c",
+    "type": "streak",
+    "target": 25,
+    "coins": 250,
+    "gachaTickets": 0,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:34:34.194Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "699db706d843ce8d8164bd67",
+    "type": "streak",
+    "target": 30,
+    "coins": 300,
+    "gachaTickets": 1,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:34:46.568Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "699db730d843ce8d8164bd92",
+    "type": "spending",
+    "target": 5000,
+    "coins": 100,
+    "gachaTickets": 0,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:35:28.214Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "699db739d843ce8d8164bd9c",
+    "type": "spending",
+    "target": 10000,
+    "coins": 100,
+    "gachaTickets": 1,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:35:37.881Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "699db74ad843ce8d8164bdb6",
+    "type": "spending",
+    "target": 15000,
+    "coins": 150,
+    "gachaTickets": 0,
+    "rewardItems": [],
+    "createdAt": "2026-02-24T14:35:54.317Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ae70b909a30390481d0587",
+    "type": "spending",
+    "target": 20000,
+    "coins": 200,
+    "gachaTickets": 1,
+    "rewardItems": [],
+    "createdAt": "2026-03-09T07:03:21.825Z",
+    "updatedAt": "2026-04-04T01:20:00.000Z",
+    "__v": 0
+  }
+]

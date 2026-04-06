@@ -85,7 +85,14 @@ export default function HomeScreen() {
     const handlePlanUpdated = (updatedPlan: DailyPlan, newRewards?: any) => {
         setPlan(updatedPlan);
         if (newRewards) {
-            setGrantedRewards(newRewards);
+            const hasLevelUps = newRewards.levelUps && newRewards.levelUps.length > 0;
+            const hasItems = newRewards.items && newRewards.items.length > 0;
+            const hasGacha = newRewards.gachaTickets > 0;
+            const isTierUnlock = newRewards.isTierUnlock;
+            
+            if (hasLevelUps || hasItems || hasGacha || isTierUnlock) {
+                setGrantedRewards(newRewards);
+            }
         }
         refreshUser();
     };

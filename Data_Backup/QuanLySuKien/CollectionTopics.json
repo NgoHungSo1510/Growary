@@ -1,0 +1,59 @@
+[
+  {
+    "_id": "69ce8a5b97b93b55641dff0c",
+    "title": "a",
+    "description": "a",
+    "colorBg": "#fd7d9f",
+    "colorAccent": "#ffffff",
+    "totalSlots": 20,
+    "rewardPerEntry": {
+      "coins": 10,
+      "xp": 50,
+      "gachaTickets": 0
+    },
+    "milestoneRewards": [
+      {
+        "target": 5,
+        "coins": 50,
+        "xp": 20,
+        "gachaTickets": 0
+      },
+      {
+        "target": 10,
+        "coins": 150,
+        "xp": 20,
+        "gachaTickets": 0
+      },
+      {
+        "target": 15,
+        "coins": 250,
+        "xp": 20,
+        "gachaTickets": 0
+      }
+    ],
+    "isActive": true,
+    "order": 0,
+    "createdAt": "2026-04-02T15:25:15.140Z",
+    "updatedAt": "2026-04-02T15:52:53.505Z",
+    "__v": 0
+  },
+  {
+    "_id": "69ce8f4997b93b55641e02b6",
+    "title": "meo",
+    "description": "mei",
+    "colorBg": "#fd7d9f",
+    "colorAccent": "#ffffff",
+    "totalSlots": 20,
+    "rewardPerEntry": {
+      "coins": 10,
+      "xp": 5,
+      "gachaTickets": 0
+    },
+    "milestoneRewards": [],
+    "isActive": true,
+    "order": 1,
+    "createdAt": "2026-04-02T15:46:17.648Z",
+    "updatedAt": "2026-04-02T15:46:17.648Z",
+    "__v": 0
+  }
+]

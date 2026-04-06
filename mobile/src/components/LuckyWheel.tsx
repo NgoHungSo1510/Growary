@@ -1,7 +1,8 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { View, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Svg, { Path, G, Text as SvgText } from 'react-native-svg';
+import { View, StyleSheet, Animated, Easing, TouchableOpacity, Text } from 'react-native';
+import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import Svg, { Path, G, Text as SvgText, Circle } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface IGachaItem {
     _id: string;
@@ -20,17 +21,17 @@ interface Props {
 }
 
 const RARITY_COLORS = {
-    normal: '#dcfce7', // light green
-    rare: '#e0f2fe',   // light blue
-    epic: '#f3e8ff',   // light purple
-    legend: '#fef08a', // gold
+    normal: '#71B93F', // wheel-green
+    rare: '#2D9CDB',   // wheel-blue
+    epic: '#9B51E0',   // wheel-purple
+    legend: '#F2C94C', // wheel-gold
 };
 
 const RARITY_BORDERS = {
-    normal: '#4ade80',
-    rare: '#38bdf8',
-    epic: '#a855f7',
-    legend: '#eab308',
+    normal: 'rgba(255,255,255,0.4)',
+    rare: 'rgba(255,255,255,0.4)',
+    epic: 'rgba(255,255,255,0.4)',
+    legend: 'rgba(255,255,255,0.4)',
 };
 
 const createPieSlice = (cx: number, cy: number, r: number, startAngle: number, endAngle: number) => {
@@ -168,16 +169,14 @@ export default function LuckyWheel({ items, onSpinRequest, onSpinComplete, size 
                                 />
                                 {/* Label logic */}
                                 {slice.sliceAngle > 10 && ( // Hide text if slice is absurdly thin (< 10deg)
-                                    <G transform={`translate(${cx}, ${cy}) rotate(${slice.centerAngle - 90}) translate(${r * 0.6}, 0)`}>
-                                        {/* Slightly rotate text to fit naturally along the radius line */}
+                                    <G transform={`translate(${cx}, ${cy}) rotate(${slice.centerAngle - 90}) translate(${r * 0.7}, 0)`}>
                                         <SvgText
-                                            fill="#334155"
-                                            fontSize={slice.sliceAngle < 20 ? "10" : "14"} // scale down text if small slice
-                                            fontWeight="900"
+                                            fill="#ffffff"
+                                            fontSize={slice.sliceAngle < 20 ? "11" : "15"}
+                                            fontWeight="bold"
                                             textAnchor="middle"
                                             alignmentBaseline="middle"
                                             transform={slice.centerAngle > 90 && slice.centerAngle < 270 ? "rotate(180)" : ""}
-                                        // Flip text if it lands upside down on the wheel's left side
                                         >
                                             {displayLabel}
                                         </SvgText>
@@ -186,6 +185,8 @@ export default function LuckyWheel({ items, onSpinRequest, onSpinComplete, size 
                             </G>
                         );
                     })}
+                    {/* Inner styling ring to hide center sharp edges */}
+                    <Circle cx={cx} cy={cy} r={size * 0.15} fill="rgba(255,255,255,0.2)" />
                 </Svg>
             </Animated.View>
 
@@ -197,7 +198,18 @@ export default function LuckyWheel({ items, onSpinRequest, onSpinComplete, size 
                     disabled={isSpinning || items.length === 0}
                     activeOpacity={0.8}
                 >
-                    <MaterialCommunityIcons name="play-circle" size={80} color={isSpinning ? '#94a3b8' : '#f59e0b'} />
+                    <LinearGradient
+                        colors={['#ff9bb6', '#F57799']}
+                        style={styles.spinButtonGradient}
+                        start={{ x: 0.2, y: 0.2 }}
+                        end={{ x: 0.8, y: 0.8 }}
+                    >
+                        <Text style={styles.spinTitle}>SPIN</Text>
+                        <View style={styles.spinCostRow}>
+                            <MaterialIcons name="local-activity" size={14} color="#FFF" />
+                            <Text style={styles.spinCost}>1</Text>
+                        </View>
+                    </LinearGradient>
                 </TouchableOpacity>
             </View>
         </View>
@@ -213,67 +225,97 @@ const styles = StyleSheet.create({
     },
     pointerContainer: {
         position: 'absolute',
-        top: -10,
+        top: -15,
         zIndex: 10,
         alignItems: 'center',
+        shadowColor: 'rgba(51,47,19,0.3)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 5,
+        elevation: 6,
     },
     pointer: {
         width: 0,
         height: 0,
         backgroundColor: 'transparent',
         borderStyle: 'solid',
-        borderLeftWidth: 15,
-        borderRightWidth: 15,
-        borderBottomWidth: 30,
+        borderLeftWidth: 16,
+        borderRightWidth: 16,
+        borderBottomWidth: 32,
         borderLeftColor: 'transparent',
         borderRightColor: 'transparent',
-        borderBottomColor: '#ef4444',
+        borderBottomColor: '#FFF',
         transform: [{ rotate: '180deg' }],
     },
     pointerDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: '#b91c1c',
-        position: 'absolute',
-        top: 0,
+        display: 'none',
     },
     wheel: {
-        borderWidth: 4,
-        borderColor: '#1e293b',
-        backgroundColor: '#f8fafc',
+        borderWidth: 8,
+        borderColor: 'rgba(255,255,255,0.5)',
+        backgroundColor: 'transparent',
         overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 8,
+        shadowColor: '#332f13',
+        shadowOffset: { width: 0, height: 20 },
+        shadowOpacity: 0.15,
+        shadowRadius: 30,
+        elevation: 10,
         position: 'absolute',
     },
     centerActionContainer: {
         position: 'absolute',
         top: '50%',
         left: '50%',
-        marginLeft: -40,
-        marginTop: -40,
+        marginLeft: -45,
+        marginTop: -45,
         zIndex: 20,
         justifyContent: 'center',
         alignItems: 'center',
     },
     spinIconBtn: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: '#fff',
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        backgroundColor: 'transparent',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 8,
+        shadowColor: 'rgba(245, 119, 153, 0.4)',
+        shadowOffset: { width: 0, height: 15 },
+        shadowOpacity: 1,
+        shadowRadius: 15,
+        elevation: 12,
+    },
+    spinButtonGradient: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 45,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.4)',
+    },
+    spinTitle: {
+        fontSize: 24,
+        fontWeight: '900',
+        color: '#FFF',
+        textShadowColor: 'rgba(0,0,0,0.15)',
+        textShadowOffset: { width: 1, height: 1 },
+        textShadowRadius: 2,
+    },
+    spinCostRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 2,
+        marginTop: -2,
+    },
+    spinCost: {
+        flexDirection: 'row',
+        color: 'rgba(255,255,255,0.9)',
+        fontWeight: 'bold',
+        fontSize: 14,
     },
     spinButtonDisabled: {
-        opacity: 0.5,
+        opacity: 0.6,
+        transform: [{ scale: 0.95 }]
     }
 });
