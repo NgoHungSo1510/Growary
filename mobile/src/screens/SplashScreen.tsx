@@ -186,7 +186,7 @@ export default function SplashScreen() {
 
             {/* --- FOOTER VERSION --- */}
             <View style={styles.footer}>
-                <Text style={styles.footerText}>Version 1.0.0</Text>
+                <Text style={styles.footerText}>Version 1.6.1</Text>
             </View>
         </View>
     );

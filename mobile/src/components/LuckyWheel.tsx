@@ -185,8 +185,6 @@ export default function LuckyWheel({ items, onSpinRequest, onSpinComplete, size 
                             </G>
                         );
                     })}
-                    {/* Inner styling ring to hide center sharp edges */}
-                    <Circle cx={cx} cy={cy} r={size * 0.15} fill="rgba(255,255,255,0.2)" />
                 </Svg>
             </Animated.View>
 
@@ -251,8 +249,6 @@ const styles = StyleSheet.create({
         display: 'none',
     },
     wheel: {
-        borderWidth: 8,
-        borderColor: 'rgba(255,255,255,0.5)',
         backgroundColor: 'transparent',
         overflow: 'hidden',
         shadowColor: '#332f13',

@@ -92,6 +92,18 @@ export default function CollectionManagementPage() {
         setEditTopic({ ...editTopic, milestoneRewards: milestones });
     };
 
+    const handleDeleteEntry = async (entryId: string) => {
+        if (!window.confirm('Từ chối/xóa bức ảnh này? Người dùng sẽ nhận được thông báo.')) return;
+        try {
+            await adminApi.delete(`/admin/collections/entries/${entryId}`);
+            // Refresh entries view
+            if (viewEntries) {
+                handleViewEntries(viewEntries.topicId, viewEntries.topicTitle);
+                fetchTopics(); // Refresh topic statuses (e.g. isCompleted changed)
+            }
+        } catch { alert('Lỗi khi xóa ảnh'); }
+    };
+
     // Group entries by user
     const groupedEntries = () => {
         if (!viewEntries) return [];
@@ -210,12 +222,13 @@ export default function CollectionManagementPage() {
                                         {/* User Entries Grid */}
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
                                             {group.entries.map((entry: any) => (
-                                                <div key={entry._id} style={{ border: '1px solid #e7dea9', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#faf2c4' }}>
+                                                <div key={entry._id} style={{ border: '1px solid #e7dea9', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#faf2c4', position: 'relative' }}>
                                                     {entry.imageUrl ? (
                                                         <img src={entry.imageUrl} alt="" style={{ width: '100%', height: '100px', objectFit: 'cover' }} />
                                                     ) : (
                                                         <div style={{width:'100%', height:'100px', display:'flex', alignItems:'center', justifyContent:'center', color: '#a09d84'}}>No Image</div>
                                                     )}
+                                                    <button onClick={() => handleDeleteEntry(entry._id)} style={{ position: 'absolute', top: 4, right: 4, background: '#ffefee', color: '#b31b25', border: 'none', borderRadius: '4px', cursor: 'pointer', padding: '2px 6px', fontWeight: 'bold' }}>X</button>
                                                     <div style={{ padding: '8px' }}>
                                                         <div style={{ fontWeight: 700, fontSize: '13px', color: '#332f13', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.title}</div>
                                                         <div style={{ fontSize: '11px', color: '#615c3c', marginTop: '2px' }}>
