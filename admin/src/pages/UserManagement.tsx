@@ -13,6 +13,8 @@ interface UserData {
     totalPointsEarned: number;
     currentStreak: number;
     longestStreak: number;
+    gachaTickets?: number;
+    totalCoinsSpent?: number;
     createdAt: string;
     updatedAt?: string;
     avatar?: string;
@@ -26,8 +28,12 @@ export default function UserManagement() {
     const [users, setUsers] = useState<UserData[]>([]);
     const [search, setSearch] = useState('');
     const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+    const [editMode, setEditMode] = useState(false);
+    const [editForm, setEditForm] = useState<Partial<UserData>>({});
+    
     const [pointAdjust, setPointAdjust] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [total, setTotal] = useState(0);
 
@@ -70,11 +76,42 @@ export default function UserManagement() {
         }
     };
 
+    const handleSaveEdits = async () => {
+        if (!selectedUser) return;
+        setSaving(true);
+        try {
+            await adminApi.updateUser(selectedUser._id, editForm);
+            setEditMode(false);
+            setSelectedUser(null);
+            fetchUsers(search || undefined);
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const openModal = (u: UserData, edit: boolean = false) => {
+        setSelectedUser(u);
+        setEditMode(edit);
+        setEditForm({
+            coins: u.coins,
+            xp: u.xp,
+            level: u.level,
+            gachaTickets: u.gachaTickets || 0,
+            totalCoinsSpent: u.totalCoinsSpent || 0,
+            currentStreak: u.currentStreak,
+            longestStreak: u.longestStreak,
+            totalPointsEarned: u.totalPointsEarned
+        });
+        setPointAdjust(0);
+    };
+
     return (
         <div className="page">
             <div className="page__header">
                 <h1 className="page__title">Quản lý Người chơi</h1>
-                <p className="page__subtitle">Xem thông tin, lịch sử, và điều chỉnh điểm người chơi</p>
+                <p className="page__subtitle">Xem thông tin, lịch sử, và chỉnh sửa thông số người chơi</p>
             </div>
 
             {error && (
@@ -116,9 +153,10 @@ export default function UserManagement() {
                                     <th>Người chơi</th>
                                     <th>Level</th>
                                     <th>🪙 Coins</th>
+                                    <th>🎟️ Vé Gacha</th>
+                                    <th>Tổng chi</th>
                                     <th>Streak</th>
                                     <th>Ngày tạo</th>
-                                    <th>Lần truy cập cuối</th>
                                     <th>Hành động</th>
                                 </tr>
                             </thead>
@@ -146,18 +184,21 @@ export default function UserManagement() {
                                             </div>
                                         </td>
                                         <td>
-                                            <span className="badge badge--info">Lv.{u.level} {levelTitle(u.level)}</span>
+                                            <span className="badge badge--info">Lv.{u.level}</span>
                                         </td>
-                                        <td style={{ fontWeight: 700, color: '#f59e0b' }}>🪙 {u.coins.toLocaleString()}</td>
+                                        <td style={{ fontWeight: 700, color: '#f59e0b' }}>{u.coins.toLocaleString()}</td>
+                                        <td style={{ fontWeight: 700, color: '#10b981' }}>{u.gachaTickets || 0}</td>
+                                        <td style={{ color: 'var(--text-muted)' }}>{u.totalCoinsSpent?.toLocaleString() || 0}</td>
                                         <td>
                                             <span style={{ fontWeight: 600 }}>🔥 {u.currentStreak}</span>
-                                            <span style={{ color: 'var(--text-muted)', fontSize: 12 }}> / {u.longestStreak} max</span>
                                         </td>
                                         <td>{new Date(u.createdAt).toLocaleDateString('vi-VN')}</td>
-                                        <td>{u.updatedAt ? new Date(u.updatedAt).toLocaleDateString('vi-VN') : '—'}</td>
                                         <td>
-                                            <button className="btn btn--secondary btn--sm" onClick={() => { setSelectedUser(u); setPointAdjust(0); }}>
-                                                👁️ Chi tiết
+                                            <button className="btn btn--secondary btn--sm" style={{ marginRight: 8 }} onClick={() => openModal(u, false)}>
+                                                👁️ Xem
+                                            </button>
+                                            <button className="btn btn--primary btn--sm" onClick={() => openModal(u, true)}>
+                                                ✏️ Sửa
                                             </button>
                                         </td>
                                     </tr>
@@ -170,61 +211,91 @@ export default function UserManagement() {
 
             {selectedUser && (
                 <div className="modal-backdrop" onClick={() => setSelectedUser(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: editMode ? 600 : 640 }}>
                         <div className="modal__header">
-                            <span className="modal__title">👤 Chi tiết: {selectedUser.username}</span>
+                            <span className="modal__title">{editMode ? '✏️ Chỉnh sửa thông số' : '👤 Chi tiết người chơi'}</span>
                             <button className="modal__close" onClick={() => setSelectedUser(null)}>×</button>
                         </div>
                         <div className="modal__body">
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 20 }}>
-                                <div className="card" style={{ background: 'var(--content-bg)' }}>
-                                    <div className="card__body" style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>🪙 Coins</div>
-                                        <div style={{ fontSize: 28, fontWeight: 800, color: '#f59e0b' }}>{selectedUser.coins.toLocaleString()}</div>
+                            
+                            {!editMode ? (
+                                <>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+                                        <div className="card" style={{ background: 'var(--content-bg)' }}><div className="card__body" style={{ textAlign: 'center', padding: 12 }}><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>🪙 Coins</div><div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{selectedUser.coins.toLocaleString()}</div></div></div>
+                                        <div className="card" style={{ background: 'var(--content-bg)' }}><div className="card__body" style={{ textAlign: 'center', padding: 12 }}><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>⭐ XP</div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--accent)' }}>{selectedUser.xp.toLocaleString()}</div></div></div>
+                                        <div className="card" style={{ background: 'var(--content-bg)' }}><div className="card__body" style={{ textAlign: 'center', padding: 12 }}><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>🎟️ Vé Gacha</div><div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{selectedUser.gachaTickets || 0}</div></div></div>
+                                        <div className="card" style={{ background: 'var(--content-bg)' }}><div className="card__body" style={{ textAlign: 'center', padding: 12 }}><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>🔥 Streak</div><div style={{ fontSize: 24, fontWeight: 800, color: 'var(--danger)' }}>{selectedUser.currentStreak}</div></div></div>
                                     </div>
-                                </div>
-                                <div className="card" style={{ background: 'var(--content-bg)' }}>
-                                    <div className="card__body" style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>⭐ XP</div>
-                                        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--accent)' }}>{selectedUser.xp.toLocaleString()}</div>
-                                    </div>
-                                </div>
-                                <div className="card" style={{ background: 'var(--content-bg)' }}>
-                                    <div className="card__body" style={{ textAlign: 'center' }}>
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>🔥 Streak</div>
-                                        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--danger)' }}>{selectedUser.currentStreak}</div>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14, marginBottom: 20 }}>
-                                <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> <strong>{selectedUser.email}</strong></div>
-                                <div><span style={{ color: 'var(--text-muted)' }}>Level:</span> <strong>Lv.{selectedUser.level} {levelTitle(selectedUser.level)}</strong></div>
-                                <div><span style={{ color: 'var(--text-muted)' }}>Tổng XP:</span> <strong>{selectedUser.totalPointsEarned.toLocaleString()}</strong></div>
-                                <div><span style={{ color: 'var(--text-muted)' }}>Streak dài nhất:</span> <strong>{selectedUser.longestStreak} ngày</strong></div>
-                                <div><span style={{ color: 'var(--text-muted)' }}>Ngày tạo:</span> <strong>{new Date(selectedUser.createdAt).toLocaleDateString('vi-VN')}</strong></div>
-                                <div><span style={{ color: 'var(--text-muted)' }}>Thông báo:</span> <strong>{selectedUser.settings?.pushNotifications ? '✅ Bật' : '❌ Tắt'}</strong></div>
-                            </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 14, marginBottom: 20 }}>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Tên:</span> <strong>{selectedUser.username}</strong></div>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> <strong>{selectedUser.email}</strong></div>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Level:</span> <strong>Lv.{selectedUser.level} {levelTitle(selectedUser.level)}</strong></div>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Tổng chi tiêu:</span> <strong style={{ color: '#f59e0b' }}>{selectedUser.totalCoinsSpent?.toLocaleString() || 0} Coins</strong></div>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Tổng điểm đạt:</span> <strong>{selectedUser.totalPointsEarned.toLocaleString()}</strong></div>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Streak dài nhất:</span> <strong>{selectedUser.longestStreak} ngày</strong></div>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Ngày tạo:</span> <strong>{new Date(selectedUser.createdAt).toLocaleDateString('vi-VN')}</strong></div>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Lần truy cập cuối:</span> <strong>{selectedUser.updatedAt ? new Date(selectedUser.updatedAt).toLocaleDateString('vi-VN') : '—'}</strong></div>
+                                    </div>
 
-                            <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: 16 }}>
-                                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>⚖️ Điều chỉnh điểm thủ công</div>
-                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                    <input
-                                        type="number"
-                                        value={pointAdjust}
-                                        onChange={e => setPointAdjust(Number(e.target.value))}
-                                        style={{ width: 120 }}
-                                        placeholder="VD: 100 hoặc -50"
-                                    />
-                                    <button className="btn btn--primary btn--sm" onClick={handleAdjustPoints}>
-                                        {pointAdjust >= 0 ? '➕ Cộng điểm' : '➖ Trừ điểm'}
-                                    </button>
+                                    <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: 16 }}>
+                                        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>⚖️ Điều chỉnh nhanh Coins/XP</div>
+                                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                            <input type="number" value={pointAdjust} onChange={e => setPointAdjust(Number(e.target.value))} style={{ width: 120 }} placeholder="VD: 100 hoặc -50" />
+                                            <button className="btn btn--primary btn--sm" onClick={handleAdjustPoints}>
+                                                {pointAdjust >= 0 ? '➕ Cộng điểm' : '➖ Trừ điểm'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{ display: 'grid', gap: 16 }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                        <div className="form-group">
+                                            <label>🪙 Coins</label>
+                                            <input type="number" className="form-control" value={editForm.coins} onChange={e => setEditForm({...editForm, coins: Number(e.target.value)})} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>🎟️ Vé Gacha</label>
+                                            <input type="number" className="form-control" value={editForm.gachaTickets} onChange={e => setEditForm({...editForm, gachaTickets: Number(e.target.value)})} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>⭐ XP hiện tại</label>
+                                            <input type="number" className="form-control" value={editForm.xp} onChange={e => setEditForm({...editForm, xp: Number(e.target.value)})} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>⭐ Tổng XP đã kiếm</label>
+                                            <input type="number" className="form-control" value={editForm.totalPointsEarned} onChange={e => setEditForm({...editForm, totalPointsEarned: Number(e.target.value)})} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>📈 Cấp độ (Level)</label>
+                                            <input type="number" className="form-control" value={editForm.level} onChange={e => setEditForm({...editForm, level: Number(e.target.value)})} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>💰 Tổng Coins đã tiêu</label>
+                                            <input type="number" className="form-control" value={editForm.totalCoinsSpent} onChange={e => setEditForm({...editForm, totalCoinsSpent: Number(e.target.value)})} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>🔥 Streak hiện tại</label>
+                                            <input type="number" className="form-control" value={editForm.currentStreak} onChange={e => setEditForm({...editForm, currentStreak: Number(e.target.value)})} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>🔥 Streak dài nhất</label>
+                                            <input type="number" className="form-control" value={editForm.longestStreak} onChange={e => setEditForm({...editForm, longestStreak: Number(e.target.value)})} />
+                                        </div>
+                                    </div>
                                 </div>
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-                                    Nhập số dương để cộng, số âm để trừ. VD: 100 = cộng 100 XP, -50 = trừ 50 XP.
-                                </div>
-                            </div>
+                            )}
+
                         </div>
+                        {editMode && (
+                            <div className="modal__footer">
+                                <button className="btn btn--secondary" onClick={() => setEditMode(false)}>Hủy</button>
+                                <button className="btn btn--primary" onClick={handleSaveEdits} disabled={saving}>
+                                    {saving ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

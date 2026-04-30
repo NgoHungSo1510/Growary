@@ -126,6 +126,13 @@ class AdminApi {
         });
     }
 
+    async updateUser(id: string, data: any) {
+        return this.request<{ user: any; message: string }>(`/admin/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+
     // Rewards (admin sees all — shelf + warehouse)
     async getAllRewards() {
         return this.request<{ rewards: any[] }>('/admin/rewards');
