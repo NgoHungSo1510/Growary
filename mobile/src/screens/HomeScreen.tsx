@@ -19,6 +19,7 @@ import QuestListContent from '../components/QuestListContent';
 import AdventureLog from '../components/AdventureLog';
 import RewardCelebrationModal from '../components/RewardCelebrationModal';
 import PenaltyModal from '../components/PenaltyModal';
+import FloatingQuizButton from '../components/FloatingQuizButton';
 import { requestNotificationPermissions, scheduleAllQuestReminders } from '../services/notifications';
 import { COLORS } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -244,6 +245,8 @@ export default function HomeScreen() {
                     <View style={styles.fabDot} />
                 )}
             </TouchableOpacity>
+
+            <FloatingQuizButton />
 
             <RewardCelebrationModal
                 visible={!!grantedRewards}

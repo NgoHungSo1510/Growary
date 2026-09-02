@@ -173,6 +173,35 @@ export default function EventScreen({ navigation }: any) {
                     </LinearGradient>
                 </TouchableOpacity>
 
+                {/* Concept 5: Sự Kiện Quiz */}
+                <TouchableOpacity
+                    style={styles.cardContainer}
+                    activeOpacity={0.8}
+                    onPress={() => navigation.navigate('QuizEvent')}
+                >
+                    <LinearGradient
+                        colors={['#2563EB', '#1D4ED8']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.cardGradient}
+                    >
+                        <View style={styles.contentWrap}>
+                            <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                                <MaterialIcons name="psychology" size={40} color="#FFF" />
+                            </View>
+                            <View style={styles.textContainer}>
+                                <Text style={styles.cardTitle}>Thử Thách Trí Tuệ</Text>
+                                <Text style={styles.cardSubtitle}>Concept 5</Text>
+                                <Text style={styles.cardDesc}>Tham gia các vòng thi trắc nghiệm giới hạn thời gian để nhận thưởng Xu hấp dẫn.</Text>
+                            </View>
+                            <View style={styles.actionBtn}>
+                                <MaterialIcons name="chevron-right" size={24} color="#FFF" />
+                            </View>
+                        </View>
+                        <MaterialIcons name="quiz" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
+                    </LinearGradient>
+                </TouchableOpacity>
+
             </ScrollView>
         </View>
     );

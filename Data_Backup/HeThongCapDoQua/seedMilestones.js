@@ -56,23 +56,24 @@ async function seedMilestones() {
         }
 
         // ==========================================
-        // 3B. SPENDING (Max 10.000.000, bước nhảy 5.000)
-        // Vé gacha: chỉ tặng ở mốc chia hết cho 10.000 (10k, 20k, 30k...)
-        // Tối đa 1 vé/mốc, cap 2 vé cho mốc >= 100.000
+        // 3B. SPENDING (Max 10.000.000)
+        // Vàng: Tặng mỗi 10.000 spending (10k, 20k, 30k...)
+        // Vé gacha: Tặng mỗi 15.000 spending (15k, 30k, 45k...)
+        // Tối đa 1 vé/mốc, cap 2 vé cho mốc >= 150.000
         // ==========================================
         const MAX_SPENDING = 10000000;
         for (let j = 5000; j <= MAX_SPENDING; j += 5000) {
-            let coins = Math.max(100, j / 100);
+            let coins = 0;
             let tickets = 0;
+
             if (j % 10000 === 0) {
-                tickets = j >= 100000 ? 2 : 1;
+                coins = Math.max(100, j / 100);
+            }
+            if (j % 15000 === 0) {
+                tickets = j >= 150000 ? 2 : 1;
             }
 
-            // Fix cứng các mốc đầu cho khớp data backup
-            if (j === 5000) { coins = 100; tickets = 0; }
-            if (j === 10000) { coins = 100; tickets = 1; }
-            if (j === 15000) { coins = 150; tickets = 0; }
-            if (j === 20000) { coins = 200; tickets = 1; }
+            if (coins === 0 && tickets === 0) continue;
 
             milestonesToInsert.push({
                 type: 'spending',

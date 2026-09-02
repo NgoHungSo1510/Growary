@@ -7,7 +7,7 @@ interface NavItem {
     path: string;
     label: string;
     icon: string;
-    id: 'dashboard' | 'quests' | 'shop' | 'users' | 'events' | 'rewards' | 'boss' | 'gacha' | 'penalty' | 'notifications';
+    id: 'dashboard' | 'quests' | 'shop' | 'users' | 'events' | 'rewards' | 'boss' | 'gacha' | 'penalty' | 'notifications' | 'quiz';
 }
 
 const mainNav: NavItem[] = [
@@ -17,6 +17,7 @@ const mainNav: NavItem[] = [
     { id: 'users', path: '/users', label: 'Người chơi', icon: '👥' },
     { id: 'rewards', path: '/rewards', label: 'Hệ thống Cấp độ & Quà', icon: '⭐' },
     { id: 'events', path: '/events', label: 'Quản lý Sự kiện', icon: '🎉' },
+    { id: 'quiz', path: '/quiz', label: 'Quiz & Minigame', icon: '🧠' },
     { id: 'penalty', path: '/penalty', label: 'Luật lệ & Phạt', icon: '⚖️' },
     { id: 'notifications', path: '/notifications', label: 'Quản lý Thông báo', icon: '🔔' },
 ];

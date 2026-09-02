@@ -52,10 +52,13 @@ export default function ShopScreen() {
     const [grantedRewards, setGrantedRewards] = useState<any | null>(null);
     const [redeemVoucher, setRedeemVoucher] = useState<Voucher | null>(null);
     const [showProcessingModal, setShowProcessingModal] = useState(false);
+    const [isPurchasing, setIsPurchasing] = useState(false);
+    const [isRedeeming, setIsRedeeming] = useState(false);
 
     // Redeem voucher API
     const handleUseVoucher = async () => {
-        if (!redeemVoucher) return;
+        if (!redeemVoucher || isRedeeming) return;
+        setIsRedeeming(true);
         try {
             // we will call useVoucher
             await apiService.useVoucher(redeemVoucher.code);
@@ -64,6 +67,8 @@ export default function ShopScreen() {
             fetchVouchers(); // Refresh list to show 'pending_use'
         } catch (error: any) {
             Alert.alert('Lỗi', error.message || 'Không thể sử dụng voucher lúc này.');
+        } finally {
+            setIsRedeeming(false);
         }
     };
 
@@ -118,7 +123,8 @@ export default function ShopScreen() {
     };
 
     const handlePurchase = async () => {
-        if (!selectedReward) return;
+        if (!selectedReward || isPurchasing) return;
+        setIsPurchasing(true);
         const reward = selectedReward;
         try {
             const data = await apiService.purchaseReward(reward._id);
@@ -133,6 +139,8 @@ export default function ShopScreen() {
             closeRewardModal();
             const msg = error.response?.data?.error || 'Không thể đổi';
             setTimeout(() => Alert.alert('Lỗi', msg), 200);
+        } finally {
+            setIsPurchasing(false);
         }
     };
 
@@ -369,16 +377,22 @@ export default function ShopScreen() {
                                                 <Text style={styles.modalCancelText}>Hủy</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity
-                                                style={[styles.modalRedeemBtn, !canAfford && { opacity: 0.4 }]}
-                                                disabled={!canAfford}
+                                                style={[styles.modalRedeemBtn, (!canAfford || isPurchasing) && { opacity: 0.4 }]}
+                                                disabled={!canAfford || isPurchasing}
                                                 onPress={handlePurchase}
                                             >
                                                 <LinearGradient
                                                     colors={[COLORS.clayAccent2, '#EC4899']}
                                                     style={styles.modalRedeemGradient}
                                                 >
-                                                    <MaterialIcons name="shopping-cart" size={18} color="#FFF" />
-                                                    <Text style={styles.modalRedeemText}>Đổi ngay</Text>
+                                                    {isPurchasing ? (
+                                                        <ActivityIndicator size="small" color="#FFF" />
+                                                    ) : (
+                                                        <>
+                                                            <MaterialIcons name="shopping-cart" size={18} color="#FFF" />
+                                                            <Text style={styles.modalRedeemText}>Đổi ngay</Text>
+                                                        </>
+                                                    )}
                                                 </LinearGradient>
                                             </TouchableOpacity>
                                         </View>
@@ -414,7 +428,8 @@ export default function ShopScreen() {
                                 <Text style={styles.ppUseLaterText}>Để sau</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={styles.ppUseNowBtn}
+                                style={[styles.ppUseNowBtn, isRedeeming && { opacity: 0.7 }]}
+                                disabled={isRedeeming}
                                 onPress={() => {
                                     handleUseVoucher();
                                     setPurchasedTitle('');
@@ -424,8 +439,14 @@ export default function ShopScreen() {
                                     colors={[COLORS.clayAccent2, '#EC4899']}
                                     style={styles.ppUseNowGradient}
                                 >
-                                    <MaterialIcons name="redeem" size={18} color="#FFF" />
-                                    <Text style={styles.ppUseNowText}>Dùng ngay</Text>
+                                    {isRedeeming ? (
+                                        <ActivityIndicator size="small" color="#FFF" />
+                                    ) : (
+                                        <>
+                                            <MaterialIcons name="redeem" size={18} color="#FFF" />
+                                            <Text style={styles.ppUseNowText}>Dùng ngay</Text>
+                                        </>
+                                    )}
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>

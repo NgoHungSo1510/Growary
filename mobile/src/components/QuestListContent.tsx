@@ -50,7 +50,8 @@ const AnimatedQuestCard: React.FC<{
     onShowProofPicker: (index: number) => void;
     currentTime: Date;
     penaltyConfig: PenaltyConfig | null;
-}> = ({ task, index, planId, onComplete, onUncomplete, onShowProofPicker, currentTime, penaltyConfig }) => {
+    isGlobalLoading: boolean;
+}> = ({ task, index, planId, onComplete, onUncomplete, onShowProofPicker, currentTime, penaltyConfig, isGlobalLoading }) => {
     const flashAnim = useRef(new Animated.Value(0)).current;
     const [justCompleted, setJustCompleted] = useState(false);
 
@@ -183,8 +184,9 @@ const AnimatedQuestCard: React.FC<{
 
                 {!isPending && (
                     <TouchableOpacity
-                        style={styles.actionBtn}
+                        style={[styles.actionBtn, isGlobalLoading && { opacity: 0.5 }]}
                         onPress={() => onShowProofPicker(index)}
+                        disabled={isGlobalLoading}
                         activeOpacity={0.7}
                     >
                         <Text style={styles.actionBtnText}>📸 Hoàn thành</Text>
@@ -362,6 +364,7 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
                     onShowProofPicker={(i) => setProofPickerIndex(i)}
                     currentTime={currentTime}
                     penaltyConfig={penaltyConfig}
+                    isGlobalLoading={loadingIndex !== null || proofPickerIndex !== null}
                 />
             ))}
 

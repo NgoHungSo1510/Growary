@@ -21,6 +21,8 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import CollectionScreen from '../screens/CollectionScreen';
+import QuizEventScreen from '../screens/QuizEventScreen';
+import FloatingQuizButton from '../components/FloatingQuizButton';
 
 // Stack Navigator types
 export type AuthStackParamList = {
@@ -43,6 +45,7 @@ export type RootStackParamList = {
     Collection: undefined;
     EditProfile: undefined;
     Notifications: undefined;
+    QuizEvent: undefined;
 };
 
 const AuthStack = createStackNavigator<AuthStackParamList>();
@@ -145,8 +148,10 @@ const MainNavigator = () => (
                 options={{ presentation: 'modal' }}
             />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
+            <RootStack.Screen name="QuizEvent" component={QuizEventScreen} />
         </RootStack.Navigator>
         <GlobalNotification />
+        <FloatingQuizButton />
     </>
 );
 
