@@ -1,4 +1,4 @@
-const API_URL = 'https://growary-backend.onrender.com/api';
+const API_URL = 'https://growary-backend-vb86.onrender.com/api';
 
 class AdminApi {
     private token: string | null;

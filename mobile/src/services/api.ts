@@ -10,7 +10,7 @@ const getApiUrl = () => {
     //     const host = debuggerHost.split(':')[0];
     //     return `http://${host}:5000/api`;
     // }
-    return 'https://growary-backend.onrender.com/api';
+    return 'https://growary-backend-vb86.onrender.com/api';
 };
 
 const API_URL = getApiUrl();

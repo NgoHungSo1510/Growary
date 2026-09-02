@@ -11,7 +11,7 @@
 | **Backend** | Node.js, Express, TypeScript, MongoDB (Mongoose) | [Growary-Backend](https://github.com/NgoHungSo1510/Growary-Backend) (`main`) |
 | **Mobile** | React Native (Expo), TypeScript | [Growary](https://github.com/NgoHungSo1510/Growary) (`master`) |
 | **Admin** | React (Vite), TypeScript | Nằm trong mono-repo `Growary/admin` |
-| **Hosting** | Render (Backend), Cloudinary (ảnh) | `https://growary-backend.onrender.com` |
+| **Hosting** | Render (Backend), Cloudinary (ảnh) | `https://growary-backend-vb86.onrender.com` |
 
 ---
 
@@ -99,7 +99,7 @@
 - [x] Quản lý Events
 
 ### 12. 🚀 Deployment
-- [x] Backend deploy lên **Render** (`https://growary-backend.onrender.com`)
+- [x] Backend deploy lên **Render** (`https://growary-backend-vb86.onrender.com`)
 - [x] Build command: `npm install && npm run build`
 - [x] Mobile API URL đã cập nhật sang Render
 - [x] Git push lên cả 2 repo (Growary + Growary-Backend)
