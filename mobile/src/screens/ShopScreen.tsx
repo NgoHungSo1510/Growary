@@ -422,9 +422,12 @@ export default function ShopScreen() {
                             {selectedReward && (() => {
                                 const { icon, color } = getRewardVisual(selectedReward.title);
                                 const shippingFee = selectedReward.shippingFee ?? 15000;
-                                const discountedPriceBase = getDiscountedPrice(selectedReward.pointCost) + shippingFee;
-                                const appliedDiscount = (!userOptOutVoucher && useCoupon) ? useCoupon.discount : 0;
-                                const discountedPrice = Math.max(0, discountedPriceBase - appliedDiscount);
+                                const discountedPriceBase = getDiscountedPrice(selectedReward.pointCost);
+                                const appliedProductDiscount = useDiscountCoupon ? useDiscountCoupon.discount : 0;
+                                const appliedShippingDiscount = useFreeshipCoupon ? useFreeshipCoupon.discount : 0;
+                                const finalShipping = Math.max(0, shippingFee - appliedShippingDiscount);
+                                const finalProduct = Math.max(0, discountedPriceBase - appliedProductDiscount);
+                                const discountedPrice = finalProduct + finalShipping;
                                 const canAfford = userCoins >= discountedPrice;
                                 return (
                                     <View>
