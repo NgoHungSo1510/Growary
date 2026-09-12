@@ -152,15 +152,15 @@ export default function ShopScreen() {
         inventory.forEach(item => {
             if (item.quantity > 0 && item.itemType === 'special_item' && item.rewardForm === 'full' && item.specialItem) {
                 const spType = item.specialItem.type;
-                if (spType === 'coupon_freeship') {
+                if (spType === 'coupon_freeship' || spType === 'freeship') {
                     const c = { type: spType, discount: shippingFee, label: 'Free Ship' };
                     freeships.push(c);
                     if (shippingFee > maxFreeshipVal) {
                         maxFreeshipVal = shippingFee;
                         bestFreeship = c;
                     }
-                } else if (spType.startsWith('coupon_ship_')) {
-                    const match = spType.match(/^coupon_ship_(\d+)k$/);
+                } else if (spType.includes('ship_')) {
+                    const match = spType.match(/(?:coupon_)?ship_(\d+)k$/);
                     if (match) {
                         const discount = parseInt(match[1], 10) * 1000;
                         const c = { type: spType, discount, label: `Giảm ship ${match[1]}k` };
@@ -170,8 +170,8 @@ export default function ShopScreen() {
                             bestFreeship = c;
                         }
                     }
-                } else if (spType.startsWith('coupon_discount_')) {
-                    const match = spType.match(/^coupon_discount_(\d+)k$/);
+                } else if (spType.includes('discount_')) {
+                    const match = spType.match(/(?:coupon_)?discount_(\d+)k$/);
                     if (match) {
                         const discount = parseInt(match[1], 10) * 1000;
                         const c = { type: spType, discount, label: `Giảm ${match[1]}k` };
