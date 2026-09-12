@@ -496,11 +496,11 @@ export default function ShopScreen() {
                                         <View style={{ backgroundColor: 'rgba(255,255,255,0.5)', padding: 12, borderRadius: 12, marginBottom: 16 }}>
                                             {(() => {
                                                 const discountedPrice = selectedReward ? getDiscountedPrice(selectedReward.pointCost) : 0;
-                                                const cDiscount = (!userOptOutVoucher && useDiscountCoupon) ? useDiscountCoupon.discount : 0;
+                                                const cDiscount = useDiscountCoupon ? useDiscountCoupon.discount : 0;
                                                 let finalPrice = Math.max(0, discountedPrice - cDiscount);
 
                                                 const shippingFee = selectedReward?.shippingFee ?? 15000;
-                                                const cFreeship = (!userOptOutVoucher && useFreeshipCoupon) ? useFreeshipCoupon.discount : 0;
+                                                const cFreeship = useFreeshipCoupon ? useFreeshipCoupon.discount : 0;
                                                 let finalShipping = Math.max(0, shippingFee - cFreeship);
                                                 
                                                 const grandTotal = finalPrice + finalShipping;
@@ -516,7 +516,7 @@ export default function ShopScreen() {
                                                             <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{shippingFee} G</Text>
                                                         </View>
                                                         
-                                                        {(!userOptOutVoucher && (useDiscountCoupon || useFreeshipCoupon)) && (
+                                                        {(useDiscountCoupon || useFreeshipCoupon) && (
                                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                                                                 <Text style={{ fontSize: 13, color: '#16A34A' }}>Giảm giá Voucher</Text>
                                                                 <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#16A34A' }}>-{cDiscount + cFreeship} G</Text>
