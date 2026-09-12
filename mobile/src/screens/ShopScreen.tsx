@@ -212,10 +212,8 @@ export default function ShopScreen() {
         const reward = selectedReward;
         
         const selectedCoupons: string[] = [];
-        if (!userOptOutVoucher) {
-            if (useDiscountCoupon) selectedCoupons.push(useDiscountCoupon.type);
-            if (useFreeshipCoupon) selectedCoupons.push(useFreeshipCoupon.type);
-        }
+        if (useDiscountCoupon) selectedCoupons.push(useDiscountCoupon.type);
+        if (useFreeshipCoupon) selectedCoupons.push(useFreeshipCoupon.type);
         
         try {
             const data = await apiService.purchaseReward(reward._id, selectedCoupons);
@@ -458,37 +456,45 @@ export default function ShopScreen() {
 
                                         {availableDiscountCoupons.length > 0 && (
                                             <View style={{ marginBottom: 8 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59,130,246,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)' }}>
-                                                    <TouchableOpacity onPress={() => setUserOptOutVoucher(!userOptOutVoucher)} style={{ padding: 4 }}>
-                                                        <MaterialIcons name={!userOptOutVoucher ? "check-box" : "check-box-outline-blank"} size={24} color="#3B82F6" />
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity style={{ marginLeft: 8, flex: 1 }} onPress={() => setShowDiscountModal(true)} disabled={userOptOutVoucher}>
-                                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: userOptOutVoucher ? 'rgba(59,130,246,0.5)' : '#2563EB' }}>
+                                                <TouchableOpacity 
+                                                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59,130,246,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)' }}
+                                                    onPress={() => setShowDiscountModal(true)}
+                                                >
+                                                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(59,130,246,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <MaterialIcons name="local-offer" size={18} color="#2563EB" />
+                                                    </View>
+                                                    <View style={{ marginLeft: 12, flex: 1 }}>
+                                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#2563EB' }}>
                                                             {useDiscountCoupon ? `Dùng ${useDiscountCoupon.label}` : 'Chọn mã giảm giá'}
                                                         </Text>
-                                                        <Text style={{ fontSize: 11, color: userOptOutVoucher ? 'rgba(59,130,246,0.5)' : '#3B82F6' }}>
+                                                        <Text style={{ fontSize: 11, color: '#3B82F6' }}>
                                                             {availableDiscountCoupons.length} mã khả dụng
                                                         </Text>
-                                                    </TouchableOpacity>
-                                                </View>
+                                                    </View>
+                                                    <MaterialIcons name="chevron-right" size={24} color="#3B82F6" />
+                                                </TouchableOpacity>
                                             </View>
                                         )}
                                         
                                         {availableFreeshipCoupons.length > 0 && (
                                             <View style={{ marginBottom: 12 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,197,94,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}>
-                                                    <TouchableOpacity onPress={() => setUserOptOutVoucher(!userOptOutVoucher)} style={{ padding: 4 }}>
-                                                        <MaterialIcons name={!userOptOutVoucher ? "check-box" : "check-box-outline-blank"} size={24} color="#22C55E" />
-                                                    </TouchableOpacity>
-                                                    <TouchableOpacity style={{ marginLeft: 8, flex: 1 }} onPress={() => setShowFreeshipModal(true)} disabled={userOptOutVoucher}>
-                                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: userOptOutVoucher ? 'rgba(22,163,74,0.5)' : '#16A34A' }}>
+                                                <TouchableOpacity 
+                                                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,197,94,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}
+                                                    onPress={() => setShowFreeshipModal(true)}
+                                                >
+                                                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(34,197,94,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <MaterialIcons name="local-shipping" size={18} color="#16A34A" />
+                                                    </View>
+                                                    <View style={{ marginLeft: 12, flex: 1 }}>
+                                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#16A34A' }}>
                                                             {useFreeshipCoupon ? `Dùng ${useFreeshipCoupon.label}` : 'Chọn mã Free Ship'}
                                                         </Text>
-                                                        <Text style={{ fontSize: 11, color: userOptOutVoucher ? 'rgba(22,163,74,0.5)' : '#16A34A' }}>
+                                                        <Text style={{ fontSize: 11, color: '#16A34A' }}>
                                                             {availableFreeshipCoupons.length} mã khả dụng
                                                         </Text>
-                                                    </TouchableOpacity>
-                                                </View>
+                                                    </View>
+                                                    <MaterialIcons name="chevron-right" size={24} color="#16A34A" />
+                                                </TouchableOpacity>
                                             </View>
                                         )}
 
@@ -699,7 +705,6 @@ export default function ShopScreen() {
                                     ]}
                                     onPress={() => {
                                         setUseDiscountCoupon(useDiscountCoupon?.type === c.type ? null : c);
-                                        setUserOptOutVoucher(false);
                                         setShowDiscountModal(false);
                                     }}
                                 >
@@ -743,7 +748,6 @@ export default function ShopScreen() {
                                     ]}
                                     onPress={() => {
                                         setUseFreeshipCoupon(useFreeshipCoupon?.type === c.type ? null : c);
-                                        setUserOptOutVoucher(false);
                                         setShowFreeshipModal(false);
                                     }}
                                 >
