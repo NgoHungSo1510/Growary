@@ -86,7 +86,7 @@ export default function BossManagementPage() {
             reader.readAsDataURL(file);
             reader.onload = async () => {
                 const base64Image = reader.result as string;
-                const res = await adminApi.post<{url: string}>('/upload/image', { image: base64Image });
+                const res = await adminApi.post<{ url: string }>('/upload/image', { image: base64Image });
                 if (res.url) {
                     setEditEvent((prev: any) => prev ? { ...prev, avatarImageUrl: res.url } : prev);
                 }
@@ -144,7 +144,7 @@ export default function BossManagementPage() {
         if (ev.status === 'failed') statusBadge = <span className="badge badge--danger">Thất bại</span>;
 
         const hpPercent = Math.max(0, Math.min(100, (ev.currentHp / ev.maxHp) * 100));
-        const evColor = ev.colorBg || '#ef4444';
+        const evColor = '#ef4444';
 
         return (
             <div key={ev._id} style={{ position: 'relative', width: 340, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -268,7 +268,7 @@ export default function BossManagementPage() {
 
             <div className="boss-timeline-wrapper" style={{ overflowX: 'auto', padding: '20px 0 60px 0', position: 'relative' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 40, minWidth: 'min-content', padding: '0 20px' }}>
-                    
+
                     {/* Upcoming Bosses (Preview) */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div style={{ fontWeight: 'bold', fontSize: 16, color: 'var(--warning)' }}>
@@ -285,7 +285,7 @@ export default function BossManagementPage() {
                             </div>
                         )}
                     </div>
-                    
+
                     {/* Pool Summary */}
                     {poolBosses.length > 0 && (
                         <div style={{ padding: '12px 16px', backgroundColor: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 14, color: 'var(--text-secondary)' }}>
@@ -330,19 +330,19 @@ export default function BossManagementPage() {
                         </div>
                         <div className="modal__body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                                
+
                                 {/* Section 1: Basic & V2 Identity */}
                                 <div>
                                     <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 16, color: 'var(--accent)' }}>1. Thông tin cơ bản</h3>
-                                    
+
                                     <div className="form-group">
                                         <label>URL Ảnh Đại Diện Nhân Vật</label>
                                         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                             {editEvent?.avatarImageUrl && (
-                                                <img 
-                                                    src={editEvent.avatarImageUrl} 
-                                                    style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', border: `2px solid ${editEvent?.colorBg || '#ef4444'}` }} 
-                                                    alt="preview" 
+                                                <img
+                                                    src={editEvent.avatarImageUrl}
+                                                    style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover', border: `2px solid ${editEvent?.colorBg || '#ef4444'}` }}
+                                                    alt="preview"
                                                 />
                                             )}
                                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -360,7 +360,7 @@ export default function BossManagementPage() {
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                         <input
                                             type="checkbox"
@@ -438,7 +438,7 @@ export default function BossManagementPage() {
                                     </div>
 
                                     <h3 style={{ fontSize: 16, marginTop: 24, marginBottom: 16, color: 'var(--accent)' }}>2. Phần thưởng & Chỉ số</h3>
-                                    
+
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                         <div className="form-group">
                                             <label>Máu (Max HP)</label>
@@ -459,7 +459,7 @@ export default function BossManagementPage() {
                                             </div>
                                         )}
                                     </div>
-                                    
+
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                         <div className="form-group">
                                             <label>Trạng thái</label>
@@ -500,7 +500,7 @@ export default function BossManagementPage() {
                                 {/* Section 3: Mini-Game & Styling */}
                                 <div>
                                     <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 16, color: 'var(--accent)' }}>3. Cơ Chế Minigame</h3>
-                                    
+
                                     <div className="form-group">
                                         <label>Loại Cơ Chế (Đánh Khóa)</label>
                                         <select
@@ -536,15 +536,15 @@ export default function BossManagementPage() {
                                             </div>
                                             {['A', 'B', 'C', 'D'].map((opt, optIdx) => (
                                                 <div key={optIdx} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                                                    <input 
-                                                        type="radio" 
+                                                    <input
+                                                        type="radio"
                                                         name={`correct-${idx}`}
                                                         checked={q.correctIndex === optIdx}
                                                         onChange={() => updateQuestion(idx, 'correctIndex', optIdx)}
                                                     />
                                                     <span style={{ fontWeight: 'bold' }}>{opt}:</span>
-                                                    <input 
-                                                        type="text" 
+                                                    <input
+                                                        type="text"
                                                         placeholder={`Đáp án ${opt}`}
                                                         value={q.options[optIdx] || ''}
                                                         onChange={e => updateOption(idx, optIdx, e.target.value)}

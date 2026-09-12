@@ -104,13 +104,19 @@ export default function FloatingInventory() {
         });
     };
 
+    const [loadingAction, setLoadingAction] = useState<string | null>(null);
+
     const handleUseVoucher = async (code: string) => {
+        if (loadingAction === code) return;
+        setLoadingAction(code);
         try {
             await apiService.useVoucher(code);
-            Alert.alert('Thành công', 'Đã yêu cầu giao hàng. Vui lòng kiểm tra tab "Chờ Giao".');
+            Alert.alert('Thành công', 'Đã chuyển sang trạng thái chờ giao.');
             fetchData();
-        } catch (e: any) {
-            Alert.alert('Lỗi', e.response?.data?.error || e.message);
+        } catch (error: any) {
+            Alert.alert('Lỗi', error.response?.data?.error || 'Không thể thao tác.');
+        } finally {
+            setLoadingAction(null);
         }
     };
 
@@ -156,7 +162,9 @@ export default function FloatingInventory() {
                             <View key={`inv-${index}`} style={styles.gridItem}>
                                 <View style={styles.gridItemInner}>
                                     <View style={styles.quantityBadge}>
-                                        <Text style={styles.quantityText}>{item.quantity}</Text>
+                                        <Text style={styles.quantityText}>
+                                            {isFragment ? `${item.quantity}/${reqFrag}` : item.quantity}
+                                        </Text>
                                     </View>
 
                                     {sp?.imageUrl ? (
@@ -207,8 +215,16 @@ export default function FloatingInventory() {
                                     )}
                                     <Text style={styles.gridItemName} numberOfLines={2}>{voucher.reward?.title || voucher.rewardTitleSnapshot}</Text>
                                     <View style={{ marginTop: 'auto', paddingTop: 8, width: '100%' }}>
-                                        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#F57799' }]} onPress={() => handleUseVoucher(voucher.code)}>
-                                            <Text style={styles.actionBtnText}>Giao Hàng</Text>
+                                        <TouchableOpacity 
+                                            style={[styles.actionBtn, { backgroundColor: '#F57799', opacity: loadingAction === voucher.code ? 0.7 : 1 }]} 
+                                            onPress={() => handleUseVoucher(voucher.code)}
+                                            disabled={loadingAction === voucher.code}
+                                        >
+                                            {loadingAction === voucher.code ? (
+                                                <ActivityIndicator size="small" color="#FFF" />
+                                            ) : (
+                                                <Text style={styles.actionBtnText}>Giao Hàng</Text>
+                                            )}
                                         </TouchableOpacity>
                                     </View>
                                 </View>
@@ -339,7 +355,7 @@ const styles = StyleSheet.create({
 
     gridContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
     gridItem: {
-        width: ITEM_SIZE, backgroundColor: '#FFF', borderRadius: 16,
+        width: '21%', minWidth: 70, backgroundColor: '#FFF', borderRadius: 16,
         padding: 8, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 2
     },
     gridItemInner: { flex: 1, alignItems: 'center' },

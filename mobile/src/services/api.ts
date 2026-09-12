@@ -226,8 +226,8 @@ class ApiService {
         return response.data;
     }
 
-    async purchaseReward(rewardId: string, voucherId?: string) {
-        const response = await this.api.post(`/rewards/${rewardId}/purchase`, { voucherId });
+    async purchaseReward(rewardId: string, couponTypes?: string[]) {
+        const response = await this.api.post(`/rewards/${rewardId}/purchase`, { couponTypes });
         return response.data;
     }
 

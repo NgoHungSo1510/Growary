@@ -61,12 +61,18 @@ export default function ShopScreen() {
     const [inventory, setInventory] = useState<import('../types').InventoryItem[]>([]);
 
     // Voucher checkout state
-    const [useCoupon, setUseCoupon] = useState<{ type: string, discount: number, isFreeship: boolean, label: string } | null>(null);
-    const [userOptOutVoucher, setUserOptOutVoucher] = useState(false);
+    const [useDiscountCoupon, setUseDiscountCoupon] = useState<{ type: string, discount: number, label: string } | null>(null);
+    const [useFreeshipCoupon, setUseFreeshipCoupon] = useState<{ type: string, discount: number, label: string } | null>(null);
+    const [showDiscountModal, setShowDiscountModal] = useState(false);
+    const [showFreeshipModal, setShowFreeshipModal] = useState(false);
+    const [availableDiscountCoupons, setAvailableDiscountCoupons] = useState<{ type: string, discount: number, label: string }[]>([]);
+    const [availableFreeshipCoupons, setAvailableFreeshipCoupons] = useState<{ type: string, discount: number, label: string }[]>([]);
 
-    const getDiscountedPrice = (price: number) => {
-        if (!vipStatus || !vipStatus.currentTier || vipStatus.currentTier.discountPercent <= 0) return price;
-        return Math.floor(price * (1 - vipStatus.currentTier.discountPercent / 100));
+    const getDiscountedPrice = (price?: number) => {
+        if (price === undefined || price === null) return 0;
+        const discountPercent = vipStatus?.currentTier?.discountPercent || 0;
+        if (discountPercent <= 0) return price;
+        return Math.floor(price * (1 - discountPercent / 100));
     };
 
     // Redeem voucher API
@@ -132,38 +138,56 @@ export default function ShopScreen() {
     const openRewardModal = (reward: Reward) => {
         setSelectedReward(reward);
 
-        // Auto pick best coupon from inventory
-        let bestCoupon = null;
-        let maxDiscount = -1;
+        // Auto pick best coupons from inventory
+        let bestDiscount = null;
+        let maxDiscountVal = -1;
+        let bestFreeship = null;
+        let maxFreeshipVal = -1;
+        
         const shippingFee = reward.shippingFee ?? 15000;
+        
+        const discounts: { type: string, discount: number, label: string }[] = [];
+        const freeships: { type: string, discount: number, label: string }[] = [];
 
         inventory.forEach(item => {
             if (item.quantity > 0 && item.itemType.startsWith('coupon_')) {
-                let discount = 0;
-                let isFreeship = false;
-                let label = '';
-
                 if (item.itemType === 'coupon_freeship') {
-                    discount = shippingFee;
-                    isFreeship = true;
-                    label = 'Free Ship';
+                    const c = { type: item.itemType, discount: shippingFee, label: 'Free Ship' };
+                    freeships.push(c);
+                    if (shippingFee > maxFreeshipVal) {
+                        maxFreeshipVal = shippingFee;
+                        bestFreeship = c;
+                    }
+                } else if (item.itemType.startsWith('coupon_ship_')) {
+                    const match = item.itemType.match(/^coupon_ship_(\d+)k$/);
+                    if (match) {
+                        const discount = parseInt(match[1], 10) * 1000;
+                        const c = { type: item.itemType, discount, label: `Giảm ship ${match[1]}k` };
+                        freeships.push(c);
+                        if (discount > maxFreeshipVal) {
+                            maxFreeshipVal = discount;
+                            bestFreeship = c;
+                        }
+                    }
                 } else {
                     const match = item.itemType.match(/^coupon_(\d+)k$/);
                     if (match) {
-                        discount = parseInt(match[1], 10) * 1000;
-                        label = `Giảm ${match[1]}k`;
+                        const discount = parseInt(match[1], 10) * 1000;
+                        const c = { type: item.itemType, discount, label: `Giảm ${match[1]}k` };
+                        discounts.push(c);
+                        if (discount > maxDiscountVal) {
+                            maxDiscountVal = discount;
+                            bestDiscount = c;
+                        }
                     }
-                }
-
-                if (discount > maxDiscount) {
-                    maxDiscount = discount;
-                    bestCoupon = { type: item.itemType, discount, isFreeship, label };
                 }
             }
         });
 
-        setUseCoupon(bestCoupon);
-        setUserOptOutVoucher(false);
+        setAvailableDiscountCoupons(discounts);
+        setAvailableFreeshipCoupons(freeships);
+        setUseDiscountCoupon(bestDiscount);
+        setUseFreeshipCoupon(bestFreeship);
 
         modalScale.setValue(0);
         Animated.spring(modalScale, {
@@ -186,9 +210,15 @@ export default function ShopScreen() {
         if (!selectedReward || isPurchasing) return;
         setIsPurchasing(true);
         const reward = selectedReward;
-        const couponType = (!userOptOutVoucher && useCoupon) ? useCoupon.type : undefined;
+        
+        const selectedCoupons: string[] = [];
+        if (!userOptOutVoucher) {
+            if (useDiscountCoupon) selectedCoupons.push(useDiscountCoupon.type);
+            if (useFreeshipCoupon) selectedCoupons.push(useFreeshipCoupon.type);
+        }
+        
         try {
-            const data = await apiService.purchaseReward(reward._id, couponType);
+            const data = await apiService.purchaseReward(reward._id, selectedCoupons);
             setPurchasedTitle(reward.title);
             setSelectedReward(null);
             setRedeemVoucher(data.voucher);
@@ -423,35 +453,83 @@ export default function ShopScreen() {
                                             {selectedReward.description || 'Phần thưởng đặc biệt'}
                                         </Text>
 
-                                        {useCoupon && (
-                                            <TouchableOpacity
-                                                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,197,94,0.1)', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}
-                                                onPress={() => setUserOptOutVoucher(!userOptOutVoucher)}
-                                            >
-                                                <MaterialIcons name={!userOptOutVoucher ? "check-box" : "check-box-outline-blank"} size={24} color="#22C55E" />
-                                                <View style={{ marginLeft: 8, flex: 1 }}>
-                                                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#16A34A' }}>Dùng Voucher {useCoupon.label}</Text>
-                                                    <Text style={{ fontSize: 11, color: '#16A34A' }}>Hệ thống tự động chọn cho bạn</Text>
+                                        {availableDiscountCoupons.length > 0 && (
+                                            <View style={{ marginBottom: 8 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59,130,246,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)' }}>
+                                                    <TouchableOpacity onPress={() => setUserOptOutVoucher(!userOptOutVoucher)} style={{ padding: 4 }}>
+                                                        <MaterialIcons name={!userOptOutVoucher ? "check-box" : "check-box-outline-blank"} size={24} color="#3B82F6" />
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity style={{ marginLeft: 8, flex: 1 }} onPress={() => setShowDiscountModal(true)} disabled={userOptOutVoucher}>
+                                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: userOptOutVoucher ? 'rgba(59,130,246,0.5)' : '#2563EB' }}>
+                                                            {useDiscountCoupon ? `Dùng ${useDiscountCoupon.label}` : 'Chọn mã giảm giá'}
+                                                        </Text>
+                                                        <Text style={{ fontSize: 11, color: userOptOutVoucher ? 'rgba(59,130,246,0.5)' : '#3B82F6' }}>
+                                                            {availableDiscountCoupons.length} mã khả dụng
+                                                        </Text>
+                                                    </TouchableOpacity>
                                                 </View>
-                                            </TouchableOpacity>
+                                            </View>
+                                        )}
+                                        
+                                        {availableFreeshipCoupons.length > 0 && (
+                                            <View style={{ marginBottom: 12 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,197,94,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}>
+                                                    <TouchableOpacity onPress={() => setUserOptOutVoucher(!userOptOutVoucher)} style={{ padding: 4 }}>
+                                                        <MaterialIcons name={!userOptOutVoucher ? "check-box" : "check-box-outline-blank"} size={24} color="#22C55E" />
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity style={{ marginLeft: 8, flex: 1 }} onPress={() => setShowFreeshipModal(true)} disabled={userOptOutVoucher}>
+                                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: userOptOutVoucher ? 'rgba(22,163,74,0.5)' : '#16A34A' }}>
+                                                            {useFreeshipCoupon ? `Dùng ${useFreeshipCoupon.label}` : 'Chọn mã Free Ship'}
+                                                        </Text>
+                                                        <Text style={{ fontSize: 11, color: userOptOutVoucher ? 'rgba(22,163,74,0.5)' : '#16A34A' }}>
+                                                            {availableFreeshipCoupons.length} mã khả dụng
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
                                         )}
 
                                         {/* Price breakdown */}
                                         <View style={{ backgroundColor: 'rgba(255,255,255,0.5)', padding: 12, borderRadius: 12, marginBottom: 16 }}>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                <Text style={{ fontSize: 13, color: 'rgba(93,64,55,0.7)' }}>Giá sản phẩm</Text>
-                                                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{getDiscountedPrice(selectedReward.pointCost)} G</Text>
-                                            </View>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                <Text style={{ fontSize: 13, color: 'rgba(93,64,55,0.7)' }}>Phí vận chuyển</Text>
-                                                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{shippingFee} G</Text>
-                                            </View>
-                                            {(!userOptOutVoucher && useCoupon) && (
-                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                    <Text style={{ fontSize: 13, color: '#22C55E' }}>Mã giảm giá</Text>
-                                                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#22C55E' }}>-{useCoupon.discount} G</Text>
-                                                </View>
-                                            )}
+                                            {(() => {
+                                                const discountedPrice = selectedReward ? getDiscountedPrice(selectedReward.pointCost) : 0;
+                                                const cDiscount = (!userOptOutVoucher && useDiscountCoupon) ? useDiscountCoupon.discount : 0;
+                                                let finalPrice = Math.max(0, discountedPrice - cDiscount);
+
+                                                const shippingFee = selectedReward?.shippingFee ?? 15000;
+                                                const cFreeship = (!userOptOutVoucher && useFreeshipCoupon) ? useFreeshipCoupon.discount : 0;
+                                                let finalShipping = Math.max(0, shippingFee - cFreeship);
+                                                
+                                                const grandTotal = finalPrice + finalShipping;
+
+                                                return (
+                                                    <>
+                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                            <Text style={{ fontSize: 13, color: 'rgba(93,64,55,0.7)' }}>Giá sản phẩm</Text>
+                                                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{discountedPrice} G</Text>
+                                                        </View>
+                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                            <Text style={{ fontSize: 13, color: 'rgba(93,64,55,0.7)' }}>Phí vận chuyển</Text>
+                                                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{shippingFee} G</Text>
+                                                        </View>
+                                                        
+                                                        {(!userOptOutVoucher && (useDiscountCoupon || useFreeshipCoupon)) && (
+                                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                                <Text style={{ fontSize: 13, color: '#16A34A' }}>Giảm giá Voucher</Text>
+                                                                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#16A34A' }}>-{cDiscount + cFreeship} G</Text>
+                                                            </View>
+                                                        )}
+                                                        <View style={{ height: 1, backgroundColor: 'rgba(93,64,55,0.1)', marginVertical: 8 }} />
+                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: 'rgba(93,64,55,0.7)' }}>Tổng cộng</Text>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                                <MaterialIcons name="monetization-on" size={16} color={COLORS.clayText} />
+                                                                <Text style={{ fontSize: 18, fontWeight: '900', color: COLORS.clayText }}>{grandTotal} G</Text>
+                                                            </View>
+                                                        </View>
+                                                    </>
+                                                );
+                                            })()}
                                         </View>
 
                                         {/* Price + Balance */}
@@ -597,6 +675,94 @@ export default function ShopScreen() {
                 </View>
             </Modal>
 
+            {/* ── DISCOUNT COUPON MODAL ── */}
+            <Modal visible={showDiscountModal} transparent animationType="fade">
+                <View style={styles.inventoryOverlay}>
+                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowDiscountModal(false)} />
+                    <View style={styles.inventorySheet}>
+                        <View style={styles.inventoryHeader}>
+                            <Text style={styles.inventoryTitle}>Chọn Mã Giảm Giá</Text>
+                            <TouchableOpacity onPress={() => setShowDiscountModal(false)}>
+                                <MaterialIcons name="close" size={24} color="rgba(93,64,55,0.5)" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {availableDiscountCoupons.map((c, i) => (
+                                <TouchableOpacity
+                                    key={i}
+                                    style={[
+                                        styles.voucherRow,
+                                        useDiscountCoupon?.type === c.type && { borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.05)' }
+                                    ]}
+                                    onPress={() => {
+                                        setUseDiscountCoupon(useDiscountCoupon?.type === c.type ? null : c);
+                                        setUserOptOutVoucher(false);
+                                        setShowDiscountModal(false);
+                                    }}
+                                >
+                                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(59,130,246,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                                        <MaterialIcons name="local-offer" size={20} color="#2563EB" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ fontSize: 15, fontWeight: 'bold', color: COLORS.clayText }}>{c.label}</Text>
+                                        <Text style={{ fontSize: 12, color: 'rgba(93,64,55,0.5)', marginTop: 2 }}>
+                                            Giảm trực tiếp vào giá sản phẩm
+                                        </Text>
+                                    </View>
+                                    {useDiscountCoupon?.type === c.type && (
+                                        <MaterialIcons name="check-circle" size={24} color="#3B82F6" />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ── FREESHIP COUPON MODAL ── */}
+            <Modal visible={showFreeshipModal} transparent animationType="fade">
+                <View style={styles.inventoryOverlay}>
+                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFreeshipModal(false)} />
+                    <View style={styles.inventorySheet}>
+                        <View style={styles.inventoryHeader}>
+                            <Text style={styles.inventoryTitle}>Chọn Mã Free Ship</Text>
+                            <TouchableOpacity onPress={() => setShowFreeshipModal(false)}>
+                                <MaterialIcons name="close" size={24} color="rgba(93,64,55,0.5)" />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {availableFreeshipCoupons.map((c, i) => (
+                                <TouchableOpacity
+                                    key={i}
+                                    style={[
+                                        styles.voucherRow,
+                                        useFreeshipCoupon?.type === c.type && { borderColor: '#22C55E', backgroundColor: 'rgba(34,197,94,0.05)' }
+                                    ]}
+                                    onPress={() => {
+                                        setUseFreeshipCoupon(useFreeshipCoupon?.type === c.type ? null : c);
+                                        setUserOptOutVoucher(false);
+                                        setShowFreeshipModal(false);
+                                    }}
+                                >
+                                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(34,197,94,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                                        <MaterialIcons name="local-shipping" size={20} color="#16A34A" />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ fontSize: 15, fontWeight: 'bold', color: COLORS.clayText }}>{c.label}</Text>
+                                        <Text style={{ fontSize: 12, color: 'rgba(93,64,55,0.5)', marginTop: 2 }}>
+                                            Giảm phí vận chuyển
+                                        </Text>
+                                    </View>
+                                    {useFreeshipCoupon?.type === c.type && (
+                                        <MaterialIcons name="check-circle" size={24} color="#22C55E" />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
             <RewardCelebrationModal
                 visible={!!grantedRewards}
                 rewards={grantedRewards}
@@ -661,10 +827,10 @@ const styles = StyleSheet.create({
     // Grid
     gridContainer: {
         flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
-        paddingHorizontal: 24, gap: 16,
+        paddingHorizontal: 24, rowGap: 16, columnGap: '4%',
     },
     gridItem: {
-        width: (width - 48 - 16) / 2,
+        width: '48%',
         backgroundColor: COLORS.clayCard, borderRadius: 20, padding: 12,
         borderWidth: 1, borderColor: COLORS.whiteOp,
         shadowColor: '#A68A64', shadowOffset: { width: 4, height: 4 },
