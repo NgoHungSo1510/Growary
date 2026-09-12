@@ -4,18 +4,8 @@ import Constants from 'expo-constants';
 
 import { Platform } from 'react-native';
 
-// Auto-detect backend host from Expo dev server connection
+// Use Render backend
 const getApiUrl = () => {
-    if (Platform.OS === 'web') {
-        return 'http://localhost:5000/api';
-    }
-    
-    // Ưu tiên localhost cho môi trường local
-    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
-    if (debuggerHost) {
-        const host = debuggerHost.split(':')[0];
-        return `http://${host}:5000/api`;
-    }
     return 'https://growary-backend-vb86.onrender.com/api';
 };
 
