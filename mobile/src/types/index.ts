@@ -25,6 +25,12 @@ export interface User {
     level: number;
     currentPoints: number;
     totalPointsEarned: number;
+    totalCoinsSpent: number;
+    vipTier: number;
+    claimedVipTiers: number[];
+    monthlySpending: number;
+    pendingCashback: number;
+    lastCashbackProcessed: string;
     currentStreak: number;
     longestStreak: number;
     settings: {
@@ -50,6 +56,40 @@ export interface TaskTemplate {
     isMandatory: boolean;
     category: 'health' | 'study' | 'work' | 'personal' | 'household' | 'other';
     estimatedMinutes?: number;
+}
+
+export interface NotificationConfig {
+    _id: string;
+    type: 'late_warning' | 'quest_missed' | 'penalty_applied' | 'custom';
+    title: string;
+    bodyTemplate: string;
+    isActive: boolean;
+    sendTimeOffsetMinutes?: number;
+}
+
+export interface InventoryItem {
+    itemType: string;
+    quantity: number;
+    displayName: string;
+    color: string;
+    canExchange: boolean;
+    lastUpdated: string | Date;
+    rewardForm?: string;
+    specialItem?: {
+        _id?: string;
+        type?: string;
+        name?: string;
+        imageUrl?: string;
+        requiredFragments?: number;
+        [key: string]: any;
+    };
+}
+
+export interface MysteryBoxReward {
+    type: 'coins' | 'gacha_ticket' | 'fragment' | 'special_item';
+    itemType?: string;
+    amount: number;
+    displayName: string;
 }
 
 export interface DailyTask {
@@ -126,6 +166,7 @@ export interface Reward {
     pointCost: number;
     imageUrl?: string;
     stock?: number;
+    shippingFee?: number;
     isActive: boolean;
     isFeatured?: boolean;
 }
@@ -137,9 +178,37 @@ export interface Voucher {
     pointCostSnapshot: number;
     rewardTitleSnapshot: string;
     purchaseDate: string;
+    createdAt?: string;
     expiresAt?: string;
     status: 'active' | 'pending_use' | 'used' | 'expired';
     usedAt?: string;
+    discountAmount?: number;
+    hasFreeShip?: boolean;
+    fragmentType?: string;
+}
+
+export interface VipTierInfo {
+    tier: number;
+    name: string;
+    minSpending: number;
+    cashbackPercent: number;
+    discountPercent: number;
+    color: string;
+}
+
+export interface VipStatus {
+    currentTier: VipTierInfo;
+    nextTier: VipTierInfo | null;
+    totalCoinsSpent: number;
+    monthlySpending: number;
+    pendingCashback: number;
+    coinsToNextTier: number | null;
+}
+
+export interface VipStatusResponse {
+    status: VipStatus;
+    allTiers: VipTierInfo[];
+    history: { tierName: string; date: string }[];
 }
 
 // API Response types

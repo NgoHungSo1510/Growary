@@ -1,4 +1,4 @@
-const API_URL = 'https://growary-backend-vb86.onrender.com/api';
+const API_URL = 'http://localhost:5000/api';
 
 class AdminApi {
     private token: string | null;
@@ -232,6 +232,56 @@ class AdminApi {
     }
     async deleteNotification(id: string) {
         return this.request<{ message: string }>(`/admin/notifications/${id}`, { method: 'DELETE' });
+    }
+
+    // VIP Config
+    async getVipConfig() {
+        return this.request<{ tiers: any[] }>('/admin/vip-config');
+    }
+
+    async updateVipConfig(tiers: any[]) {
+        return this.request<{ message: string }>('/admin/vip-config', { method: 'PUT', body: JSON.stringify({ tiers }) });
+    }
+
+    async resetVip(userId: string, resetToTier: number = 0) {
+        return this.request<{ message: string; user: any }>('/admin/vip-config/reset', {
+            method: 'POST',
+            body: JSON.stringify({ userId, resetToTier }),
+        });
+    }
+
+    // Special Warehouse
+    async getMysteryBoxes() {
+        return this.request<{ boxes: any[] }>('/admin/mystery-boxes');
+    }
+    async createMysteryBox(data: any) {
+        return this.request<{ box: any }>('/admin/mystery-boxes', { method: 'POST', body: JSON.stringify(data) });
+    }
+    async updateMysteryBox(id: string, data: any) {
+        return this.request<{ box: any }>(`/admin/mystery-boxes/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    }
+    async deleteMysteryBox(id: string) {
+        return this.request<{ message: string }>(`/admin/mystery-boxes/${id}`, { method: 'DELETE' });
+    }
+    async getUserInventory(userId: string) {
+        return this.request<{ inventory: any[] }>(`/admin/user-inventory/${userId}`);
+    }
+    async grantInventoryItem(data: { userId: string; itemType: string; specialItem?: string; mysteryBox?: string; rewardForm?: string; quantity: number; reason: string }) {
+        return this.request<{ message: string; inventory: any }>('/admin/inventory/grant', { method: 'POST', body: JSON.stringify(data) });
+    }
+
+    // Special Items
+    async getSpecialItems() {
+        return this.request<{ items: any[] }>('/admin/special-items');
+    }
+    async createSpecialItem(data: any) {
+        return this.request<{ item: any }>('/admin/special-items', { method: 'POST', body: JSON.stringify(data) });
+    }
+    async updateSpecialItem(id: string, data: any) {
+        return this.request<{ item: any }>(`/admin/special-items/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+    }
+    async deleteSpecialItem(id: string) {
+        return this.request<{ message: string }>(`/admin/special-items/${id}`, { method: 'DELETE' });
     }
 }
 

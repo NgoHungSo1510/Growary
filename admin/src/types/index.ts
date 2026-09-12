@@ -58,6 +58,7 @@ export interface Reward {
     pointCost: number;
     imageUrl?: string;
     stock?: number;
+    shippingFee?: number;
     isActive: boolean;
     isFeatured?: boolean;
 }

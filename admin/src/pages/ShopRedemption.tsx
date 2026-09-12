@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '../services/api';
 import type { Reward, Voucher } from '../types';
 
-type ShopTab = 'shelf' | 'warehouse' | 'redeem';
+type ShopTab = 'shelf' | 'warehouse' | 'redeem' | 'vip';
 
 export default function ShopRedemption() {
     const [tab, setTab] = useState<ShopTab>('shelf');
@@ -15,6 +15,7 @@ export default function ShopRedemption() {
     const [redeemResult, setRedeemResult] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
     const [error, setError] = useState('');
     const [uploading, setUploading] = useState(false);
+    const [vipTiers, setVipTiers] = useState<any[]>([]);
 
     // Form state for create/edit
     const [form, setForm] = useState({
@@ -23,6 +24,7 @@ export default function ShopRedemption() {
         pointCost: 100,
         stock: 10,
         imageUrl: '',
+        shippingFee: 15000,
         isActive: true,
         isFeatured: false,
     });
@@ -48,10 +50,52 @@ export default function ShopRedemption() {
         }
     }, []);
 
+    const fetchVipTiers = useCallback(async () => {
+        try {
+            const res = await adminApi.getVipConfig();
+            
+            const defaultTiers = [
+                { tier: 0,  minSpending: 0, name: 'Lữ Khách', cashbackPercent: 0, color: '#9E9E9E', icon: '🚶' },
+                { tier: 1,  minSpending: 30000, name: 'Thương Nhân', cashbackPercent: 1, color: '#8D6E63', icon: '💼' },
+                { tier: 2,  minSpending: 80000, name: 'Thương Nhân Giàu', cashbackPercent: 2, color: '#795548', icon: '💰' },
+                { tier: 3,  minSpending: 150000, name: 'Hào Phú', cashbackPercent: 3, color: '#78909C', icon: '🎩' },
+                { tier: 4,  minSpending: 250000, name: 'Quý Tộc', cashbackPercent: 5, color: '#90A4AE', icon: '🏅' },
+                { tier: 5,  minSpending: 370000, name: 'Bá Tước', cashbackPercent: 6, color: '#FFD54F', icon: '🥉' },
+                { tier: 6,  minSpending: 500000, name: 'Hầu Tước', cashbackPercent: 8, color: '#FFC107', icon: '🥈' },
+                { tier: 7,  minSpending: 640000, name: 'Công Tước', cashbackPercent: 10, color: '#00BCD4', icon: '🥇' },
+                { tier: 8,  minSpending: 780000, name: 'Vương Tôn', cashbackPercent: 12, color: '#26C6DA', icon: '🌟' },
+                { tier: 9,  minSpending: 870000, name: 'Lãnh Chúa', cashbackPercent: 14, color: '#E91E63', icon: '🏰' },
+                { tier: 10, minSpending: 940000, name: 'Hoàng Thân', cashbackPercent: 17, color: '#AB47BC', icon: '👑' },
+                { tier: 11, minSpending: 1000000, name: 'Hoàng Gia', cashbackPercent: 20, color: '#F9A825', icon: '💎' },
+            ];
+
+            if (res && res.tiers && res.tiers.length > 0) {
+                // Merge DB config with defaults to ensure missing fields (color, icon) are filled
+                const merged = res.tiers.map((t: any, index: number) => {
+                    const dt = defaultTiers[index] || defaultTiers[0];
+                    return {
+                        tier: t.tier ?? dt.tier,
+                        name: t.name ?? dt.name,
+                        minSpending: t.minSpending ?? dt.minSpending,
+                        cashbackPercent: t.cashbackPercent ?? dt.cashbackPercent,
+                        color: (t.color && t.color.startsWith('#')) ? t.color : dt.color,
+                        icon: (t.icon && t.icon.trim() !== '') ? t.icon : dt.icon,
+                    };
+                });
+                setVipTiers(merged);
+            } else {
+                setVipTiers(defaultTiers);
+            }
+        } catch (e: any) {
+            console.error(e);
+        }
+    }, []);
+
     useEffect(() => {
         fetchRewards();
         fetchVouchers();
-    }, [fetchRewards, fetchVouchers]);
+        fetchVipTiers();
+    }, [fetchRewards, fetchVouchers, fetchVipTiers]);
 
     const shelfItems = rewards.filter(r => r.isActive);
     const warehouseItems = rewards.filter(r => !r.isActive);
@@ -65,9 +109,40 @@ export default function ShopRedemption() {
         }
     };
 
+    const handleSaveVip = async () => {
+        try {
+            await adminApi.updateVipConfig(vipTiers);
+            alert('Lưu cấu hình VIP thành công!');
+        } catch (e) {
+            alert('Lỗi khi lưu cấu hình VIP');
+        }
+    };
+
+    const handleResetVip = async () => {
+        const userId = prompt('Nhập User ID cần reset VIP:');
+        if (!userId) return;
+
+        const tierInput = prompt('Reset về Tier nào? (0-11)\n0 = Lữ Khách, 1-3 = Thượng nhân, 4-7 = Quý tộc/Công tước, 8-11 = Hoàng gia');
+        if (tierInput === null) return;
+        const resetToTier = parseInt(tierInput, 10);
+        if (isNaN(resetToTier) || resetToTier < 0 || resetToTier > 11) {
+            alert('Tier không hợp lệ. Vui lòng nhập số từ 0-11.');
+            return;
+        }
+
+        if (!window.confirm(`Xác nhận reset User ${userId} về VIP ${resetToTier}?\n\nLưu ý:\n- totalCoinsSpent GIỮ NGUYÊN (không xóa lịch sử)\n- claimedVipTiers sẽ giữ [1..${resetToTier}]\n- User lên lại sẽ nhận quà từ tier > ${resetToTier}`)) return;
+
+        try {
+            await adminApi.resetVip(userId, resetToTier);
+            alert(`✅ Reset VIP thành công! User đã về VIP ${resetToTier}.`);
+        } catch (e: any) {
+            alert('Lỗi: ' + e.message);
+        }
+    };
+
     const openCreate = () => {
         setEditReward(null);
-        setForm({ title: '', description: '', pointCost: 100, stock: 10, imageUrl: '', isActive: true, isFeatured: false });
+        setForm({ title: '', description: '', pointCost: 100, stock: 10, shippingFee: 15000, imageUrl: '', isActive: true, isFeatured: false });
         setShowCreate(true);
     };
 
@@ -78,6 +153,7 @@ export default function ShopRedemption() {
             description: r.description || '',
             pointCost: r.pointCost,
             stock: r.stock ?? 10,
+            shippingFee: r.shippingFee ?? 15000,
             imageUrl: r.imageUrl || '',
             isActive: r.isActive,
             isFeatured: r.isFeatured || false,
@@ -139,6 +215,9 @@ export default function ShopRedemption() {
                 </button>
                 <button className={`tabs__tab${tab === 'redeem' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('redeem')}>
                     🎫 Đổi quà {pendingCount > 0 && <span className="sidebar__badge" style={{ marginLeft: 6 }}>{pendingCount}</span>}
+                </button>
+                <button className={`tabs__tab${tab === 'vip' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('vip')}>
+                    👑 Thẻ hạng
                 </button>
             </div>
 
@@ -363,6 +442,50 @@ export default function ShopRedemption() {
                 </>
             )}
 
+            {/* TAB: Thẻ hạng */}
+            {tab === 'vip' && (
+                <div className="card">
+                    <div className="card__header">
+                        <h3 className="card__title">👑 Cấu hình Thẻ Hạng (VIP)</h3>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <button className="btn btn--danger" onClick={handleResetVip}>⚠️ Reset VIP User</button>
+                            <button className="btn btn--primary" onClick={handleSaveVip}>💾 Lưu VIP</button>
+                        </div>
+                    </div>
+                    <div className="card__body" style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: 600 }}>
+                            <thead>
+                                <tr>
+                                    <th>Cấp</th>
+                                    <th>Icon</th>
+                                    <th>Tên hạng</th>
+                                    <th>Chi tiêu tối thiểu (G)</th>
+                                    <th>Hoàn tiền cuối tháng (%)</th>
+                                    <th>Màu sắc</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {vipTiers.map((tier, idx) => (
+                                    <tr key={idx}>
+                                        <td>{tier.tier}</td>
+                                        <td style={{ fontSize: '20px' }}>{tier.icon}</td>
+                                        <td style={{ fontWeight: 'bold', color: tier.color }}>{tier.name}</td>
+                                        <td><input type="number" value={tier.minSpending} onChange={e => { const newTiers = [...vipTiers]; newTiers[idx].minSpending = Number(e.target.value); setVipTiers(newTiers); }} style={{ width: 100, padding: 8 }} /></td>
+                                        <td><input type="number" value={tier.cashbackPercent} onChange={e => { const newTiers = [...vipTiers]; newTiers[idx].cashbackPercent = Number(e.target.value); setVipTiers(newTiers); }} style={{ width: 80, padding: 8 }} /></td>
+                                        <td>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <div style={{ width: 20, height: 20, backgroundColor: tier.color, borderRadius: 4, border: '1px solid #334155' }}></div>
+                                                <span>{tier.color}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {/* Create/Edit Modal */}
             {(editReward || showCreate) && (
                 <div className="modal-backdrop" onClick={() => { setEditReward(null); setShowCreate(false); }}>
@@ -380,7 +503,7 @@ export default function ShopRedemption() {
                                 <label>Mô tả</label>
                                 <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Mô tả chi tiết..." />
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
                                 <div className="form-group">
                                     <label>🪙 Giá (Coins)</label>
                                     <input type="number" value={form.pointCost} onChange={e => setForm({ ...form, pointCost: Number(e.target.value) })} min={1} />
@@ -388,6 +511,10 @@ export default function ShopRedemption() {
                                 <div className="form-group">
                                     <label>Tồn kho</label>
                                     <input type="number" value={form.stock} onChange={e => setForm({ ...form, stock: Number(e.target.value) })} min={0} />
+                                </div>
+                                <div className="form-group">
+                                    <label>🚚 Phí vận chuyển</label>
+                                    <input type="number" value={form.shippingFee} onChange={e => setForm({ ...form, shippingFee: Number(e.target.value) })} min={0} />
                                 </div>
                             </div>
                             <div className="form-group">

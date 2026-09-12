@@ -11,15 +11,17 @@ import {
     Animated,
     Image,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Reward, Voucher } from '../types';
+import { Reward, Voucher, VipStatus } from '../types';
 import ClayHeader from '../components/ClayHeader';
 import RewardCelebrationModal from '../components/RewardCelebrationModal';
+import { VipMiniCard } from '../components/VipMiniCard';
 import { COLORS, FONT_SIZES } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -40,6 +42,7 @@ const getRewardVisual = (title: string): { icon: keyof typeof MaterialIcons.glyp
 export default function ShopScreen() {
     const { user, refreshUser } = useAuth();
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation();
     const [rewards, setRewards] = useState<Reward[]>([]);
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -48,12 +51,23 @@ export default function ShopScreen() {
     // Modals
     const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
     const [purchasedTitle, setPurchasedTitle] = useState('');
-    const [showInventory, setShowInventory] = useState(false);
     const [grantedRewards, setGrantedRewards] = useState<any | null>(null);
     const [redeemVoucher, setRedeemVoucher] = useState<Voucher | null>(null);
     const [showProcessingModal, setShowProcessingModal] = useState(false);
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [isRedeeming, setIsRedeeming] = useState(false);
+    const [vipStatus, setVipStatus] = useState<VipStatus | null>(null);
+
+    const [inventory, setInventory] = useState<import('../types').InventoryItem[]>([]);
+
+    // Voucher checkout state
+    const [useCoupon, setUseCoupon] = useState<{ type: string, discount: number, isFreeship: boolean, label: string } | null>(null);
+    const [userOptOutVoucher, setUserOptOutVoucher] = useState(false);
+
+    const getDiscountedPrice = (price: number) => {
+        if (!vipStatus || !vipStatus.currentTier || vipStatus.currentTier.discountPercent <= 0) return price;
+        return Math.floor(price * (1 - vipStatus.currentTier.discountPercent / 100));
+    };
 
     // Redeem voucher API
     const handleUseVoucher = async () => {
@@ -76,8 +90,12 @@ export default function ShopScreen() {
 
     const fetchRewards = async () => {
         try {
-            const res = await apiService.getRewards();
+            const [res, vipRes] = await Promise.all([
+                apiService.getRewards(),
+                apiService.getVipStatus().catch(() => null)
+            ]);
             setRewards(res.rewards || []);
+            if (vipRes && vipRes.status) setVipStatus(vipRes.status);
         } catch (error) {
             console.error('Failed to fetch rewards:', error);
         } finally {
@@ -95,16 +113,58 @@ export default function ShopScreen() {
         }
     };
 
+    const fetchInventory = async () => {
+        try {
+            const res = await apiService.getInventory();
+            setInventory(res.inventory || []);
+        } catch { }
+    };
+
     useFocusEffect(
         useCallback(() => {
             fetchRewards();
             fetchVouchers();
+            fetchInventory();
             refreshUser();
         }, [])
     );
 
     const openRewardModal = (reward: Reward) => {
         setSelectedReward(reward);
+
+        // Auto pick best coupon from inventory
+        let bestCoupon = null;
+        let maxDiscount = -1;
+        const shippingFee = reward.shippingFee ?? 15000;
+
+        inventory.forEach(item => {
+            if (item.quantity > 0 && item.itemType.startsWith('coupon_')) {
+                let discount = 0;
+                let isFreeship = false;
+                let label = '';
+
+                if (item.itemType === 'coupon_freeship') {
+                    discount = shippingFee;
+                    isFreeship = true;
+                    label = 'Free Ship';
+                } else {
+                    const match = item.itemType.match(/^coupon_(\d+)k$/);
+                    if (match) {
+                        discount = parseInt(match[1], 10) * 1000;
+                        label = `Giảm ${match[1]}k`;
+                    }
+                }
+
+                if (discount > maxDiscount) {
+                    maxDiscount = discount;
+                    bestCoupon = { type: item.itemType, discount, isFreeship, label };
+                }
+            }
+        });
+
+        setUseCoupon(bestCoupon);
+        setUserOptOutVoucher(false);
+
         modalScale.setValue(0);
         Animated.spring(modalScale, {
             toValue: 1,
@@ -126,8 +186,9 @@ export default function ShopScreen() {
         if (!selectedReward || isPurchasing) return;
         setIsPurchasing(true);
         const reward = selectedReward;
+        const couponType = (!userOptOutVoucher && useCoupon) ? useCoupon.type : undefined;
         try {
-            const data = await apiService.purchaseReward(reward._id);
+            const data = await apiService.purchaseReward(reward._id, couponType);
             setPurchasedTitle(reward.title);
             setSelectedReward(null);
             setRedeemVoucher(data.voucher);
@@ -135,6 +196,7 @@ export default function ShopScreen() {
             refreshUser();
             fetchRewards();
             fetchVouchers();
+            fetchInventory();
         } catch (error: any) {
             closeRewardModal();
             const msg = error.response?.data?.error || 'Không thể đổi';
@@ -178,6 +240,15 @@ export default function ShopScreen() {
                 }
             >
 
+                {vipStatus && (
+                    <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
+                        <VipMiniCard
+                            vipStatus={vipStatus}
+                            onDetailPress={() => navigation.navigate('Settings' as never)}
+                        />
+                    </View>
+                )}
+
                 {/* ── FEATURED SLIDE ── */}
                 {featuredRewards.length > 0 && (
                     <>
@@ -214,7 +285,7 @@ export default function ShopScreen() {
                                             style={styles.featuredImageArea}
                                         >
                                             {reward.imageUrl ? (
-                                                <Image source={{ uri: reward.imageUrl }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+                                                <Image source={{ uri: reward.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                                             ) : (
                                                 <MaterialIcons name={icon} size={64} color={color} style={{ opacity: 0.9 }} />
                                             )}
@@ -228,8 +299,13 @@ export default function ShopScreen() {
                                             <View style={styles.featuredPriceRow}>
                                                 <View style={styles.priceTagYellow}>
                                                     <MaterialIcons name="monetization-on" size={12} color="#713F12" />
-                                                    <Text style={styles.priceTextYellow}>{reward.pointCost}</Text>
+                                                    <Text style={styles.priceTextYellow}>{getDiscountedPrice(reward.pointCost)}</Text>
                                                 </View>
+                                                {vipStatus?.currentTier?.discountPercent ? (
+                                                    <Text style={{ fontSize: 10, textDecorationLine: 'line-through', color: 'rgba(255,255,255,0.5)' }}>
+                                                        {reward.pointCost}
+                                                    </Text>
+                                                ) : null}
                                                 {reward.stock !== undefined && reward.stock !== null && (
                                                     <Text style={styles.stockText}>Còn {reward.stock}</Text>
                                                 )}
@@ -245,8 +321,11 @@ export default function ShopScreen() {
                 {/* ── GRID ITEMS ── */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>🛒 Cửa hàng</Text>
-                    <View style={styles.refreshBadge}>
-                        <Text style={styles.refreshText}>{regularRewards.length} món</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+
+                        <View style={styles.refreshBadge}>
+                            <Text style={styles.refreshText}>{regularRewards.length} món</Text>
+                        </View>
                     </View>
                 </View>
 
@@ -268,7 +347,7 @@ export default function ShopScreen() {
                                     )}
                                     <View style={styles.miniPriceBadge}>
                                         <MaterialIcons name="monetization-on" size={10} color="#713F12" />
-                                        <Text style={styles.miniPriceText}>{reward.pointCost}</Text>
+                                        <Text style={styles.miniPriceText}>{getDiscountedPrice(reward.pointCost)}</Text>
                                     </View>
                                 </View>
                                 <View style={styles.itemInfo}>
@@ -312,7 +391,11 @@ export default function ShopScreen() {
                         <TouchableOpacity activeOpacity={1}>
                             {selectedReward && (() => {
                                 const { icon, color } = getRewardVisual(selectedReward.title);
-                                const canAfford = userCoins >= selectedReward.pointCost;
+                                const shippingFee = selectedReward.shippingFee ?? 15000;
+                                const discountedPriceBase = getDiscountedPrice(selectedReward.pointCost) + shippingFee;
+                                const appliedDiscount = (!userOptOutVoucher && useCoupon) ? useCoupon.discount : 0;
+                                const discountedPrice = Math.max(0, discountedPriceBase - appliedDiscount);
+                                const canAfford = userCoins >= discountedPrice;
                                 return (
                                     <View>
                                         {/* Close button */}
@@ -340,14 +423,50 @@ export default function ShopScreen() {
                                             {selectedReward.description || 'Phần thưởng đặc biệt'}
                                         </Text>
 
+                                        {useCoupon && (
+                                            <TouchableOpacity
+                                                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,197,94,0.1)', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}
+                                                onPress={() => setUserOptOutVoucher(!userOptOutVoucher)}
+                                            >
+                                                <MaterialIcons name={!userOptOutVoucher ? "check-box" : "check-box-outline-blank"} size={24} color="#22C55E" />
+                                                <View style={{ marginLeft: 8, flex: 1 }}>
+                                                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#16A34A' }}>Dùng Voucher {useCoupon.label}</Text>
+                                                    <Text style={{ fontSize: 11, color: '#16A34A' }}>Hệ thống tự động chọn cho bạn</Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                        )}
+
+                                        {/* Price breakdown */}
+                                        <View style={{ backgroundColor: 'rgba(255,255,255,0.5)', padding: 12, borderRadius: 12, marginBottom: 16 }}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                <Text style={{ fontSize: 13, color: 'rgba(93,64,55,0.7)' }}>Giá sản phẩm</Text>
+                                                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{getDiscountedPrice(selectedReward.pointCost)} G</Text>
+                                            </View>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                <Text style={{ fontSize: 13, color: 'rgba(93,64,55,0.7)' }}>Phí vận chuyển</Text>
+                                                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{shippingFee} G</Text>
+                                            </View>
+                                            {(!userOptOutVoucher && useCoupon) && (
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                    <Text style={{ fontSize: 13, color: '#22C55E' }}>Mã giảm giá</Text>
+                                                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#22C55E' }}>-{useCoupon.discount} G</Text>
+                                                </View>
+                                            )}
+                                        </View>
+
                                         {/* Price + Balance */}
                                         <View style={styles.modalPriceRow}>
                                             <View style={styles.modalPriceBox}>
                                                 <Text style={styles.modalPriceLabel}>Giá</Text>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                                     <MaterialIcons name="monetization-on" size={18} color="#713F12" />
-                                                    <Text style={styles.modalPriceValue}>{selectedReward.pointCost}</Text>
+                                                    <Text style={styles.modalPriceValue}>{discountedPrice}</Text>
                                                 </View>
+                                                {vipStatus?.currentTier?.discountPercent ? (
+                                                    <Text style={{ fontSize: 11, textDecorationLine: 'line-through', color: 'rgba(93,64,55,0.4)', marginTop: 2 }}>
+                                                        Gốc: {selectedReward.pointCost}
+                                                    </Text>
+                                                ) : null}
                                             </View>
                                             <View style={styles.modalDivider} />
                                             <View style={styles.modalPriceBox}>
@@ -362,7 +481,7 @@ export default function ShopScreen() {
                                             <View style={styles.warningBox}>
                                                 <MaterialIcons name="warning" size={14} color="#B45309" />
                                                 <Text style={styles.warningText}>
-                                                    Thiếu {selectedReward.pointCost - userCoins} G để đổi
+                                                    Thiếu {discountedPrice - userCoins} G để đổi
                                                 </Text>
                                             </View>
                                         )}
@@ -454,94 +573,7 @@ export default function ShopScreen() {
                 </View>
             </Modal>
 
-            {/* ══════ INVENTORY MODAL ══════ */}
-            <Modal visible={showInventory} animationType="slide" transparent>
-                <View style={styles.inventoryOverlay}>
-                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowInventory(false)} />
-                    <View style={styles.inventorySheet}>
-                        <View style={{ alignItems: 'center', marginBottom: 8 }}>
-                            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: 'rgba(93,64,55,0.15)' }} />
-                        </View>
-                        <View style={styles.inventoryHeader}>
-                            <Text style={styles.inventoryTitle}>📦 Kho đồ của bạn</Text>
-                            <TouchableOpacity onPress={() => setShowInventory(false)}>
-                                <MaterialIcons name="close" size={24} color={COLORS.clayText} />
-                            </TouchableOpacity>
-                        </View>
 
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-                            {vouchers.length === 0 ? (
-                                <View style={styles.emptyState}>
-                                    <MaterialIcons name="inventory-2" size={40} color="rgba(93,64,55,0.15)" />
-                                    <Text style={styles.emptyText}>Chưa có đồ — hãy mua thứ gì đó!</Text>
-                                </View>
-                            ) : (
-                                vouchers.map((v) => (
-                                    <TouchableOpacity
-                                        key={v._id}
-                                        style={styles.voucherRow}
-                                        activeOpacity={v.status === 'active' ? 0.7 : 1}
-                                        onPress={() => {
-                                            if (v.status === 'active') {
-                                                setRedeemVoucher(v);
-                                            }
-                                        }}
-                                    >
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.voucherTitle}>{v.rewardTitleSnapshot}</Text>
-                                            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4 }}>
-                                                <Text style={styles.voucherCode}>{v.code}</Text>
-                                                <View style={[
-                                                    styles.statusBadge,
-                                                    v.status === 'used' && { backgroundColor: 'rgba(34,197,94,0.15)' },
-                                                    v.status === 'pending_use' && { backgroundColor: 'rgba(234,179,8,0.15)' },
-                                                    v.status === 'expired' && { backgroundColor: 'rgba(239,68,68,0.15)' },
-                                                ]}>
-                                                    <Text style={[
-                                                        styles.statusText,
-                                                        v.status === 'used' && { color: '#16A34A' },
-                                                        v.status === 'pending_use' && { color: '#B45309' },
-                                                        v.status === 'expired' && { color: '#DC2626' },
-                                                    ]}>
-                                                        {v.status === 'active' && '🎟️ Sẵn dùng'}
-                                                        {v.status === 'pending_use' && '⏳ Chờ trao'}
-                                                        {v.status === 'used' && '✅ Đã dùng'}
-                                                        {v.status === 'expired' && '⛔ Hết hạn'}
-                                                    </Text>
-                                                </View>
-                                            </View>
-                                            <Text style={styles.voucherDate}>
-                                                Mua: {new Date(v.purchaseDate).toLocaleDateString('vi-VN')}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.voucherCostBox}>
-                                            <MaterialIcons name="monetization-on" size={12} color="#713F12" />
-                                            <Text style={{ fontSize: 12, fontWeight: '800', color: '#713F12' }}>{v.pointCostSnapshot}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))
-                            )}
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* ── FLOATING INVENTORY FAB ── */}
-            <TouchableOpacity
-                style={[styles.fab, { bottom: 90 + insets.bottom }]}
-                activeOpacity={0.85}
-                onPress={() => {
-                    fetchVouchers();
-                    setShowInventory(true);
-                }}
-            >
-                <MaterialIcons name="inventory-2" size={26} color="#FFF" />
-                {pendingVouchers.length > 0 && (
-                    <View style={styles.fabBadge}>
-                        <Text style={styles.fabBadgeText}>{pendingVouchers.length}</Text>
-                    </View>
-                )}
-            </TouchableOpacity>
             {/* ── PROCESSING MODAL ── */}
             <Modal visible={showProcessingModal} animationType="fade" transparent>
                 <View style={styles.inventoryOverlay}>

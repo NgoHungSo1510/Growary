@@ -96,7 +96,7 @@ export default function NotificationManagement() {
                                     <label className="block text-slate-400 text-[13px] mb-1.5">Loại sự kiện</label>
                                     <select value={currentConfig.targetType} onChange={e => setCurrentConfig({ ...currentConfig, targetType: e.target.value as any })} className="w-full p-2.5 rounded-md bg-black/30 border border-white/10 text-white">
                                         <option value="daily">Daily Reset / Tới hạn Quest</option>
-                                        <option value="boss">Boss Xuất hiện</option>
+                                        <option value="boss">Nhân vật Xuất hiện</option>
                                         <option value="event">Sự kiện đặc biệt</option>
                                     </select>
                                 </div>

@@ -10,6 +10,7 @@ import ClayTabBar from '../components/ClayTabBar';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import SplashScreen from '../screens/SplashScreen';
+
 import HomeScreen from '../screens/HomeScreen';
 import ShopScreen from '../screens/ShopScreen';
 import NewTaskScreen from '../screens/NewTaskScreen';
@@ -23,6 +24,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import CollectionScreen from '../screens/CollectionScreen';
 import QuizEventScreen from '../screens/QuizEventScreen';
 import FloatingQuizButton from '../components/FloatingQuizButton';
+import FloatingInventory from '../components/FloatingInventory';
 
 // Stack Navigator types
 export type AuthStackParamList = {
@@ -152,6 +154,7 @@ const MainNavigator = () => (
         </RootStack.Navigator>
         <GlobalNotification />
         <FloatingQuizButton />
+        <FloatingInventory />
     </>
 );
 

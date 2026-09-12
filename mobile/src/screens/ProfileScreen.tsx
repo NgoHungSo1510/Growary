@@ -15,9 +15,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
-import { COLORS, FONT_SIZES } from '../theme';
+import { COLORS, FONT_SIZES, SHADOWS } from '../theme';
+import { VipMiniCard } from '../components/VipMiniCard';
+import { VipStatusResponse } from '../types';
 
 const { width, height } = Dimensions.get('window');
 
@@ -25,10 +28,18 @@ export default function ProfileScreen() {
     const { user, refreshUser, logout } = useAuth();
     const navigation = useNavigation<any>();
     const [isUploading, setIsUploading] = useState(false);
+    const [vipResponse, setVipResponse] = useState<VipStatusResponse | null>(null);
+    const [showVipTiers, setShowVipTiers] = useState(false);
 
     const level = user?.level || 1;
     const levelTitle =
         level >= 10 ? 'Master' : level >= 5 ? 'Adventurer' : 'Beginner';
+
+    React.useEffect(() => {
+        apiService.getVipStatus()
+            .then(data => setVipResponse(data))
+            .catch(console.error);
+    }, []);
 
     const handleLogout = () => {
         Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
@@ -122,6 +133,63 @@ export default function ProfileScreen() {
                     </TouchableOpacity>
                 </View>
 
+                {/* --- VIP STATUS --- */}
+                {vipResponse && (
+                    <View style={{ marginBottom: 24 }}>
+                        <VipMiniCard
+                            vipStatus={vipResponse.status}
+                        />
+
+                        {/* --- FULL VIP DETAIL SECTION --- */}
+                        <View style={styles.vipDetailContainer}>
+                            <Text style={styles.sectionHeading}>Quyền lợi hiện tại:</Text>
+                            <View style={styles.benefitsBox}>
+                                <Text style={styles.benefitRow}>• Cashback <Text style={styles.highlightText}>{vipResponse.status.currentTier.cashbackPercent}%</Text> / tháng</Text>
+                                <Text style={styles.benefitRow}>• Chiết khấu <Text style={styles.highlightText}>{vipResponse.status.currentTier.discountPercent}%</Text> mỗi lần mua</Text>
+                                <Text style={styles.benefitRow}>• Tháng này đang tích: <Text style={styles.highlightText}>{vipResponse.status.pendingCashback.toLocaleString()} coins</Text></Text>
+                            </View>
+
+                            <TouchableOpacity
+                                style={styles.collapseHeader}
+                                onPress={() => setShowVipTiers(!showVipTiers)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.sectionHeading}>BẢNG 12 CẤP VIP</Text>
+                                <MaterialIcons name={showVipTiers ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={24} color={COLORS.clayText} />
+                            </TouchableOpacity>
+
+                            {showVipTiers && (
+                                <View style={styles.tiersList}>
+                                    {vipResponse.allTiers.map(tier => {
+                                        const isCurrent = tier.tier === vipResponse.status.currentTier.tier;
+                                        const isReached = tier.tier < vipResponse.status.currentTier.tier;
+                                        return (
+                                            <View key={tier.tier} style={[styles.tierRow, isCurrent && styles.tierRowCurrent]}>
+                                                <Text style={[styles.tierCol1, { color: tier.color, fontWeight: isCurrent ? 'bold' : 'normal' }]}>Tier {tier.tier}</Text>
+                                                <Text style={[styles.tierCol2, { color: tier.color, fontWeight: isCurrent ? 'bold' : 'normal' }]}>{tier.name}</Text>
+                                                <Text style={[styles.tierCol3, { color: 'rgba(93, 64, 55, 0.5)' }]}>{tier.minSpending.toLocaleString()}</Text>
+                                                {isCurrent && <Text style={styles.tierTagCurrent}>← BẠN ĐÂY</Text>}
+                                                {isReached && <Text style={styles.tierTagReached}>(Đã đạt)</Text>}
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+                            )}
+
+                            {vipResponse.history && vipResponse.history.length > 0 && (
+                                <View style={styles.historyContainer}>
+                                    <Text style={styles.sectionHeading}>LỊCH SỬ LÊN HẠNG</Text>
+                                    {vipResponse.history.map((h, i) => (
+                                        <Text key={i} style={styles.historyRow}>
+                                            • {h.tierName} — {new Date(h.date).toLocaleDateString('vi-VN')}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                )}
+
                 {/* --- SETTINGS LIST --- */}
                 <View style={styles.settingsList}>
                     {/* Account Info */}
@@ -195,7 +263,7 @@ export default function ProfileScreen() {
                     <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.versionText}>App Version 1.0.0 (Beta)</Text>
+                <Text style={styles.versionText}>App Version {Constants.expoConfig?.version || '1.1.0'} (Beta)</Text>
 
                 <View style={{ height: 80 }} />
             </ScrollView>
@@ -438,6 +506,100 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: COLORS.clayText,
         opacity: 0.3,
-        marginTop: 16,
+        marginLeft: 16,
     },
+
+    // --- VIP Detail Styles ---
+    vipDetailContainer: {
+        marginTop: 16,
+        padding: 16,
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        ...SHADOWS.clayLight,
+    },
+    sectionHeading: {
+        fontSize: FONT_SIZES.subtitle,
+        fontWeight: 'bold',
+        color: COLORS.clayText,
+        marginBottom: 12,
+        marginTop: 8,
+    },
+    benefitsBox: {
+        backgroundColor: 'rgba(251, 155, 143, 0.1)',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    benefitRow: {
+        fontSize: FONT_SIZES.body,
+        color: COLORS.clayText,
+        marginBottom: 6,
+    },
+    highlightText: {
+        fontWeight: 'bold',
+        color: COLORS.clayAccent1,
+    },
+    collapseHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    tiersList: {
+        marginTop: 12,
+        marginBottom: 20,
+    },
+    tierRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F0F0F0',
+    },
+    tierRowCurrent: {
+        backgroundColor: 'rgba(59, 130, 246, 0.05)',
+        borderRadius: 8,
+        paddingHorizontal: 8,
+        marginHorizontal: -8,
+        borderBottomWidth: 0,
+    },
+    tierCol1: {
+        flex: 1,
+        fontSize: FONT_SIZES.caption,
+    },
+    tierCol2: {
+        flex: 1.5,
+        fontSize: FONT_SIZES.caption,
+    },
+    tierCol3: {
+        flex: 1,
+        fontSize: FONT_SIZES.caption,
+        textAlign: 'right',
+    },
+    tierTagCurrent: {
+        position: 'absolute',
+        right: 8,
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#3B82F6',
+    },
+    tierTagReached: {
+        position: 'absolute',
+        right: 0,
+        fontSize: 10,
+        color: 'rgba(93, 64, 55, 0.5)',
+    },
+    historyContainer: {
+        marginTop: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+    },
+    historyRow: {
+        fontSize: FONT_SIZES.caption,
+        color: COLORS.clayText,
+        marginBottom: 8,
+    }
 });

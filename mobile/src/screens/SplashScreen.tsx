@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { COLORS } from '../theme';
 
 const { width, height } = Dimensions.get('window');
@@ -186,7 +187,7 @@ export default function SplashScreen() {
 
             {/* --- FOOTER VERSION --- */}
             <View style={styles.footer}>
-                <Text style={styles.footerText}>Version 1.6.1</Text>
+                <Text style={styles.footerText}>Version {Constants.expoConfig?.version || '1.1.0'}</Text>
             </View>
         </View>
     );

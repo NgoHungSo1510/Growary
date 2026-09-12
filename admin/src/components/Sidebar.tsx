@@ -7,13 +7,14 @@ interface NavItem {
     path: string;
     label: string;
     icon: string;
-    id: 'dashboard' | 'quests' | 'shop' | 'users' | 'events' | 'rewards' | 'boss' | 'gacha' | 'penalty' | 'notifications' | 'quiz';
+    id: 'dashboard' | 'quests' | 'shop' | 'special-warehouse' | 'users' | 'events' | 'rewards' | 'boss' | 'gacha' | 'penalty' | 'notifications' | 'quiz';
 }
 
 const mainNav: NavItem[] = [
     { id: 'dashboard', path: '/', label: 'Dashboard', icon: '📊' },
     { id: 'quests', path: '/quests', label: 'Quản lý Nhiệm vụ', icon: '⚔️' },
     { id: 'shop', path: '/shop', label: 'Cửa hàng & Đổi quà', icon: '🎁' },
+    { id: 'special-warehouse', path: '/special-warehouse', label: 'Kho Đặc Biệt', icon: '📦' },
     { id: 'users', path: '/users', label: 'Người chơi', icon: '👥' },
     { id: 'rewards', path: '/rewards', label: 'Hệ thống Cấp độ & Quà', icon: '⭐' },
     { id: 'events', path: '/events', label: 'Quản lý Sự kiện', icon: '🎉' },

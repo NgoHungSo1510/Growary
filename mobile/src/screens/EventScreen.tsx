@@ -12,27 +12,44 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ClayHeader from '../components/ClayHeader';
-import { COLORS, FONT_SIZES } from '../theme';
+import { COLORS } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 
 const { width } = Dimensions.get('window');
 
+const MYSTERY_TITLES = [
+    "Nhân vật bí ẩn nào đây?",
+    "Liệu bạn có kịp mở khóa nhân vật lần này không?",
+    "Một bóng đen bí ẩn đang chờ bạn...",
+    "Hãy thu thập sức mạnh để giải mã!",
+    "Bí ẩn sắp được hé lộ!"
+];
+
 export default function EventScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
-    const [hasBoss, setHasBoss] = useState<boolean | null>(null);
+    const [activeBoss, setActiveBoss] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const mysteryTitleRef = React.useRef(MYSTERY_TITLES[Math.floor(Math.random() * MYSTERY_TITLES.length)]).current;
 
     useFocusEffect(
         useCallback(() => {
             const checkBoss = async () => {
                 try {
                     const res = await apiService.get('/events/boss/active');
-                    setHasBoss(!!res.activeBoss);
+                    if (res.activeBoss) {
+                        setActiveBoss(res.activeBoss);
+                    } else {
+                        setActiveBoss(null);
+                    }
                 } catch {
-                    setHasBoss(false);
+                    setActiveBoss(null);
+                } finally {
+                    setIsLoading(false);
                 }
             };
             checkBoss();
@@ -40,7 +57,7 @@ export default function EventScreen({ navigation }: any) {
     );
 
     return (
-        <View style={[styles.container]}>
+        <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={COLORS.warmBg} />
             <ClayHeader user={user} />
 
@@ -50,38 +67,90 @@ export default function EventScreen({ navigation }: any) {
             >
                 <Text style={styles.sectionDesc}>Hệ thống Gamification độc quyền chia làm 4 mùa. Tham gia ngay để thu thập vật phẩm hiếm!</Text>
 
-                {/* Concept 1: Săn Boss */}
+                {/* Concept 1: Mở Khóa Nhân Vật */}
                 <TouchableOpacity
                     style={styles.cardContainer}
-                    activeOpacity={hasBoss ? 0.8 : 1}
-                    onPress={() => hasBoss && navigation.navigate('BossEvent')}
+                    activeOpacity={activeBoss ? 0.8 : 1}
+                    onPress={() => activeBoss && navigation.navigate('BossEvent')}
                 >
                     <LinearGradient
-                        colors={['#ef4444', '#991b1b']}
+                        colors={activeBoss?.colorBg ? [activeBoss.colorBg, '#0f172a'] : ['#ef4444', '#991b1b']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.cardGradient}
                     >
+                        {/* V2 Boss Thumbnail Background */}
+                        {activeBoss?.avatarImageUrl && (
+                            <View style={StyleSheet.absoluteFill}>
+                                <Image source={{ uri: activeBoss.avatarImageUrl }} style={styles.bgImage} />
+                                <View style={styles.darkOverlay} />
+                            </View>
+                        )}
+                        
                         <View style={styles.contentWrap}>
-                            <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-                                <MaterialIcons name="local-fire-department" size={40} color="#FFF" />
+                            {/* Icon / Thumbnail Box */}
+                            <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 255, 255, 0.2)', overflow: 'hidden' }]}>
+                                {activeBoss?.avatarImageUrl ? (
+                                    <>
+                                        <Image source={{ uri: activeBoss.avatarImageUrl }} style={styles.thumbnailImg} />
+                                        {activeBoss.currentHp > 0 && (
+                                            <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" />
+                                        )}
+                                    </>
+                                ) : (
+                                    <MaterialIcons name="local-fire-department" size={40} color="#FFF" />
+                                )}
                             </View>
+
                             <View style={styles.textContainer}>
-                                <Text style={styles.cardTitle}>Săn Boss Thế Giới</Text>
-                                <Text style={styles.cardSubtitle}>Concept 1</Text>
-                                <Text style={styles.cardDesc}>Tích lũy XP để gây sát thương và chia nhau Rương Thưởng khổng lồ khi Boss bị hạ gục.</Text>
+                                <Text style={styles.cardTitle}>
+                                    {activeBoss 
+                                        ? (activeBoss.currentHp <= 0 ? activeBoss.title : (activeBoss.secretDescription || 'Nhân vật bí ẩn')) 
+                                        : "Mở Khóa Nhân Vật"}
+                                </Text>
+                                
+                                <View style={styles.badgeRow}>
+                                    {activeBoss?.isLimited && (
+                                        <View style={[styles.badge, { backgroundColor: '#ef4444' }]}>
+                                            <Text style={styles.badgeText}>LIMITED</Text>
+                                        </View>
+                                    )}
+                                    {activeBoss?.collectionId && (
+                                        <View style={[styles.badge, { backgroundColor: '#fbbf24' }]}>
+                                            <Text style={styles.badgeText}>COLLECTION</Text>
+                                        </View>
+                                    )}
+                                    {activeBoss?.loreTitle && (
+                                        <View style={[styles.badge, { backgroundColor: '#8b5cf6' }]}>
+                                            <Text style={styles.badgeText}>STORY</Text>
+                                        </View>
+                                    )}
+                                    {!activeBoss?.isLimited && !activeBoss?.collectionId && (
+                                        <Text style={styles.cardSubtitle}>HOT EVENT</Text>
+                                    )}
+                                </View>
+
+                                <Text style={styles.cardDesc} numberOfLines={2}>
+                                    {activeBoss 
+                                        ? (activeBoss.currentHp <= 0 ? activeBoss.description : mysteryTitleRef) 
+                                        : "Tích lũy XP để gây sát thương và chia nhau phần thưởng."}
+                                </Text>
                             </View>
+                            
                             <View style={styles.actionBtn}>
-                                <MaterialIcons name={hasBoss ? "chevron-right" : "lock"} size={24} color="#FFF" />
+                                <MaterialIcons name={activeBoss ? "chevron-right" : "lock"} size={24} color="#FFF" />
                             </View>
                         </View>
-                        <MaterialIcons name="pets" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
+                        
+                        {!activeBoss?.avatarImageUrl && (
+                            <MaterialIcons name="pets" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
+                        )}
 
                         {/* Lock overlay when no active boss */}
-                        {hasBoss === false && (
+                        {!activeBoss && !isLoading && (
                             <View style={styles.lockOverlay}>
                                 <MaterialIcons name="lock" size={28} color="rgba(255,255,255,0.9)" />
-                                <Text style={styles.lockText}>Chưa có Boss</Text>
+                                <Text style={styles.lockText}>Chưa có Nhân Vật</Text>
                             </View>
                         )}
                     </LinearGradient>
@@ -241,6 +310,16 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.3)',
     },
+    bgImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+        opacity: 0.4,
+    },
+    darkOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
     contentWrap: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -256,6 +335,11 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.4)',
     },
+    thumbnailImg: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
     textContainer: {
         flex: 1,
         marginRight: 12,
@@ -264,9 +348,26 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '900',
         color: '#FFF',
-        textShadowColor: 'rgba(0,0,0,0.2)',
+        textShadowColor: 'rgba(0,0,0,0.4)',
         textShadowOffset: { width: 0, height: 2 },
         textShadowRadius: 4,
+    },
+    badgeRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginTop: 4,
+        marginBottom: 6,
+    },
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 8,
+    },
+    badgeText: {
+        fontSize: 9,
+        fontWeight: 'bold',
+        color: '#FFF',
     },
     cardSubtitle: {
         fontSize: 12,
@@ -299,7 +400,7 @@ const styles = StyleSheet.create({
     },
     lockOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.45)',
+        backgroundColor: 'rgba(0,0,0,0.6)',
         borderRadius: 24,
         alignItems: 'center',
         justifyContent: 'center',

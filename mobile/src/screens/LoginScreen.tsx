@@ -41,9 +41,16 @@ export default function LoginScreen() {
         }
 
         setIsLoading(true);
+        console.log('=== TEST BẮT ĐẦU ĐĂNG NHẬP ===');
+        console.log('Email được gửi đi:', email);
+        console.log('Password được gửi đi:', password);
+        
         try {
             await login(email, password);
+            console.log('=== TEST ĐĂNG NHẬP THÀNH CÔNG ===');
         } catch (error: any) {
+            console.log('=== TEST LỖI ĐĂNG NHẬP ===');
+            console.log('Chi tiết lỗi:', error.response?.data || error.message || error);
             Alert.alert('Đăng nhập thất bại', error.response?.data?.error || 'Có lỗi xảy ra');
         } finally {
             setIsLoading(false);

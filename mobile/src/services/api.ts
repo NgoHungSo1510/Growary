@@ -1,15 +1,21 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import * as SecureStore from '../utils/storage';
 import Constants from 'expo-constants';
+
+import { Platform } from 'react-native';
 
 // Auto-detect backend host from Expo dev server connection
 const getApiUrl = () => {
-    // 🔴 FORCING RENDER URL CHO VIỆC TEST CODE 🔴
-    // const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
-    // if (debuggerHost) {
-    //     const host = debuggerHost.split(':')[0];
-    //     return `http://${host}:5000/api`;
-    // }
+    if (Platform.OS === 'web') {
+        return 'http://localhost:5000/api';
+    }
+    
+    // Ưu tiên localhost cho môi trường local
+    const debuggerHost = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+    if (debuggerHost) {
+        const host = debuggerHost.split(':')[0];
+        return `http://${host}:5000/api`;
+    }
     return 'https://growary-backend-vb86.onrender.com/api';
 };
 
@@ -157,6 +163,27 @@ class ApiService {
         return response.data;
     }
 
+    // --- INVENTORY & FRAGMENTS ---
+    async getInventory() {
+        const response = await this.api.get('/rewards/inventory');
+        return response.data;
+    }
+
+    async openMysteryBox(itemType: string) {
+        const response = await this.api.post('/rewards/inventory/open-box', { itemType });
+        return response.data;
+    }
+
+    async exchangeFragment(specialItemId: string) {
+        const response = await this.api.post('/rewards/inventory/exchange-fragment', { specialItemId });
+        return response.data;
+    }
+
+    async useItem(specialItemId: string) {
+        const response = await this.api.post('/rewards/inventory/use-item', { specialItemId });
+        return response.data;
+    }
+
     async updateTaskDetails(planId: string, taskIndex: number, data: { scheduledTime?: string; durationMinutes?: number; customTitle?: string }) {
         const response = await this.api.patch(`/plans/${planId}/tasks/${taskIndex}`, data);
         return response.data;
@@ -204,8 +231,13 @@ class ApiService {
         return response.data;
     }
 
-    async purchaseReward(rewardId: string) {
-        const response = await this.api.post(`/rewards/${rewardId}/purchase`);
+    async getVipStatus() {
+        const response = await this.api.get('/rewards/vip-status');
+        return response.data;
+    }
+
+    async purchaseReward(rewardId: string, voucherId?: string) {
+        const response = await this.api.post(`/rewards/${rewardId}/purchase`, { voucherId });
         return response.data;
     }
 

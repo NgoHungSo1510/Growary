@@ -52,6 +52,7 @@ export async function scheduleQuestReminder(task: DailyTask): Promise<string | n
 }
 
 export async function cancelAllQuestReminders(): Promise<void> {
+    if (Platform.OS === 'web') return;
     await Notifications.cancelAllScheduledNotificationsAsync();
 }
 

@@ -15,7 +15,7 @@ export default function Events() {
 
             <div style={{ display: 'flex', gap: 16, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
                 {[
-                    { key: 'boss' as const, label: '👾 Săn Boss (Concept 1)' },
+                    { key: 'boss' as const, label: '👾 Mở Khóa Nhân Vật' },
                     { key: 'battlepass' as const, label: '📜 Sổ Sứ Mệnh (Concept 2)' },
                     { key: 'gacha' as const, label: '🎡 Vòng Quay (Concept 3)' },
                     { key: 'collection' as const, label: '📚 Bộ Sưu Tập (Concept 4)' },

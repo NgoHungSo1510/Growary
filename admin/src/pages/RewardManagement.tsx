@@ -20,14 +20,14 @@ interface Level {
 
 interface Milestone {
     _id: string;
-    type: 'streak' | 'spending';
+    type: 'streak';
     target: number;
     coins: number;
     gachaTickets: number;
     rewardItems: RewardItem[];
 }
 
-type Tab = 'levels' | 'streak' | 'spending';
+type Tab = 'levels' | 'streak';
 
 export default function RewardManagement() {
     const [tab, setTab] = useState<Tab>('levels');
@@ -204,6 +204,8 @@ export default function RewardManagement() {
         }
     };
 
+
+
     const filteredMilestones = milestones.filter(m => m.type === tab);
 
     return (
@@ -225,10 +227,7 @@ export default function RewardManagement() {
                     ⭐ Cấp độ (RPG)
                 </button>
                 <button className={`tabs__tab${tab === 'streak' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('streak')}>
-                    🔥 Chuỗi tương tác (Streak)
-                </button>
-                <button className={`tabs__tab${tab === 'spending' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('spending')}>
-                    💸 Chi tiêu tích lũy (Spending)
+                    🔥 Chuỗi truy cập (Streak)
                 </button>
             </div>
 
@@ -305,11 +304,11 @@ export default function RewardManagement() {
                 </div>
             )}
 
-            {tab !== 'levels' && (
+            {tab === 'streak' && (
                 <div className="card">
                     <div className="card__header">
                         <span className="card__title">
-                            {tab === 'streak' ? '🔥 Mốc thưởng theo chuỗi ngày' : '💸 Mốc thưởng theo tổng chi tiêu Coins'}
+                            🔥 Mốc thưởng theo chuỗi ngày
                         </span>
                         <button className="btn btn--primary" onClick={openCreate}>+ Thêm mốc mới</button>
                     </div>
@@ -336,7 +335,7 @@ export default function RewardManagement() {
                                     {filteredMilestones.map(m => (
                                         <tr key={m._id}>
                                             <td style={{ fontWeight: 700, fontSize: 16 }}>
-                                                {tab === 'streak' ? `${m.target} Ngày` : `${m.target.toLocaleString()} Coins`}
+                                                {m.target} Ngày
                                             </td>
                                             <td style={{ fontWeight: 600, color: '#f59e0b' }}>
                                                 {m.coins > 0 ? `+${m.coins.toLocaleString()}` : '—'}
@@ -384,13 +383,12 @@ export default function RewardManagement() {
                             <div className="form-group">
                                 <label>Loại mốc</label>
                                 <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as Tab })} disabled={!!editMode}>
-                                    <option value="streak">🔥 Chuỗi ngày liên tiếp (Streak)</option>
-                                    <option value="spending">💸 Tổng số Coins đã tiêu</option>
+                                    <option value="streak">🔥 Streak liên tục (ngày)</option>
                                 </select>
                             </div>
 
                             <div className="form-group">
-                                <label>Mục tiêu để nhận thưởng ({form.type === 'streak' ? 'Ngày' : 'Coins'}) *</label>
+                                <label>Mục tiêu để nhận thưởng (Ngày) *</label>
                                 <input
                                     type="number"
                                     min="1"
