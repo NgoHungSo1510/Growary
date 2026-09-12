@@ -150,8 +150,8 @@ export default function ShopScreen() {
         const freeships: { type: string, discount: number, label: string }[] = [];
 
         inventory.forEach(item => {
-            if (item.quantity > 0 && item.itemType === 'special_item' && item.rewardForm === 'full' && item.specialItem) {
-                const spType = item.specialItem.type;
+            if (item.quantity > 0 && item.itemType === 'special_item' && item.rewardForm === 'full' && item.specialItem && item.specialItem.type) {
+                const spType = item.specialItem.type as string;
                 if (spType === 'coupon_freeship' || spType === 'freeship') {
                     const c = { type: spType, discount: shippingFee, label: 'Free Ship' };
                     freeships.push(c);

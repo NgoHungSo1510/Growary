@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { APP_VERSION } from '../config';
 import {
     View,
     Text,
@@ -187,7 +188,7 @@ export default function SplashScreen() {
 
             {/* --- FOOTER VERSION --- */}
             <View style={styles.footer}>
-                <Text style={styles.footerText}>Version {Constants.expoConfig?.version || '1.1.0'}</Text>
+                <Text style={styles.footerText}>Version {APP_VERSION}</Text>
             </View>
         </View>
     );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Dimensions, StyleSheet, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, Animated, Dimensions, StyleSheet, Alert, Image, ActivityIndicator } from 'react-native';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { apiService } from '../services/api';
 import { InventoryItem, Voucher } from '../types';

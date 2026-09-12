@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { APP_VERSION } from '../config';
 import {
     View,
     Text,
@@ -263,7 +264,7 @@ export default function ProfileScreen() {
                     <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.versionText}>App Version {Constants.expoConfig?.version || '1.1.0'} (Beta)</Text>
+                <Text style={styles.versionText}>App Version {APP_VERSION} (Beta)</Text>
 
                 <View style={{ height: 80 }} />
             </ScrollView>
