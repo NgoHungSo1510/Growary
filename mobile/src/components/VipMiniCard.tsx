@@ -7,6 +7,23 @@ interface Props {
   onDetailPress?: () => void;
 }
 
+const getContrastColor = (hexcolor: string) => {
+  if (!hexcolor || !/^#([0-9A-F]{3}){1,2}$/i.test(hexcolor)) return '#FFFFFF';
+  const hex = hexcolor.replace('#', '');
+  let r = 0, g = 0, b = 0;
+  if (hex.length === 3) {
+    r = parseInt(hex.charAt(0) + hex.charAt(0), 16);
+    g = parseInt(hex.charAt(1) + hex.charAt(1), 16);
+    b = parseInt(hex.charAt(2) + hex.charAt(2), 16);
+  } else if (hex.length === 6) {
+    r = parseInt(hex.substring(0, 2), 16);
+    g = parseInt(hex.substring(2, 4), 16);
+    b = parseInt(hex.substring(4, 6), 16);
+  }
+  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+  return (yiq >= 128) ? '#1A2235' : '#FFFFFF';
+};
+
 export const VipMiniCard: React.FC<Props> = ({ vipStatus, onDetailPress }) => {
   const { currentTier, nextTier, totalCoinsSpent, coinsToNextTier } = vipStatus;
 
@@ -17,59 +34,65 @@ export const VipMiniCard: React.FC<Props> = ({ vipStatus, onDetailPress }) => {
   const progress = range > 0 ? Math.min(1, (totalCoinsSpent - prevTierMin) / range) : 1;
 
   const hasBenefits = currentTier.tier > 0;
+  
+  const textColor = getContrastColor(currentTier.color);
+  const isDarkText = textColor === '#1A2235';
+  const secondaryTextColor = isDarkText ? 'rgba(26,34,53,0.7)' : 'rgba(255,255,255,0.8)';
+  const progressBgColor = isDarkText ? 'rgba(26,34,53,0.15)' : 'rgba(255,255,255,0.3)';
+  const benefitColor = isDarkText ? '#065F46' : '#10B981'; // darker green for light background
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: currentTier.color }]}>
       <View style={styles.header}>
         <View style={styles.tierBadge}>
-          <Text style={[styles.tierIcon, { color: currentTier.color }]}>👑</Text>
-          <Text style={[styles.tierText, { color: currentTier.color }]}>
+          <Text style={[styles.tierIcon, { color: textColor }]}>👑</Text>
+          <Text style={[styles.tierText, { color: textColor }]}>
             VIP {currentTier.tier}: {currentTier.name}
           </Text>
         </View>
         {onDetailPress && (
-          <TouchableOpacity onPress={onDetailPress} style={styles.detailBtn}>
-            <Text style={styles.detailText}>Chi tiết →</Text>
+          <TouchableOpacity onPress={onDetailPress} style={[styles.detailBtn, { backgroundColor: isDarkText ? 'rgba(26,34,53,0.1)' : 'rgba(255,255,255,0.15)' }]}>
+            <Text style={[styles.detailText, { color: textColor }]}>Chi tiết →</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Chỉ hiện benefits khi tier > 0 */}
       {hasBenefits && (
-        <Text style={styles.benefits}>
+        <Text style={[styles.benefits, { color: benefitColor }]}>
           -{currentTier.discountPercent}% Mua hàng • +{currentTier.cashbackPercent}% Hoàn cuối tháng
         </Text>
       )}
 
       {nextTier ? (
         <View style={styles.progressContainer}>
-          <View style={styles.progressBar}>
+          <View style={[styles.progressBar, { backgroundColor: progressBgColor }]}>
             <View
               style={[
                 styles.progressFill,
                 {
                   width: `${Math.round(progress * 100)}%`,
-                  backgroundColor: currentTier.color,
+                  backgroundColor: textColor,
                 },
               ]}
             />
           </View>
           <View style={styles.progressLabels}>
-            <Text style={styles.progressSpent}>
+            <Text style={[styles.progressSpent, { color: secondaryTextColor }]}>
               {totalCoinsSpent.toLocaleString()} coins
             </Text>
-            <Text style={styles.progressTarget}>
+            <Text style={[styles.progressTarget, { color: secondaryTextColor }]}>
               {nextTier.minSpending.toLocaleString()}
             </Text>
           </View>
-          <Text style={styles.progressText}>
-            Tiêu thêm <Text style={{ color: nextTier.color, fontWeight: '700' }}>
+          <Text style={[styles.progressText, { color: secondaryTextColor }]}>
+            Tiêu thêm <Text style={{ color: textColor, fontWeight: '700' }}>
               {coinsToNextTier?.toLocaleString()}
-            </Text> coins để lên <Text style={{ color: nextTier.color, fontWeight: '700' }}>{nextTier.name}</Text>
+            </Text> coins để lên <Text style={{ color: textColor, fontWeight: '700' }}>{nextTier.name}</Text>
           </Text>
         </View>
       ) : (
-        <Text style={styles.maxTierText}>🏆 Đã đạt cấp cao nhất!</Text>
+        <Text style={[styles.maxTierText, { color: textColor }]}>🏆 Đã đạt cấp cao nhất!</Text>
       )}
     </View>
   );
@@ -78,7 +101,6 @@ export const VipMiniCard: React.FC<Props> = ({ vipStatus, onDetailPress }) => {
 const styles = StyleSheet.create({
   card: {
     padding: 14,
-    backgroundColor: '#1A2235',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
@@ -100,11 +122,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  detailText: { color: '#9CA3AF', fontSize: 11, fontWeight: '600' },
+  detailText: { fontSize: 11, fontWeight: '600' },
   benefits: {
-    color: '#10B981',
     fontSize: 11,
     fontWeight: '600',
     marginBottom: 10,
@@ -113,7 +133,6 @@ const styles = StyleSheet.create({
   progressContainer: { marginTop: 8 },
   progressBar: {
     height: 6,
-    backgroundColor: '#374151',
     borderRadius: 3,
     overflow: 'hidden',
   },
@@ -123,8 +142,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 4,
   },
-  progressSpent: { color: '#6B7280', fontSize: 10 },
-  progressTarget: { color: '#6B7280', fontSize: 10 },
-  progressText: { color: '#9CA3AF', fontSize: 11, marginTop: 4 },
-  maxTierText: { color: '#F9A825', fontWeight: 'bold', fontSize: 12, marginTop: 8 },
+  progressSpent: { fontSize: 10 },
+  progressTarget: { fontSize: 10 },
+  progressText: { fontSize: 11, marginTop: 4 },
+  maxTierText: { fontWeight: 'bold', fontSize: 12, marginTop: 8 },
 });

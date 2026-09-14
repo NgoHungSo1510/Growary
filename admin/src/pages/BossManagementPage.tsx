@@ -6,23 +6,27 @@ export default function BossManagementPage() {
     const [events, setEvents] = useState<any[]>([]);
     const [weeks, setWeeks] = useState<any[]>([]);
     const [collections, setCollections] = useState<any[]>([]);
+    const [mysteryBoxes, setMysteryBoxes] = useState<any[]>([]);
     const [showCreate, setShowCreate] = useState(false);
     const [editEvent, setEditEvent] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [showAllWeeks, setShowAllWeeks] = useState(false);
 
     const poolBosses = events.filter(ev => ev.status === 'pool');
     const upcomingBosses = events.filter(ev => ev.status === 'upcoming');
 
     const fetchEvents = async () => {
         try {
-            const [evRes, weekRes, colRes] = await Promise.all([
+            const [evRes, weekRes, colRes, boxRes] = await Promise.all([
                 adminApi.get<{ events: any[] }>('/admin/boss'),
                 adminApi.get<{ weeks: any[] }>('/admin/boss-weekly-history'),
-                adminApi.get<{ collections: any[] }>('/admin/boss-collections')
+                adminApi.get<{ collections: any[] }>('/admin/boss-collections'),
+                adminApi.getMysteryBoxes()
             ]);
             setEvents(evRes.events || []);
             setWeeks(weekRes.weeks || []);
             setCollections(colRes.collections || []);
+            setMysteryBoxes(boxRes.boxes || []);
         } catch (error) {
             console.error('Failed to fetch boss data', error);
         }
@@ -294,7 +298,7 @@ export default function BossManagementPage() {
                     )}
 
                     {/* Timeline */}
-                    {weeks.map((week, wIdx) => (
+                    {(showAllWeeks ? weeks : weeks.slice(0, 2)).map((week, wIdx) => (
                         <div key={wIdx} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div style={{ fontWeight: 'bold', fontSize: 16, color: 'var(--accent)' }}>
                                 📅 {week.weekLabel} (Bắt đầu: {new Date(week.weekStart).toLocaleDateString('vi-VN')})
@@ -308,6 +312,14 @@ export default function BossManagementPage() {
                             </div>
                         </div>
                     ))}
+
+                    {weeks.length > 2 && (
+                        <div style={{ textAlign: 'center', marginTop: 20 }}>
+                            <button className="btn btn--secondary" onClick={() => setShowAllWeeks(!showAllWeeks)}>
+                                {showAllWeeks ? 'Thu gọn lịch sử' : `Xem thêm lịch sử cũ (${weeks.length - 2} tuần)`}
+                            </button>
+                        </div>
+                    )}
 
                     {weeks.length === 0 && poolBosses.length === 0 && (
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 20px', backgroundColor: 'var(--bg)', borderRadius: 8, border: '1px dashed var(--border)', textAlign: 'center' }}>
@@ -494,6 +506,23 @@ export default function BossManagementPage() {
                                             <label>Gacha</label>
                                             <input type="number" value={editEvent?.gachaTickets || 0} onChange={e => setEditEvent({ ...editEvent, gachaTickets: Number(e.target.value) })} />
                                         </div>
+                                    </div>
+                                    
+                                    <div className="form-group" style={{ marginTop: 12 }}>
+                                        <label>Phần Thưởng Mystery Box</label>
+                                        <select
+                                            value={editEvent?.mysteryBoxRewards?.[0] || ''}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                setEditEvent({ ...editEvent, mysteryBoxRewards: val ? [val] : [] });
+                                            }}
+                                            style={{ padding: 8, borderRadius: 8, border: '1px solid var(--border)' }}
+                                        >
+                                            <option value="">-- Không có phần thưởng rương --</option>
+                                            {mysteryBoxes.map(box => (
+                                                <option key={box._id} value={box._id}>{box.name} ({box.rarity})</option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
 

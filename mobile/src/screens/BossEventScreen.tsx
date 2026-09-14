@@ -90,9 +90,10 @@ const MYSTERY_TITLES = [
     "Bí ẩn sắp được hé lộ!"
 ];
 
-export default function BossEventScreen() {
+export default function BossEventScreen({ route }: any) {
     const navigation = useNavigation();
     const { user } = useAuth();
+    const targetBossId = route?.params?.bossId;
 
     // Data state
     const [bosses, setBosses] = useState<ActiveBoss[]>([]);
@@ -119,12 +120,24 @@ export default function BossEventScreen() {
         try {
             const res = await apiService.get('/events/boss/active');
             if (res.activeBosses && res.activeBosses.length > 0) {
-                setBosses(res.activeBosses);
-                setRecords(res.userRecords || []);
+                let activeBosses = res.activeBosses;
+                let userRecords = res.userRecords || [];
+                
+                // If navigated from a specific card, filter to show only that boss
+                if (targetBossId) {
+                    const idx = activeBosses.findIndex((b: any) => b._id === targetBossId);
+                    if (idx !== -1) {
+                        activeBosses = [activeBosses[idx]];
+                        userRecords = [userRecords[idx]];
+                    }
+                }
 
-                for (let i = 0; i < res.activeBosses.length; i++) {
-                    const b = res.activeBosses[i];
-                    const r = res.userRecords?.[i];
+                setBosses(activeBosses);
+                setRecords(userRecords);
+
+                for (let i = 0; i < activeBosses.length; i++) {
+                    const b = activeBosses[i];
+                    const r = userRecords[i];
                     if (r?.hasUnlockedStory && b.currentHp <= 0) {
                         const key = `story_seen_${b._id}`;
                         const seen = await AsyncStorage.getItem(key);
@@ -269,15 +282,29 @@ export default function BossEventScreen() {
 
             <ClayHeader user={user} />
 
-            <View style={[styles.header, { paddingTop: 0 }]}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                    <MaterialIcons name="arrow-back-ios" size={20} color="rgba(93, 64, 55, 0.6)" />
-                </TouchableOpacity>
+            <View style={[styles.header, { paddingTop: 0, justifyContent: 'space-between', alignItems: 'center' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                        <MaterialIcons name="arrow-back-ios" size={20} color="rgba(93, 64, 55, 0.6)" />
+                    </TouchableOpacity>
 
-                <View style={styles.timerBadge}>
-                    <MaterialIcons name="calendar-today" size={20} color={COLORS.clayAccent2} />
-                    <Text style={styles.timerText}>{getWeekLabel(bosses[0].weekActivatedAt)}</Text>
+                    <View style={styles.timerBadge}>
+                        <MaterialIcons name="calendar-today" size={20} color={COLORS.clayAccent2} />
+                        <Text style={styles.timerText}>{getWeekLabel(bosses[0].weekActivatedAt)}</Text>
+                    </View>
                 </View>
+
+                {bosses.some(b => b.collectionId) && (
+                    <TouchableOpacity 
+                        style={styles.collectionActionBtn} 
+                        onPress={() => {
+                            const collectionBoss = bosses.find(b => b.collectionId);
+                            navigation.navigate('Profile', { scrollToCollection: true, collectionId: collectionBoss?.collectionId });
+                        }}
+                    >
+                        <MaterialIcons name="collections-bookmark" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -569,6 +596,19 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'bold',
         color: '#ef4444',
+    },
+    collectionActionBtn: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#fbbf24',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#d97706',
+        shadowOffset: { width: 2, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 5,
     },
     bannerCard: {
         height: 300,

@@ -251,6 +251,17 @@ class ApiService {
         return response.data;
     }
 
+    // ============ BOSS COLLECTIONS ============
+    async getMyBossCollections() {
+        const response = await this.api.get('/events/boss/collections');
+        return response.data;
+    }
+
+    async claimCollectionReward(collectionId: string) {
+        const response = await this.api.post(`/events/boss/collections/${collectionId}/claim`);
+        return response.data;
+    }
+
     // ============ LEVELS ============
     async getLevels() {
         const response = await this.api.get('/levels');

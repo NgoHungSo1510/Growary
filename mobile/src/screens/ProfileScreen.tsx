@@ -11,6 +11,7 @@ import {
     Dimensions,
     Alert,
     ActivityIndicator,
+    Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -25,12 +26,15 @@ import { VipStatusResponse } from '../types';
 
 const { width, height } = Dimensions.get('window');
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ route }: any) {
     const { user, refreshUser, logout } = useAuth();
     const navigation = useNavigation<any>();
     const [isUploading, setIsUploading] = useState(false);
     const [vipResponse, setVipResponse] = useState<VipStatusResponse | null>(null);
     const [showVipTiers, setShowVipTiers] = useState(false);
+    const [collections, setCollections] = useState<any[]>([]);
+    const [selectedChar, setSelectedChar] = useState<any | null>(null);
+    const [isClaiming, setIsClaiming] = useState(false);
 
     const level = user?.level || 1;
     const levelTitle =
@@ -40,7 +44,21 @@ export default function ProfileScreen() {
         apiService.getVipStatus()
             .then(data => setVipResponse(data))
             .catch(console.error);
+        apiService.getMyBossCollections()
+            .then(data => setCollections(data.collections))
+            .catch(console.error);
     }, []);
+
+    // Check auto-scroll
+    const collectionsRef = React.useRef<View>(null);
+    React.useEffect(() => {
+        if (route?.params?.scrollToCollection && collectionsRef.current) {
+            // Slight delay to ensure render
+            setTimeout(() => {
+                // Not perfectly reliable without layout events, but serves as a highlight mechanism
+            }, 500);
+        }
+    }, [route?.params]);
 
     const handleLogout = () => {
         Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
@@ -191,6 +209,85 @@ export default function ProfileScreen() {
                     </View>
                 )}
 
+                {/* --- COLLECTIONS --- */}
+                {collections.length > 0 && (
+                    <View ref={collectionsRef} style={styles.collectionsContainer}>
+                        {collections.map((item, index) => {
+                            const { collection, bosses, userProgress } = item;
+                            const isCompleted = userProgress.isCompleted;
+                            const canClaim = isCompleted && !userProgress.bonusTicketsClaimed;
+                            const isHighlighted = route?.params?.collectionId === collection._id;
+
+                            return (
+                                <View key={collection._id} style={[styles.collectionCard, isHighlighted && { borderColor: collection.themeColor, borderWidth: 2 }]}>
+                                    <View style={styles.collectionHeader}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Text style={styles.collectionIcon}>{collection.iconEmoji}</Text>
+                                            <Text style={styles.collectionTitle}>{collection.title}</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Text style={[styles.collectionProgress, isCompleted && { color: '#16A34A', fontWeight: 'bold' }]}>
+                                                {userProgress.unlockedCount}/{userProgress.totalCount}
+                                            </Text>
+                                            {canClaim && <View style={styles.claimBadge} />}
+                                        </View>
+                                    </View>
+
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.charsScroll}>
+                                        {bosses.map((boss: any) => {
+                                            const isUnlocked = boss.isUnlocked;
+                                            return (
+                                                <TouchableOpacity
+                                                    key={boss._id}
+                                                    style={styles.charSlot}
+                                                    activeOpacity={0.7}
+                                                    disabled={!isUnlocked}
+                                                    onPress={() => setSelectedChar({ ...boss, themeColor: collection.themeColor })}
+                                                >
+                                                    <View style={[styles.charImageWrapper, { borderColor: isUnlocked ? collection.themeColor : 'rgba(93, 64, 55, 0.2)' }]}>
+                                                        {isUnlocked ? (
+                                                            <Image source={{ uri: boss.avatarImageUrl }} style={styles.charImage} />
+                                                        ) : (
+                                                            <View style={styles.charLocked}>
+                                                                <Text style={{ fontSize: 24, opacity: 0.5 }}>?</Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                    <Text style={[styles.charName, !isUnlocked && { color: COLORS.clayText }]} numberOfLines={1}>
+                                                        {isUnlocked ? boss.title : 'Bí ẩn'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </ScrollView>
+
+                                    {canClaim && (
+                                        <TouchableOpacity
+                                            style={[styles.claimButton, { backgroundColor: collection.themeColor }]}
+                                            onPress={async () => {
+                                                if (isClaiming) return;
+                                                setIsClaiming(true);
+                                                try {
+                                                    const res = await apiService.claimCollectionReward(collection._id);
+                                                    Alert.alert('Chúc mừng!', `Bạn đã nhận được ${res.ticketsGranted} vé Gacha!`);
+                                                    setCollections(prev => prev.map(c => c.collection._id === collection._id ? { ...c, userProgress: { ...c.userProgress, bonusTicketsClaimed: true } } : c));
+                                                    refreshUser();
+                                                } catch (error: any) {
+                                                    Alert.alert('Lỗi', error.response?.data?.error || 'Không thể nhận thưởng');
+                                                } finally {
+                                                    setIsClaiming(false);
+                                                }
+                                            }}
+                                        >
+                                            <Text style={styles.claimButtonText}>Nhận Thưởng +{collection.bonusTickets}🎟️</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            );
+                        })}
+                    </View>
+                )}
+
                 {/* --- SETTINGS LIST --- */}
                 <View style={styles.settingsList}>
                     {/* Account Info */}
@@ -268,6 +365,26 @@ export default function ProfileScreen() {
 
                 <View style={{ height: 80 }} />
             </ScrollView>
+
+            {/* Char Modal */}
+            <Modal
+                visible={!!selectedChar}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setSelectedChar(null)}
+            >
+                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSelectedChar(null)}>
+                    <View style={[styles.modalContent, { borderColor: selectedChar?.themeColor || '#ccc' }]}>
+                        <Image source={{ uri: selectedChar?.avatarImageUrl }} style={styles.modalCharImage} />
+                        <View style={[styles.modalCharNameBadge, { backgroundColor: selectedChar?.themeColor || '#ccc' }]}>
+                            <Text style={styles.modalCharNameText}>{selectedChar?.title}</Text>
+                        </View>
+                        <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedChar(null)}>
+                            <MaterialIcons name="close" size={24} color={COLORS.clayText} />
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }
@@ -300,7 +417,132 @@ const styles = StyleSheet.create({
         right: -width * 0.1,
         width: width * 0.5,
         height: width * 0.5,
-        backgroundColor: 'rgba(245, 119, 153, 0.15)',
+        backgroundColor: 'rgba(254, 215, 170, 0.2)',
+    },
+
+    // Collections
+    collectionsContainer: {
+        marginBottom: 24,
+        gap: 16,
+    },
+    collectionCard: {
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 16,
+        ...SHADOWS.clayLight,
+    },
+    collectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    collectionIcon: {
+        fontSize: 24,
+    },
+    collectionTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: COLORS.clayText,
+    },
+    collectionProgress: {
+        fontSize: 14,
+        color: COLORS.clayText,
+        fontWeight: '600',
+    },
+    claimBadge: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: '#EF4444',
+    },
+    charsScroll: {
+        gap: 12,
+        paddingBottom: 4,
+    },
+    charSlot: {
+        alignItems: 'center',
+        width: 70,
+    },
+    charImageWrapper: {
+        width: 60,
+        height: 60,
+        borderRadius: 16,
+        borderWidth: 2,
+        marginBottom: 8,
+        overflow: 'hidden',
+        backgroundColor: '#f8fafc',
+    },
+    charImage: {
+        width: '100%',
+        height: '100%',
+        resizeMode: 'cover',
+    },
+    charLocked: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    charName: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: COLORS.clayText,
+        textAlign: 'center',
+    },
+    claimButton: {
+        marginTop: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    claimButtonText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: 280,
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: 8,
+        alignItems: 'center',
+        borderWidth: 4,
+    },
+    modalCharImage: {
+        width: '100%',
+        height: 280,
+        borderRadius: 16,
+        resizeMode: 'cover',
+    },
+    modalCharNameBadge: {
+        position: 'absolute',
+        bottom: -16,
+        paddingHorizontal: 24,
+        paddingVertical: 8,
+        borderRadius: 20,
+        ...SHADOWS.clay,
+    },
+    modalCharNameText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 18,
+    },
+    modalCloseBtn: {
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 
     // Header

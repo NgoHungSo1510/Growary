@@ -32,7 +32,7 @@ const MYSTERY_TITLES = [
 export default function EventScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
-    const [activeBoss, setActiveBoss] = useState<any>(null);
+    const [activeBosses, setActiveBosses] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const mysteryTitleRef = React.useRef(MYSTERY_TITLES[Math.floor(Math.random() * MYSTERY_TITLES.length)]).current;
 
@@ -41,13 +41,13 @@ export default function EventScreen({ navigation }: any) {
             const checkBoss = async () => {
                 try {
                     const res = await apiService.get('/events/boss/active');
-                    if (res.activeBoss) {
-                        setActiveBoss(res.activeBoss);
+                    if (res.activeBosses) {
+                        setActiveBosses(res.activeBosses);
                     } else {
-                        setActiveBoss(null);
+                        setActiveBosses([]);
                     }
                 } catch {
-                    setActiveBoss(null);
+                    setActiveBosses([]);
                 } finally {
                     setIsLoading(false);
                 }
@@ -67,94 +67,121 @@ export default function EventScreen({ navigation }: any) {
             >
                 <Text style={styles.sectionDesc}>Hệ thống Gamification độc quyền chia làm 4 mùa. Tham gia ngay để thu thập vật phẩm hiếm!</Text>
 
-                {/* Concept 1: Mở Khóa Nhân Vật */}
-                <TouchableOpacity
-                    style={styles.cardContainer}
-                    activeOpacity={activeBoss ? 0.8 : 1}
-                    onPress={() => activeBoss && navigation.navigate('BossEvent')}
-                >
-                    <LinearGradient
-                        colors={activeBoss?.colorBg ? [activeBoss.colorBg, '#0f172a'] : ['#ef4444', '#991b1b']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.cardGradient}
-                    >
-                        {/* V2 Boss Thumbnail Background */}
-                        {activeBoss?.avatarImageUrl && (
-                            <View style={StyleSheet.absoluteFill}>
-                                <Image source={{ uri: activeBoss.avatarImageUrl }} style={styles.bgImage} />
-                                <View style={styles.darkOverlay} />
-                            </View>
-                        )}
-                        
-                        <View style={styles.contentWrap}>
-                            {/* Icon / Thumbnail Box */}
-                            <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 255, 255, 0.2)', overflow: 'hidden' }]}>
-                                {activeBoss?.avatarImageUrl ? (
-                                    <>
-                                        <Image source={{ uri: activeBoss.avatarImageUrl }} style={styles.thumbnailImg} />
-                                        {activeBoss.currentHp > 0 && (
-                                            <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" />
-                                        )}
-                                    </>
-                                ) : (
-                                    <MaterialIcons name="local-fire-department" size={40} color="#FFF" />
+                {/* Mở Khóa Nhân Vật */}
+                {activeBosses.length > 0 ? (
+                    activeBosses.map((boss) => (
+                        <TouchableOpacity
+                            key={boss._id}
+                            style={styles.cardContainer}
+                            activeOpacity={0.8}
+                            onPress={() => navigation.navigate('BossEvent', { bossId: boss._id })}
+                        >
+                            <LinearGradient
+                                colors={boss.colorBg ? [boss.colorBg, '#0f172a'] : ['#ef4444', '#991b1b']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.cardGradient}
+                            >
+                                {/* V2 Boss Thumbnail Background */}
+                                {boss.avatarImageUrl && (
+                                    <View style={StyleSheet.absoluteFill}>
+                                        <Image source={{ uri: boss.avatarImageUrl }} style={styles.bgImage} />
+                                        <View style={styles.darkOverlay} />
+                                    </View>
                                 )}
-                            </View>
-
-                            <View style={styles.textContainer}>
-                                <Text style={styles.cardTitle}>
-                                    {activeBoss 
-                                        ? (activeBoss.currentHp <= 0 ? activeBoss.title : (activeBoss.secretDescription || 'Nhân vật bí ẩn')) 
-                                        : "Mở Khóa Nhân Vật"}
-                                </Text>
                                 
-                                <View style={styles.badgeRow}>
-                                    {activeBoss?.isLimited && (
-                                        <View style={[styles.badge, { backgroundColor: '#ef4444' }]}>
-                                            <Text style={styles.badgeText}>LIMITED</Text>
+                                <View style={styles.contentWrap}>
+                                    {/* Icon / Thumbnail Box */}
+                                    <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 255, 255, 0.2)', overflow: 'hidden' }]}>
+                                        {boss.avatarImageUrl ? (
+                                            <>
+                                                <Image source={{ uri: boss.avatarImageUrl }} style={styles.thumbnailImg} />
+                                                {boss.currentHp > 0 && (
+                                                    <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" />
+                                                )}
+                                            </>
+                                        ) : (
+                                            <MaterialIcons name="local-fire-department" size={40} color="#FFF" />
+                                        )}
+                                    </View>
+
+                                    <View style={styles.textContainer}>
+                                        <Text style={styles.cardTitle}>
+                                            {boss.currentHp <= 0 ? boss.title : (boss.secretDescription || 'Nhân vật bí ẩn')}
+                                        </Text>
+                                        
+                                        <View style={styles.badgeRow}>
+                                            {boss.isLimited && (
+                                                <View style={[styles.badge, { backgroundColor: '#ef4444' }]}>
+                                                    <Text style={styles.badgeText}>LIMITED</Text>
+                                                </View>
+                                            )}
+                                            {boss.collectionId && (
+                                                <View style={[styles.badge, { backgroundColor: '#fbbf24' }]}>
+                                                    <Text style={styles.badgeText}>COLLECTION</Text>
+                                                </View>
+                                            )}
+                                            {boss.loreTitle && (
+                                                <View style={[styles.badge, { backgroundColor: '#8b5cf6' }]}>
+                                                    <Text style={styles.badgeText}>STORY</Text>
+                                                </View>
+                                            )}
+                                            {!boss.isLimited && !boss.collectionId && (
+                                                <Text style={styles.cardSubtitle}>HOT EVENT</Text>
+                                            )}
                                         </View>
-                                    )}
-                                    {activeBoss?.collectionId && (
-                                        <View style={[styles.badge, { backgroundColor: '#fbbf24' }]}>
-                                            <Text style={styles.badgeText}>COLLECTION</Text>
-                                        </View>
-                                    )}
-                                    {activeBoss?.loreTitle && (
-                                        <View style={[styles.badge, { backgroundColor: '#8b5cf6' }]}>
-                                            <Text style={styles.badgeText}>STORY</Text>
-                                        </View>
-                                    )}
-                                    {!activeBoss?.isLimited && !activeBoss?.collectionId && (
-                                        <Text style={styles.cardSubtitle}>HOT EVENT</Text>
-                                    )}
+
+                                        <Text style={styles.cardDesc} numberOfLines={2}>
+                                            {boss.currentHp <= 0 ? boss.description : mysteryTitleRef}
+                                        </Text>
+                                    </View>
+                                    
+                                    <View style={styles.actionBtn}>
+                                        <MaterialIcons name="chevron-right" size={24} color="#FFF" />
+                                    </View>
+                                </View>
+                                
+                                {!boss.avatarImageUrl && (
+                                    <MaterialIcons name="pets" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
+                                )}
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    ))
+                ) : !isLoading ? (
+                    <TouchableOpacity
+                        style={styles.cardContainer}
+                        activeOpacity={1}
+                    >
+                        <LinearGradient
+                            colors={['#ef4444', '#991b1b']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={styles.cardGradient}
+                        >
+                            <View style={styles.contentWrap}>
+                                <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 255, 255, 0.2)', overflow: 'hidden' }]}>
+                                    <MaterialIcons name="local-fire-department" size={40} color="#FFF" />
                                 </View>
 
-                                <Text style={styles.cardDesc} numberOfLines={2}>
-                                    {activeBoss 
-                                        ? (activeBoss.currentHp <= 0 ? activeBoss.description : mysteryTitleRef) 
-                                        : "Tích lũy XP để gây sát thương và chia nhau phần thưởng."}
-                                </Text>
+                                <View style={styles.textContainer}>
+                                    <Text style={styles.cardTitle}>Mở Khóa Nhân Vật</Text>
+                                    <Text style={styles.cardSubtitle}>HOT EVENT</Text>
+                                    <Text style={styles.cardDesc} numberOfLines={2}>Tích lũy XP để gây sát thương và chia nhau phần thưởng.</Text>
+                                </View>
+                                
+                                <View style={styles.actionBtn}>
+                                    <MaterialIcons name="lock" size={24} color="#FFF" />
+                                </View>
                             </View>
-                            
-                            <View style={styles.actionBtn}>
-                                <MaterialIcons name={activeBoss ? "chevron-right" : "lock"} size={24} color="#FFF" />
-                            </View>
-                        </View>
-                        
-                        {!activeBoss?.avatarImageUrl && (
                             <MaterialIcons name="pets" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
-                        )}
-
-                        {/* Lock overlay when no active boss */}
-                        {!activeBoss && !isLoading && (
+                            
                             <View style={styles.lockOverlay}>
                                 <MaterialIcons name="lock" size={28} color="rgba(255,255,255,0.9)" />
                                 <Text style={styles.lockText}>Chưa có Nhân Vật</Text>
                             </View>
-                        )}
-                    </LinearGradient>
-                </TouchableOpacity>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                ) : null}
 
                 {/* Concept 2: Sổ Sứ Mệnh */}
                 <TouchableOpacity

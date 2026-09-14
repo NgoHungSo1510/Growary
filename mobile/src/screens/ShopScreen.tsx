@@ -230,6 +230,11 @@ export default function ShopScreen() {
             closeRewardModal();
             const msg = error.response?.data?.error || 'Không thể đổi';
             setTimeout(() => Alert.alert('Lỗi', msg), 200);
+            
+            // Reset coupon state and re-fetch inventory in case of partial deduction/rollback
+            setUseDiscountCoupon(null);
+            setUseFreeshipCoupon(null);
+            fetchInventory();
         } finally {
             setIsPurchasing(false);
         }
