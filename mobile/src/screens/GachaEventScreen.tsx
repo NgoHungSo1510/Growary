@@ -18,6 +18,8 @@ import {
     GachaCountdownBadge,
     GachaLeaderboard,
     GachaHistoryModal,
+    WeeklyRewardsPreviewCard,
+    GachaUserScoreCard,
 } from '../components/gacha';
 import RewardCelebrationModal from '../components/RewardCelebrationModal';
 import ClayHeader from '../components/ClayHeader';
@@ -179,7 +181,13 @@ export default function GachaEventScreen({ navigation }: any) {
                 {/* Real-time Countdown Badge */}
                 <GachaCountdownBadge countdown={countdown} isUrgent={isUrgent} style={styles.countdownBadge} />
 
-                {/* Tier and Weekly Event Teaser */}
+                {/* User Personal Score Card */}
+                <GachaUserScoreCard currentUser={leaderboard?.currentWeek?.currentUser} />
+
+                {/* This Week's Prize Pool Preview */}
+                <WeeklyRewardsPreviewCard rewards={weeklyEvent?.weeklyRewards} />
+
+                {/* Tier Indicator */}
                 <View style={styles.infoBanner}>
                     <View style={styles.tierPill}>
                         <MaterialCommunityIcons name="shield-star" size={16} color="#B45309" />
