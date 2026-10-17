@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { apiService } from '../services/api';
 import { InventoryItem } from '../types';
 import { COLORS, FONT_SIZES, SHADOWS } from '../theme';
+import { MysteryBoxOpenModal } from '../components/warehouse';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 48 - 48) / 4; // 4 columns, 24 padding horizontal, 16 gap
@@ -15,6 +16,12 @@ export default function InventoryScreen() {
     const [loading, setLoading] = useState(true);
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [selectedMysteryBox, setSelectedMysteryBox] = useState<{
+        boxId: string;
+        name: string;
+        rarity?: string;
+        quantity: number;
+    } | null>(null);
 
     // Animation for box opening
     const boxScale = useRef(new Animated.Value(1)).current;
@@ -37,6 +44,17 @@ export default function InventoryScreen() {
     };
 
     const handleItemPress = (item: InventoryItem) => {
+        const isFragment = item.itemType.startsWith('frag_');
+        const isCoupon = item.itemType.startsWith('coupon_');
+        if (!isFragment && !isCoupon) {
+            // Directly trigger MysteryBoxOpenModal for mystery boxes
+            setSelectedMysteryBox({
+                boxId: item.itemType,
+                name: item.displayName,
+                quantity: item.quantity,
+            });
+            return;
+        }
         setSelectedItem(item);
     };
 
@@ -44,42 +62,15 @@ export default function InventoryScreen() {
         setSelectedItem(null);
     };
 
-    const openBox = async () => {
+    const openBox = () => {
         if (!selectedItem) return;
-        setIsProcessing(true);
-        try {
-            // Animation
-            Animated.sequence([
-                Animated.timing(boxScale, { toValue: 1.2, duration: 200, useNativeDriver: true }),
-                Animated.loop(
-                    Animated.sequence([
-                        Animated.timing(boxRotate, { toValue: 1, duration: 50, useNativeDriver: true }),
-                        Animated.timing(boxRotate, { toValue: -1, duration: 100, useNativeDriver: true }),
-                        Animated.timing(boxRotate, { toValue: 0, duration: 50, useNativeDriver: true }),
-                    ]),
-                    { iterations: 3 }
-                )
-            ]).start(async () => {
-                try {
-                    const res = await apiService.openMysteryBox(selectedItem.itemType);
-                    
-                    Animated.timing(boxScale, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
-                        Alert.alert('Thành công!', `Bạn nhận được: ${res.reward.displayName}`);
-                        closeSheet();
-                        loadInventory();
-                        boxScale.setValue(1);
-                    });
-                } catch (e: any) {
-                    Alert.alert('Lỗi', e.message || 'Không thể mở hộp');
-                    boxScale.setValue(1);
-                    closeSheet();
-                }
-            });
-        } catch (e) {
-            setIsProcessing(false);
-        } finally {
-            setTimeout(() => setIsProcessing(false), 2000);
-        }
+        const boxToOpen = {
+            boxId: selectedItem.itemType,
+            name: selectedItem.displayName,
+            quantity: selectedItem.quantity,
+        };
+        closeSheet();
+        setSelectedMysteryBox(boxToOpen);
     };
 
     const exchangeFragment = async () => {
@@ -230,6 +221,13 @@ export default function InventoryScreen() {
             )}
 
             {renderBottomSheet()}
+
+            <MysteryBoxOpenModal
+                visible={!!selectedMysteryBox}
+                box={selectedMysteryBox}
+                onClose={() => setSelectedMysteryBox(null)}
+                onSuccess={() => loadInventory()}
+            />
         </View>
     );
 }
