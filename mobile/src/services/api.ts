@@ -283,8 +283,36 @@ class ApiService {
         return response.data;
     }
 
-    async getGachaHistory() {
-        const response = await this.api.get('/gacha/history');
+    async getGachaWeeklyEvent() {
+        const response = await this.api.get('/gacha/weekly-event');
+        return response.data;
+    }
+
+    async getGachaLeaderboard(weekStart?: string) {
+        const response = await this.api.get('/gacha/leaderboard', {
+            params: weekStart ? { weekStart } : undefined,
+        });
+        return response.data;
+    }
+
+    async getGachaHistory(params?: { rarity?: string; page?: number; limit?: number }) {
+        const response = await this.api.get('/gacha/history', { params });
+        return response.data;
+    }
+
+    // ============ SHOP EVENTS & WAREHOUSE ============
+    async getActiveShopEvent() {
+        const response = await this.api.get('/shop-events/active');
+        return response.data;
+    }
+
+    async getWarehouseBoxes() {
+        const response = await this.api.get('/warehouse/boxes');
+        return response.data;
+    }
+
+    async openWarehouseBox(boxId: string) {
+        const response = await this.api.post('/warehouse/open-box', { boxId });
         return response.data;
     }
 }
