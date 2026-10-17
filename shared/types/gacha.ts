@@ -23,14 +23,46 @@ export interface GachaReelItem {
     rewardAmount?: number;
 }
 
+export interface WeeklyRewardTier {
+    box: {
+        boxId?: string;
+        name: string;
+        rarity: GachaItemRarity;
+        color?: string;
+    };
+    coins: number;
+    xp: number;
+    tickets: number;
+}
+
+export interface WeeklyRewardsConfig {
+    top1: WeeklyRewardTier;
+    top2: WeeklyRewardTier;
+    top3: WeeklyRewardTier;
+}
+
 export interface GachaWeeklyEvent {
     _id: string;
     weekStart: string;
     weekEnd: string;
     featuredItems: GachaItem[];
     featuredBoxes?: { _id: string; name: string; rarity: GachaItemRarity }[];
+    weeklyRewards?: WeeklyRewardsConfig;
     isActive: boolean;
     createdAt?: string;
+}
+
+export interface CommunityAchievement {
+    id: string;
+    userId: string;
+    username: string;
+    avatarUrl?: string;
+    type: 'tier_up' | 'rare_drop' | 'score_milestone';
+    title: string;
+    description: string;
+    highlightText?: string;
+    rarity?: GachaItemRarity;
+    createdAt: string;
 }
 
 export interface GachaLeaderboardEntry {
@@ -55,6 +87,7 @@ export interface GachaLeaderboardResponse {
         lastWeekWinner?: GachaLeaderboardEntry;
         lastWeekTopTierUp?: GachaLeaderboardEntry;
     };
+    communityAchievements?: CommunityAchievement[];
 }
 
 export interface GachaHistoryEntry {
