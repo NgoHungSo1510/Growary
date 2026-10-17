@@ -53,6 +53,7 @@ export default function GachaEventScreen({ navigation }: any) {
 
     // Celebration modal state
     const [celebrationData, setCelebrationData] = useState<any>(null);
+    const [rewardsExpanded, setRewardsExpanded] = useState(false);
     const scrollViewRef = useRef<ScrollView>(null);
 
     const loadHistoryData = useCallback(
@@ -189,11 +190,15 @@ export default function GachaEventScreen({ navigation }: any) {
                 {/* User Personal Score Card */}
                 <GachaUserScoreCard
                     currentUser={leaderboard?.currentWeek?.currentUser}
-                    onPressRewards={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+                    onPressRewards={() => setRewardsExpanded((prev) => !prev)}
                 />
 
                 {/* This Week's Prize Pool Preview */}
-                <WeeklyRewardsPreviewCard rewards={weeklyEvent?.weeklyRewards} />
+                <WeeklyRewardsPreviewCard
+                    rewards={weeklyEvent?.weeklyRewards}
+                    expanded={rewardsExpanded}
+                    onToggleExpand={() => setRewardsExpanded((prev) => !prev)}
+                />
 
                 {/* Tier Indicator */}
                 <View style={styles.infoBanner}>
@@ -223,7 +228,6 @@ export default function GachaEventScreen({ navigation }: any) {
                 {/* Weekly Leaderboard & Hall of Fame */}
                 <GachaLeaderboard
                     leaderboard={leaderboard}
-                    rewards={weeklyEvent?.weeklyRewards}
                     onRefresh={refreshLeaderboard}
                 />
 

@@ -7,6 +7,8 @@ import { COLORS } from '../../theme';
 
 interface WeeklyRewardsPreviewCardProps {
     rewards?: WeeklyRewardsConfig;
+    expanded?: boolean;
+    onToggleExpand?: () => void;
     style?: StyleProp<ViewStyle>;
 }
 
@@ -33,10 +35,21 @@ export const DEFAULT_WEEKLY_REWARDS: WeeklyRewardsConfig = {
 
 export const WeeklyRewardsPreviewCard: React.FC<WeeklyRewardsPreviewCardProps> = ({
     rewards,
+    expanded: controlledExpanded,
+    onToggleExpand,
     style,
 }) => {
-    const [expanded, setExpanded] = useState(true);
+    const [internalExpanded, setInternalExpanded] = useState(false);
+    const isExpanded = controlledExpanded !== undefined ? controlledExpanded : internalExpanded;
     const activeRewards = rewards || DEFAULT_WEEKLY_REWARDS;
+
+    const handleToggle = () => {
+        if (onToggleExpand) {
+            onToggleExpand();
+        } else {
+            setInternalExpanded((prev) => !prev);
+        }
+    };
 
     const renderTierRow = (
         tier: WeeklyRewardTier | undefined,
@@ -103,7 +116,7 @@ export const WeeklyRewardsPreviewCard: React.FC<WeeklyRewardsPreviewCardProps> =
             >
                 <TouchableOpacity
                     style={styles.headerRow}
-                    onPress={() => setExpanded(!expanded)}
+                    onPress={handleToggle}
                     activeOpacity={0.8}
                 >
                     <View style={styles.titleWrap}>
@@ -111,13 +124,13 @@ export const WeeklyRewardsPreviewCard: React.FC<WeeklyRewardsPreviewCardProps> =
                         <Text style={styles.headerTitle}>Cơ Cấu Giải Thưởng Tuần Này</Text>
                     </View>
                     <MaterialCommunityIcons
-                        name={expanded ? 'chevron-up' : 'chevron-down'}
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
                         size={22}
                         color="#B45309"
                     />
                 </TouchableOpacity>
 
-                {expanded && (
+                {isExpanded && (
                     <View style={styles.body}>
                         {renderTierRow(activeRewards.top1, 'TOP 1', '#FEF3C7', '🥇')}
                         {renderTierRow(activeRewards.top2, 'TOP 2', '#F1F5F9', '🥈')}
