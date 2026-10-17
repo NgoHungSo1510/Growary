@@ -83,4 +83,17 @@ export interface OpenMysteryBoxResult {
     amount: number;
     voucherCode?: string;
     iconUrl?: string;
+    boxId?: string;
+    boxName?: string;
+    remainingBoxes?: number;
+    userInventoryUpdated?: {
+        remainingBoxes: number;
+    };
+    rewards?: {
+        type: string;
+        name: string;
+        amount: number;
+        rarity?: string;
+        iconUrl?: string;
+    }[];
 }
