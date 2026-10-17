@@ -23,6 +23,7 @@ interface RewardCardProps {
     vipStatus: VipStatus | null;
     onPress: (reward: Reward) => void;
     variant?: 'featured' | 'grid';
+    saleDiscountPercent?: number;
 }
 
 export const RewardCard: React.FC<RewardCardProps> = ({
@@ -30,15 +31,25 @@ export const RewardCard: React.FC<RewardCardProps> = ({
     vipStatus,
     onPress,
     variant = 'grid',
+    saleDiscountPercent = 0,
 }) => {
     const { icon, color } = getRewardVisual(reward.title);
 
     const getDiscountedPrice = (price?: number) => {
         if (price === undefined || price === null) return 0;
-        const discountPercent = vipStatus?.currentTier?.discountPercent || 0;
-        if (discountPercent <= 0) return price;
-        return Math.floor(price * (1 - discountPercent / 100));
+        let finalPrice = price;
+        if (saleDiscountPercent > 0) {
+            finalPrice = Math.floor(finalPrice * (1 - saleDiscountPercent / 100));
+        }
+        const vipDiscountPercent = vipStatus?.currentTier?.discountPercent || 0;
+        if (vipDiscountPercent > 0) {
+            finalPrice = Math.floor(finalPrice * (1 - vipDiscountPercent / 100));
+        }
+        return finalPrice;
     };
+
+    const hasDiscount =
+        (vipStatus?.currentTier?.discountPercent || 0) > 0 || saleDiscountPercent > 0;
 
     if (variant === 'featured') {
         return (
@@ -72,11 +83,16 @@ export const RewardCard: React.FC<RewardCardProps> = ({
                             <MaterialIcons name="monetization-on" size={12} color="#713F12" />
                             <Text style={styles.priceTextYellow}>{getDiscountedPrice(reward.pointCost)}</Text>
                         </View>
-                        {vipStatus?.currentTier?.discountPercent ? (
-                            <Text style={{ fontSize: 10, textDecorationLine: 'line-through', color: 'rgba(255,255,255,0.5)' }}>
+                        {hasDiscount ? (
+                            <Text style={{ fontSize: 10, textDecorationLine: 'line-through', color: 'rgba(255,255,255,0.6)', marginHorizontal: 4 }}>
                                 {reward.pointCost}
                             </Text>
                         ) : null}
+                        {saleDiscountPercent > 0 && (
+                            <View style={{ backgroundColor: '#EF4444', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
+                                <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFF' }}>-{saleDiscountPercent}%</Text>
+                            </View>
+                        )}
                         {reward.stock !== undefined && reward.stock !== null && (
                             <Text style={styles.stockText}>Còn {reward.stock}</Text>
                         )}
@@ -93,6 +109,11 @@ export const RewardCard: React.FC<RewardCardProps> = ({
             onPress={() => onPress(reward)}
         >
             <View style={styles.iconInsetBox}>
+                {saleDiscountPercent > 0 && (
+                    <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: '#EF4444', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 6, zIndex: 5 }}>
+                        <Text style={{ fontSize: 9, fontWeight: '900', color: '#FFF' }}>-{saleDiscountPercent}%</Text>
+                    </View>
+                )}
                 {reward.imageUrl ? (
                     <Image source={{ uri: reward.imageUrl }} style={{ width: '100%', height: '100%', borderRadius: 16, resizeMode: 'cover' }} />
                 ) : (
@@ -101,6 +122,11 @@ export const RewardCard: React.FC<RewardCardProps> = ({
                 <View style={styles.miniPriceBadge}>
                     <MaterialIcons name="monetization-on" size={10} color="#713F12" />
                     <Text style={styles.miniPriceText}>{getDiscountedPrice(reward.pointCost)}</Text>
+                    {hasDiscount && (
+                        <Text style={{ fontSize: 8, textDecorationLine: 'line-through', color: '#713F12', opacity: 0.6, marginLeft: 2 }}>
+                            {reward.pointCost}
+                        </Text>
+                    )}
                 </View>
             </View>
             <View style={styles.itemInfo}>
