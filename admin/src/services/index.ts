@@ -5,3 +5,5 @@ export * from './rewardService';
 export * from './questService';
 export * from './bossService';
 export * from './eventService';
+export * from './shopEventService';
+export * from './warehouseConfigService';

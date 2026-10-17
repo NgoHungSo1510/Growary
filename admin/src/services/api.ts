@@ -4,6 +4,8 @@ import { rewardService } from './rewardService';
 import { questService } from './questService';
 import { bossService } from './bossService';
 import { eventService } from './eventService';
+import { shopEventService } from './shopEventService';
+import { warehouseConfigService } from './warehouseConfigService';
 
 class AdminApi {
     // Generic REST
@@ -230,6 +232,34 @@ class AdminApi {
     }
     async deleteBossCollection(id: string) {
         return bossService.deleteBossCollection(id);
+    }
+
+    // Shop Events (Flash Sale)
+    async getShopEvents(filter?: string) {
+        return shopEventService.getShopEvents(filter);
+    }
+    async createShopEvent(data: any) {
+        return shopEventService.createShopEvent(data);
+    }
+    async updateShopEvent(id: string, data: any) {
+        return shopEventService.updateShopEvent(id, data);
+    }
+    async deleteShopEvent(id: string) {
+        return shopEventService.deleteShopEvent(id);
+    }
+
+    // Special Warehouse Config (Product -> Fragment Mapping)
+    async getSpecialItemConfigs() {
+        return warehouseConfigService.getSpecialItemConfigs();
+    }
+    async createSpecialItemConfig(data: { rewardId: string; fragmentType: string }) {
+        return warehouseConfigService.createSpecialItemConfig(data);
+    }
+    async updateSpecialItemConfig(id: string, data: any) {
+        return warehouseConfigService.updateSpecialItemConfig(id, data);
+    }
+    async deleteSpecialItemConfig(id: string) {
+        return warehouseConfigService.deleteSpecialItemConfig(id);
     }
 }
 
