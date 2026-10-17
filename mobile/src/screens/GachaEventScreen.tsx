@@ -152,7 +152,7 @@ export default function GachaEventScreen({ navigation }: any) {
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color={COLORS.clayAccent2} />
-                    <Text style={styles.loadingText}>Đang tải vòng quay CS:GO...</Text>
+                    <Text style={styles.loadingText}>Đang tải vòng quay...</Text>
                 </View>
             </SafeAreaView>
         );
@@ -172,7 +172,7 @@ export default function GachaEventScreen({ navigation }: any) {
                 </TouchableOpacity>
                 <View style={styles.headerTitleContainer}>
                     <Text style={styles.title}>Vòng Quay May Mắn</Text>
-                    <Text style={styles.subtitle}>CS:GO Reel • Tuần này</Text>
+                    <Text style={styles.subtitle}>• Tuần này</Text>
                 </View>
                 <TouchableOpacity onPress={openHistory} style={styles.historyBtn}>
                     <MaterialIcons name="history" size={24} color={COLORS.clayAccent2} />
