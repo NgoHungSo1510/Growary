@@ -41,13 +41,16 @@ export interface MysteryBoxReward {
 }
 
 export interface InventoryItem {
-    itemType: string;
+    id?: string;
+    boxId?: string;
+    itemType: 'special_item' | 'mystery_box' | string;
     quantity: number;
     displayName: string;
     color: string;
     canExchange: boolean;
     lastUpdated: string | Date;
-    rewardForm?: string;
+    rewardForm?: 'full' | 'fragment' | string;
+    rarity?: string;
     specialItem?: {
         _id?: string;
         type?: string;
