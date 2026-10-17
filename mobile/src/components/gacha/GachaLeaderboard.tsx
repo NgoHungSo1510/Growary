@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { GachaLeaderboardResponse, GachaLeaderboardEntry, GachaItemRarity } from '@shared';
 import { COLORS } from '../../theme';
 import { RARITY_THEMES } from './ReelCard';
+import CommunityHonorFeed from './CommunityHonorFeed';
 
 interface GachaLeaderboardProps {
     leaderboard: GachaLeaderboardResponse | null;
@@ -170,51 +171,10 @@ export const GachaLeaderboard: React.FC<GachaLeaderboardProps> = ({
                 </View>
             ) : (
                 <View style={styles.content}>
-                    {/* Hall of Fame Cards */}
-                    {hallOfFame?.lastWeekWinner ? (
-                        <View style={styles.hofCard}>
-                            <LinearGradient
-                                colors={['#FFD54F', '#FFA726']}
-                                style={styles.hofGradient}
-                            >
-                                <MaterialCommunityIcons name="crown" size={32} color="#3E2723" />
-                                <View style={styles.hofDetails}>
-                                    <Text style={styles.hofTitle}>Quán Quân Tuần Trước</Text>
-                                    <Text style={styles.hofName}>
-                                        {hallOfFame.lastWeekWinner.username}
-                                    </Text>
-                                    <Text style={styles.hofScore}>
-                                        {hallOfFame.lastWeekWinner.totalScore} điểm • Phẩm chất:{' '}
-                                        {hallOfFame.lastWeekWinner.bestRarity?.toUpperCase()}
-                                    </Text>
-                                </View>
-                            </LinearGradient>
-                        </View>
-                    ) : (
-                        <Text style={styles.emptyText}>Chưa có quán quân tuần trước</Text>
-                    )}
-
-                    {hallOfFame?.lastWeekTopTierUp ? (
-                        <View style={[styles.hofCard, { marginTop: 12 }]}>
-                            <LinearGradient
-                                colors={['#AB47BC', '#7B1FA2']}
-                                style={styles.hofGradient}
-                            >
-                                <MaterialIcons name="trending-up" size={32} color="#FFFFFF" />
-                                <View style={styles.hofDetails}>
-                                    <Text style={[styles.hofTitle, { color: '#E1BEE7' }]}>
-                                        Thợ Săn Cấp Độ
-                                    </Text>
-                                    <Text style={[styles.hofName, { color: '#FFFFFF' }]}>
-                                        {hallOfFame.lastWeekTopTierUp.username}
-                                    </Text>
-                                    <Text style={[styles.hofScore, { color: '#EDE7F6' }]}>
-                                        Thăng +{hallOfFame.lastWeekTopTierUp.tierUps} cấp độ gacha
-                                    </Text>
-                                </View>
-                            </LinearGradient>
-                        </View>
-                    ) : null}
+                    <CommunityHonorFeed
+                        achievements={leaderboard?.communityAchievements}
+                        hallOfFame={hallOfFame}
+                    />
                 </View>
             )}
         </View>
