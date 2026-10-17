@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../services/api';
+import { QuizEventModal, QuizTopicModal, QuizQuestionModal } from '../components/quiz';
 
 // ── Types ──
 interface QuizEvent {
@@ -292,141 +293,32 @@ export default function QuizManagementPage() {
         </div>
       )}
 
-      {/* ─── Modal: Event ─── */}
-      {showEventModal && editEvent && (
-        <div className="modal-overlay" onClick={() => setShowEventModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
-            <div className="modal__header">
-              <h2>{editEvent._id ? 'Sửa Sự Kiện Quiz' : 'Tạo Sự Kiện Quiz'}</h2>
-              <button className="modal__close" onClick={() => setShowEventModal(false)}>✕</button>
-            </div>
-            <div className="modal__body" style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              {[
-                { label:'Tên sự kiện *', key:'title', type:'text' },
-                { label:'Mô tả', key:'description', type:'text' },
-                { label:'Thời gian bắt đầu *', key:'startTime', type:'datetime-local' },
-                { label:'Thời gian kết thúc *', key:'endTime', type:'datetime-local' },
-                { label:'Xu / câu đúng', key:'rewardPerCorrect', type:'number' },
-                { label:'Số lượt / user', key:'maxAttemptsPerUser', type:'number' },
-                { label:'Giờ hồi lượt', key:'attemptCooldownHours', type:'number' },
-                { label:'Số câu / lượt', key:'questionsPerAttempt', type:'number' },
-                { label:'Màu nền (hex)', key:'colorBg', type:'color' },
-                { label:'Màu icon (hex)', key:'colorIcon', type:'color' },
-                { label:'MaterialIcon name', key:'iconName', type:'text' },
-              ].map(({ label, key, type }) => (
-                <div key={key} style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                  <label style={{ fontSize:13, fontWeight:'bold' }}>{label}</label>
-                  <input type={type} value={(editEvent as any)[key] ?? ''}
-                    onChange={e => setEditEvent(prev => ({ ...prev!, [key]: type==='number'?Number(e.target.value):e.target.value }))}
-                    style={{ padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:14 }}
-                  />
-                </div>
-              ))}
-              {/* Color preview */}
-              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', borderRadius:10, background: editEvent.colorBg || '#2563EB' }}>
-                <span style={{ fontSize:13, color: editEvent.colorIcon || '#FFF', fontWeight:'bold' }}>Preview màu: {editEvent.title || 'Sự kiện Quiz'}</span>
-              </div>
-            </div>
-            <div className="modal__footer">
-              <button className="btn btn--secondary" onClick={() => setShowEventModal(false)}>Hủy</button>
-              <button className="btn btn--primary" onClick={saveEvent}>💾 Lưu</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ─── Modals ─── */}
+      <QuizEventModal
+        isOpen={showEventModal}
+        event={editEvent}
+        onClose={() => setShowEventModal(false)}
+        onSave={saveEvent}
+        onChange={setEditEvent}
+      />
 
-      {/* ─── Modal: Topic ─── */}
-      {showTopicModal && editTopic && (
-        <div className="modal-overlay" onClick={() => setShowTopicModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
-            <div className="modal__header">
-              <h2>{editTopic._id ? 'Sửa Chủ Đề' : 'Thêm Chủ Đề'}</h2>
-              <button className="modal__close" onClick={() => setShowTopicModal(false)}>✕</button>
-            </div>
-            <div className="modal__body" style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              {[
-                { label:'Tên chủ đề *', key:'name', type:'text' },
-                { label:'Mô tả', key:'description', type:'text' },
-                { label:'Màu accent (hex)', key:'colorAccent', type:'color' },
-                { label:'MaterialIcon name', key:'iconName', type:'text' },
-              ].map(({ label, key, type }) => (
-                <div key={key} style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                  <label style={{ fontSize:13, fontWeight:'bold' }}>{label}</label>
-                  <input type={type} value={(editTopic as any)[key] ?? ''}
-                    onChange={e => setEditTopic(prev => ({ ...prev!, [key]: e.target.value }))}
-                    style={{ padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:14 }}
-                  />
-                </div>
-              ))}
-              <label style={{ display:'flex', gap:8, alignItems:'center', cursor:'pointer' }}>
-                <input type="checkbox" checked={editTopic.isActive ?? true}
-                  onChange={e => setEditTopic(prev => ({ ...prev!, isActive: e.target.checked }))} />
-                <span style={{ fontSize:14 }}>Bật chủ đề</span>
-              </label>
-            </div>
-            <div className="modal__footer">
-              <button className="btn btn--secondary" onClick={() => setShowTopicModal(false)}>Hủy</button>
-              <button className="btn btn--primary" onClick={saveTopic}>💾 Lưu</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <QuizTopicModal
+        isOpen={showTopicModal}
+        topic={editTopic}
+        onClose={() => setShowTopicModal(false)}
+        onSave={saveTopic}
+        onChange={setEditTopic}
+      />
 
-      {/* ─── Modal: Question ─── */}
-      {showQuestionModal && editQuestion && (
-        <div className="modal-overlay" onClick={() => setShowQuestionModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 520 }}>
-            <div className="modal__header">
-              <h2>{editQuestion._id ? 'Sửa Câu Hỏi' : 'Thêm Câu Hỏi'}</h2>
-              <button className="modal__close" onClick={() => setShowQuestionModal(false)}>✕</button>
-            </div>
-            <div className="modal__body" style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                <label style={{ fontSize:13, fontWeight:'bold' }}>Chủ đề *</label>
-                <select value={(editQuestion.topic as any) ?? ''} onChange={e => setEditQuestion(p => ({ ...p!, topic: e.target.value as any }))}
-                  style={{ padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:14 }}>
-                  <option value="">Chọn chủ đề</option>
-                  {topics.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                </select>
-              </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                <label style={{ fontSize:13, fontWeight:'bold' }}>Câu hỏi *</label>
-                <textarea value={editQuestion.question ?? ''} rows={3}
-                  onChange={e => setEditQuestion(p => ({ ...p!, question: e.target.value }))}
-                  style={{ padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:14, resize:'vertical' }} />
-              </div>
-              {['A','B','C','D'].map((label, idx) => (
-                <div key={idx} style={{ display:'flex', gap:8, alignItems:'center' }}>
-                  <label style={{ fontSize:13, fontWeight:'bold', width:24 }}>{label}</label>
-                  <input value={editQuestion.options?.[idx] ?? ''} style={{ flex:1, padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:14 }}
-                    onChange={e => {
-                      const opts = [...(editQuestion.options || ['','','',''])];
-                      opts[idx] = e.target.value;
-                      setEditQuestion(p => ({ ...p!, options: opts }));
-                    }} />
-                  <input type="radio" checked={editQuestion.correctIndex === idx}
-                    onChange={() => setEditQuestion(p => ({ ...p!, correctIndex: idx }))}
-                    title="Đáp án đúng" />
-                </div>
-              ))}
-              <div style={{ fontSize:12, color:'var(--text-secondary)' }}>☝️ Chọn radio để đánh dấu đáp án đúng</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                <label style={{ fontSize:13, fontWeight:'bold' }}>Độ khó</label>
-                <select value={editQuestion.difficulty ?? 'medium'} onChange={e => setEditQuestion(p => ({ ...p!, difficulty: e.target.value as any }))}
-                  style={{ padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', fontSize:14 }}>
-                  <option value="easy">Dễ</option>
-                  <option value="medium">Trung bình</option>
-                  <option value="hard">Khó</option>
-                </select>
-              </div>
-            </div>
-            <div className="modal__footer">
-              <button className="btn btn--secondary" onClick={() => setShowQuestionModal(false)}>Hủy</button>
-              <button className="btn btn--primary" onClick={saveQuestion}>💾 Lưu</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <QuizQuestionModal
+        isOpen={showQuestionModal}
+        question={editQuestion}
+        topics={topics}
+        onClose={() => setShowQuestionModal(false)}
+        onSave={saveQuestion}
+        onChange={setEditQuestion}
+      />
     </div>
   );
 }
+

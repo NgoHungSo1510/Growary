@@ -4,51 +4,42 @@ import {
     Text,
     StyleSheet,
     ScrollView,
-    TouchableOpacity,
-    Dimensions,
     RefreshControl,
-    Modal,
     Animated,
-    Image,
     Alert,
-    ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Reward, Voucher, VipStatus } from '../types';
+import { Reward, Voucher, VipStatus, InventoryItem } from '../types';
 import ClayHeader from '../components/ClayHeader';
 import RewardCelebrationModal from '../components/RewardCelebrationModal';
 import { VipMiniCard } from '../components/VipMiniCard';
 import { COLORS, FONT_SIZES } from '../theme';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const { width } = Dimensions.get('window');
-const FEATURED_CARD_W = width * 0.72;
-
-// Map reward titles to icons/colors
-const getRewardVisual = (title: string): { icon: keyof typeof MaterialIcons.glyphMap; color: string } => {
-    const t = title.toLowerCase();
-    if (t.includes('energy') || t.includes('potion') || t.includes('cafe')) return { icon: 'local-cafe', color: '#A855F7' };
-    if (t.includes('theme') || t.includes('palette')) return { icon: 'palette', color: '#3B82F6' };
-    if (t.includes('game') || t.includes('play')) return { icon: 'sports-esports', color: '#22C55E' };
-    if (t.includes('sticker') || t.includes('emoji')) return { icon: 'sentiment-satisfied', color: '#F97316' };
-    if (t.includes('boost') || t.includes('crystal') || t.includes('diamond')) return { icon: 'diamond', color: '#A855F7' };
-    return { icon: 'card-giftcard', color: '#A855F7' };
-};
+import {
+    RewardCard,
+    RewardDetailModal,
+    CouponsSelectModal,
+    CouponItem,
+    VoucherRedeemModal,
+    ProcessingModal,
+    FEATURED_CARD_W,
+} from '../components/shop';
 
 export default function ShopScreen() {
     const { user, refreshUser } = useAuth();
-    const insets = useSafeAreaInsets();
     const navigation = useNavigation();
+
     const [rewards, setRewards] = useState<Reward[]>([]);
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
+    const [inventory, setInventory] = useState<InventoryItem[]>([]);
+    const [vipStatus, setVipStatus] = useState<VipStatus | null>(null);
+
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // Modals
+    // Modal states
     const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
     const [purchasedTitle, setPurchasedTitle] = useState('');
     const [grantedRewards, setGrantedRewards] = useState<any | null>(null);
@@ -56,41 +47,14 @@ export default function ShopScreen() {
     const [showProcessingModal, setShowProcessingModal] = useState(false);
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [isRedeeming, setIsRedeeming] = useState(false);
-    const [vipStatus, setVipStatus] = useState<VipStatus | null>(null);
 
-    const [inventory, setInventory] = useState<import('../types').InventoryItem[]>([]);
-
-    // Voucher checkout state
-    const [useDiscountCoupon, setUseDiscountCoupon] = useState<{ type: string, discount: number, label: string } | null>(null);
-    const [useFreeshipCoupon, setUseFreeshipCoupon] = useState<{ type: string, discount: number, label: string } | null>(null);
+    // Coupon states
+    const [useDiscountCoupon, setUseDiscountCoupon] = useState<CouponItem | null>(null);
+    const [useFreeshipCoupon, setUseFreeshipCoupon] = useState<CouponItem | null>(null);
     const [showDiscountModal, setShowDiscountModal] = useState(false);
     const [showFreeshipModal, setShowFreeshipModal] = useState(false);
-    const [availableDiscountCoupons, setAvailableDiscountCoupons] = useState<{ type: string, discount: number, label: string }[]>([]);
-    const [availableFreeshipCoupons, setAvailableFreeshipCoupons] = useState<{ type: string, discount: number, label: string }[]>([]);
-
-    const getDiscountedPrice = (price?: number) => {
-        if (price === undefined || price === null) return 0;
-        const discountPercent = vipStatus?.currentTier?.discountPercent || 0;
-        if (discountPercent <= 0) return price;
-        return Math.floor(price * (1 - discountPercent / 100));
-    };
-
-    // Redeem voucher API
-    const handleUseVoucher = async () => {
-        if (!redeemVoucher || isRedeeming) return;
-        setIsRedeeming(true);
-        try {
-            // we will call useVoucher
-            await apiService.useVoucher(redeemVoucher.code);
-            setRedeemVoucher(null);
-            setShowProcessingModal(true);
-            fetchVouchers(); // Refresh list to show 'pending_use'
-        } catch (error: any) {
-            Alert.alert('Lỗi', error.message || 'Không thể sử dụng voucher lúc này.');
-        } finally {
-            setIsRedeeming(false);
-        }
-    };
+    const [availableDiscountCoupons, setAvailableDiscountCoupons] = useState<CouponItem[]>([]);
+    const [availableFreeshipCoupons, setAvailableFreeshipCoupons] = useState<CouponItem[]>([]);
 
     const modalScale = useRef(new Animated.Value(0)).current;
 
@@ -98,7 +62,7 @@ export default function ShopScreen() {
         try {
             const [res, vipRes] = await Promise.all([
                 apiService.getRewards(),
-                apiService.getVipStatus().catch(() => null)
+                apiService.getVipStatus().catch(() => null),
             ]);
             setRewards(res.rewards || []);
             if (vipRes && vipRes.status) setVipStatus(vipRes.status);
@@ -138,18 +102,16 @@ export default function ShopScreen() {
     const openRewardModal = (reward: Reward) => {
         setSelectedReward(reward);
 
-        // Auto pick best coupons from inventory
-        let bestDiscount = null;
+        let bestDiscount: CouponItem | null = null;
         let maxDiscountVal = -1;
-        let bestFreeship = null;
+        let bestFreeship: CouponItem | null = null;
         let maxFreeshipVal = -1;
-        
-        const shippingFee = reward.shippingFee ?? 15000;
-        
-        const discounts: { type: string, discount: number, label: string }[] = [];
-        const freeships: { type: string, discount: number, label: string }[] = [];
 
-        inventory.forEach(item => {
+        const shippingFee = reward.shippingFee ?? 15000;
+        const discounts: CouponItem[] = [];
+        const freeships: CouponItem[] = [];
+
+        inventory.forEach((item) => {
             if (item.quantity > 0 && item.itemType === 'special_item' && item.rewardForm === 'full' && item.specialItem && item.specialItem.type) {
                 const spType = item.specialItem.type as string;
                 if (spType === 'coupon_freeship' || spType === 'freeship') {
@@ -211,11 +173,11 @@ export default function ShopScreen() {
         if (!selectedReward || isPurchasing) return;
         setIsPurchasing(true);
         const reward = selectedReward;
-        
+
         const selectedCoupons: string[] = [];
         if (useDiscountCoupon) selectedCoupons.push(useDiscountCoupon.type);
         if (useFreeshipCoupon) selectedCoupons.push(useFreeshipCoupon.type);
-        
+
         try {
             const data = await apiService.purchaseReward(reward._id, selectedCoupons);
             setPurchasedTitle(reward.title);
@@ -230,8 +192,7 @@ export default function ShopScreen() {
             closeRewardModal();
             const msg = error.response?.data?.error || 'Không thể đổi';
             setTimeout(() => Alert.alert('Lỗi', msg), 200);
-            
-            // Reset coupon state and re-fetch inventory in case of partial deduction/rollback
+
             setUseDiscountCoupon(null);
             setUseFreeshipCoupon(null);
             fetchInventory();
@@ -240,10 +201,24 @@ export default function ShopScreen() {
         }
     };
 
-    const featuredRewards = rewards.filter(r => r.isFeatured);
-    const regularRewards = rewards.filter(r => !r.isFeatured);
+    const handleUseVoucher = async () => {
+        if (!redeemVoucher || isRedeeming) return;
+        setIsRedeeming(true);
+        try {
+            await apiService.useVoucher(redeemVoucher.code);
+            setRedeemVoucher(null);
+            setShowProcessingModal(true);
+            fetchVouchers();
+        } catch (error: any) {
+            Alert.alert('Lỗi', error.message || 'Không thể sử dụng voucher lúc này.');
+        } finally {
+            setIsRedeeming(false);
+        }
+    };
+
+    const featuredRewards = rewards.filter((r) => r.isFeatured);
+    const regularRewards = rewards.filter((r) => !r.isFeatured);
     const userCoins = user?.coins || 0;
-    const pendingVouchers = vouchers.filter(v => v.status === 'pending_use' || v.status === 'active');
 
     if (isLoading) {
         return (
@@ -255,7 +230,6 @@ export default function ShopScreen() {
 
     return (
         <View style={{ flex: 1, backgroundColor: COLORS.warmBg }}>
-            {/* Header */}
             <ClayHeader user={user} />
 
             <ScrollView
@@ -273,7 +247,6 @@ export default function ShopScreen() {
                     />
                 }
             >
-
                 {vipStatus && (
                     <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
                         <VipMiniCard
@@ -283,7 +256,7 @@ export default function ShopScreen() {
                     </View>
                 )}
 
-                {/* ── FEATURED SLIDE ── */}
+                {/* FEATURED SLIDE */}
                 {featuredRewards.length > 0 && (
                     <>
                         <View style={styles.sectionHeader}>
@@ -301,104 +274,39 @@ export default function ShopScreen() {
                             contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
                             style={{ marginBottom: 24 }}
                         >
-                            {featuredRewards.map((reward) => {
-                                const { icon, color } = getRewardVisual(reward.title);
-                                return (
-                                    <TouchableOpacity
-                                        key={reward._id}
-                                        style={styles.featuredSlide}
-                                        activeOpacity={0.9}
-                                        onPress={() => openRewardModal(reward)}
-                                    >
-                                        <View style={styles.rareBadge}>
-                                            <Text style={styles.rareText}>RARE</Text>
-                                        </View>
-
-                                        <LinearGradient
-                                            colors={['rgba(255,255,255,0.4)', 'transparent']}
-                                            style={styles.featuredImageArea}
-                                        >
-                                            {reward.imageUrl ? (
-                                                <Image source={{ uri: reward.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                                            ) : (
-                                                <MaterialIcons name={icon} size={64} color={color} style={{ opacity: 0.9 }} />
-                                            )}
-                                        </LinearGradient>
-
-                                        <View style={styles.featuredInfo}>
-                                            <Text style={styles.featuredTitle} numberOfLines={1}>{reward.title}</Text>
-                                            <Text style={styles.featuredSubtitle} numberOfLines={1}>
-                                                {reward.description || 'Special reward'}
-                                            </Text>
-                                            <View style={styles.featuredPriceRow}>
-                                                <View style={styles.priceTagYellow}>
-                                                    <MaterialIcons name="monetization-on" size={12} color="#713F12" />
-                                                    <Text style={styles.priceTextYellow}>{getDiscountedPrice(reward.pointCost)}</Text>
-                                                </View>
-                                                {vipStatus?.currentTier?.discountPercent ? (
-                                                    <Text style={{ fontSize: 10, textDecorationLine: 'line-through', color: 'rgba(255,255,255,0.5)' }}>
-                                                        {reward.pointCost}
-                                                    </Text>
-                                                ) : null}
-                                                {reward.stock !== undefined && reward.stock !== null && (
-                                                    <Text style={styles.stockText}>Còn {reward.stock}</Text>
-                                                )}
-                                            </View>
-                                        </View>
-                                    </TouchableOpacity>
-                                );
-                            })}
+                            {featuredRewards.map((reward) => (
+                                <RewardCard
+                                    key={reward._id}
+                                    reward={reward}
+                                    vipStatus={vipStatus}
+                                    onPress={openRewardModal}
+                                    variant="featured"
+                                />
+                            ))}
                         </ScrollView>
                     </>
                 )}
 
-                {/* ── GRID ITEMS ── */}
+                {/* REGULAR GRID */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>🛒 Cửa hàng</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-
-                        <View style={styles.refreshBadge}>
-                            <Text style={styles.refreshText}>{regularRewards.length} món</Text>
-                        </View>
+                    <View style={styles.refreshBadge}>
+                        <Text style={styles.refreshText}>{regularRewards.length} món</Text>
                     </View>
                 </View>
 
                 <View style={styles.gridContainer}>
-                    {regularRewards.map((reward) => {
-                        const { icon, color } = getRewardVisual(reward.title);
-                        return (
-                            <TouchableOpacity
-                                key={reward._id}
-                                style={styles.gridItem}
-                                activeOpacity={0.85}
-                                onPress={() => openRewardModal(reward)}
-                            >
-                                <View style={styles.iconInsetBox}>
-                                    {reward.imageUrl ? (
-                                        <Image source={{ uri: reward.imageUrl }} style={{ width: '100%', height: '100%', borderRadius: 16, resizeMode: 'cover' }} />
-                                    ) : (
-                                        <MaterialIcons name={icon} size={40} color={color} style={{ opacity: 0.9 }} />
-                                    )}
-                                    <View style={styles.miniPriceBadge}>
-                                        <MaterialIcons name="monetization-on" size={10} color="#713F12" />
-                                        <Text style={styles.miniPriceText}>{getDiscountedPrice(reward.pointCost)}</Text>
-                                    </View>
-                                </View>
-                                <View style={styles.itemInfo}>
-                                    <Text style={styles.itemTitle} numberOfLines={1}>{reward.title}</Text>
-                                    <Text style={styles.itemSubtitle} numberOfLines={1}>
-                                        {reward.description || 'Reward'}
-                                    </Text>
-                                </View>
-                                <View style={styles.smallRedeemBtn}>
-                                    <Text style={styles.smallRedeemText}>Đổi</Text>
-                                </View>
-                            </TouchableOpacity>
-                        );
-                    })}
+                    {regularRewards.map((reward) => (
+                        <RewardCard
+                            key={reward._id}
+                            reward={reward}
+                            vipStatus={vipStatus}
+                            onPress={openRewardModal}
+                            variant="grid"
+                        />
+                    ))}
                 </View>
 
-                {/* Empty state */}
                 {rewards.length === 0 && (
                     <View style={styles.emptyState}>
                         <MaterialIcons name="store" size={48} color="rgba(93,64,55,0.2)" />
@@ -409,372 +317,60 @@ export default function ShopScreen() {
                 <View style={{ height: 100 }} />
             </ScrollView>
 
-            {/* ══════ REWARD DETAIL MODAL ══════ */}
-            <Modal visible={!!selectedReward} transparent animationType="fade">
-                <TouchableOpacity
-                    style={styles.modalOverlay}
-                    activeOpacity={1}
-                    onPress={closeRewardModal}
-                >
-                    <Animated.View
-                        style={[
-                            styles.rewardModal,
-                            { transform: [{ scale: modalScale }] },
-                        ]}
-                    >
-                        <TouchableOpacity activeOpacity={1}>
-                            {selectedReward && (() => {
-                                const { icon, color } = getRewardVisual(selectedReward.title);
-                                const shippingFee = selectedReward.shippingFee ?? 15000;
-                                const discountedPriceBase = getDiscountedPrice(selectedReward.pointCost);
-                                const appliedProductDiscount = useDiscountCoupon ? useDiscountCoupon.discount : 0;
-                                const appliedShippingDiscount = useFreeshipCoupon ? useFreeshipCoupon.discount : 0;
-                                const finalShipping = Math.max(0, shippingFee - appliedShippingDiscount);
-                                const finalProduct = Math.max(0, discountedPriceBase - appliedProductDiscount);
-                                const discountedPrice = finalProduct + finalShipping;
-                                const canAfford = userCoins >= discountedPrice;
-                                return (
-                                    <View>
-                                        {/* Close button */}
-                                        <TouchableOpacity style={styles.modalCloseBtn} onPress={closeRewardModal}>
-                                            <MaterialIcons name="close" size={20} color="rgba(93,64,55,0.5)" />
-                                        </TouchableOpacity>
+            {/* Modals */}
+            <RewardDetailModal
+                visible={!!selectedReward}
+                reward={selectedReward}
+                vipStatus={vipStatus}
+                userCoins={userCoins}
+                modalScale={modalScale}
+                isPurchasing={isPurchasing}
+                useDiscountCoupon={useDiscountCoupon}
+                useFreeshipCoupon={useFreeshipCoupon}
+                availableDiscountCoupons={availableDiscountCoupons}
+                availableFreeshipCoupons={availableFreeshipCoupons}
+                onOpenDiscountModal={() => setShowDiscountModal(true)}
+                onOpenFreeshipModal={() => setShowFreeshipModal(true)}
+                onClose={closeRewardModal}
+                onPurchase={handlePurchase}
+            />
 
-                                        {/* Icon */}
-                                        <View style={[styles.modalIconWrap, { backgroundColor: `${color}20` }]}>
-                                            {selectedReward.imageUrl ? (
-                                                <Image source={{ uri: selectedReward.imageUrl }} style={{ width: 64, height: 64, borderRadius: 16 }} />
-                                            ) : (
-                                                <MaterialIcons name={icon} size={64} color={color} />
-                                            )}
-                                            {selectedReward.isFeatured && (
-                                                <View style={styles.modalRareBadge}>
-                                                    <Text style={{ fontSize: 9, fontWeight: '900', color: '#713F12' }}>RARE</Text>
-                                                </View>
-                                            )}
-                                        </View>
+            <CouponsSelectModal
+                visible={showDiscountModal}
+                title="Chọn Mã Giảm Giá"
+                type="discount"
+                coupons={availableDiscountCoupons}
+                selectedCoupon={useDiscountCoupon}
+                onSelect={setUseDiscountCoupon}
+                onClose={() => setShowDiscountModal(false)}
+            />
 
-                                        {/* Info */}
-                                        <Text style={styles.modalTitle}>{selectedReward.title}</Text>
-                                        <Text style={styles.modalDesc}>
-                                            {selectedReward.description || 'Phần thưởng đặc biệt'}
-                                        </Text>
+            <CouponsSelectModal
+                visible={showFreeshipModal}
+                title="Chọn Mã Free Ship"
+                type="freeship"
+                coupons={availableFreeshipCoupons}
+                selectedCoupon={useFreeshipCoupon}
+                onSelect={setUseFreeshipCoupon}
+                onClose={() => setShowFreeshipModal(false)}
+            />
 
-                                        {availableDiscountCoupons.length > 0 && (
-                                            <View style={{ marginBottom: 8 }}>
-                                                <TouchableOpacity 
-                                                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(59,130,246,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(59,130,246,0.3)' }}
-                                                    onPress={() => setShowDiscountModal(true)}
-                                                >
-                                                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(59,130,246,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <MaterialIcons name="local-offer" size={18} color="#2563EB" />
-                                                    </View>
-                                                    <View style={{ marginLeft: 12, flex: 1 }}>
-                                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#2563EB' }}>
-                                                            {useDiscountCoupon ? `Dùng ${useDiscountCoupon.label}` : 'Chọn mã giảm giá'}
-                                                        </Text>
-                                                        <Text style={{ fontSize: 11, color: '#3B82F6' }}>
-                                                            {availableDiscountCoupons.length} mã khả dụng
-                                                        </Text>
-                                                    </View>
-                                                    <MaterialIcons name="chevron-right" size={24} color="#3B82F6" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        )}
-                                        
-                                        {availableFreeshipCoupons.length > 0 && (
-                                            <View style={{ marginBottom: 12 }}>
-                                                <TouchableOpacity 
-                                                    style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(34,197,94,0.1)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(34,197,94,0.3)' }}
-                                                    onPress={() => setShowFreeshipModal(true)}
-                                                >
-                                                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(34,197,94,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <MaterialIcons name="local-shipping" size={18} color="#16A34A" />
-                                                    </View>
-                                                    <View style={{ marginLeft: 12, flex: 1 }}>
-                                                        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#16A34A' }}>
-                                                            {useFreeshipCoupon ? `Dùng ${useFreeshipCoupon.label}` : 'Chọn mã Free Ship'}
-                                                        </Text>
-                                                        <Text style={{ fontSize: 11, color: '#16A34A' }}>
-                                                            {availableFreeshipCoupons.length} mã khả dụng
-                                                        </Text>
-                                                    </View>
-                                                    <MaterialIcons name="chevron-right" size={24} color="#16A34A" />
-                                                </TouchableOpacity>
-                                            </View>
-                                        )}
+            <VoucherRedeemModal
+                visible={!!redeemVoucher}
+                voucher={redeemVoucher}
+                purchasedTitle={purchasedTitle}
+                isRedeeming={isRedeeming}
+                onUseNow={handleUseVoucher}
+                onUseLater={() => {
+                    setRedeemVoucher(null);
+                    setPurchasedTitle('');
+                }}
+            />
 
-                                        {/* Price breakdown */}
-                                        <View style={{ backgroundColor: 'rgba(255,255,255,0.5)', padding: 12, borderRadius: 12, marginBottom: 16 }}>
-                                            {(() => {
-                                                const discountedPrice = selectedReward ? getDiscountedPrice(selectedReward.pointCost) : 0;
-                                                const cDiscount = useDiscountCoupon ? useDiscountCoupon.discount : 0;
-                                                let finalPrice = Math.max(0, discountedPrice - cDiscount);
-
-                                                const shippingFee = selectedReward?.shippingFee ?? 15000;
-                                                const cFreeship = useFreeshipCoupon ? useFreeshipCoupon.discount : 0;
-                                                let finalShipping = Math.max(0, shippingFee - cFreeship);
-                                                
-                                                const grandTotal = finalPrice + finalShipping;
-
-                                                return (
-                                                    <>
-                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                            <Text style={{ fontSize: 13, color: 'rgba(93,64,55,0.7)' }}>Giá sản phẩm</Text>
-                                                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{discountedPrice} G</Text>
-                                                        </View>
-                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                            <Text style={{ fontSize: 13, color: 'rgba(93,64,55,0.7)' }}>Phí vận chuyển</Text>
-                                                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#713F12' }}>{shippingFee} G</Text>
-                                                        </View>
-                                                        
-                                                        {(useDiscountCoupon || useFreeshipCoupon) && (
-                                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                                <Text style={{ fontSize: 13, color: '#16A34A' }}>Giảm giá Voucher</Text>
-                                                                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#16A34A' }}>-{cDiscount + cFreeship} G</Text>
-                                                            </View>
-                                                        )}
-                                                        <View style={{ height: 1, backgroundColor: 'rgba(93,64,55,0.1)', marginVertical: 8 }} />
-                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <Text style={{ fontSize: 13, fontWeight: 'bold', color: 'rgba(93,64,55,0.7)' }}>Tổng cộng</Text>
-                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                                <MaterialIcons name="monetization-on" size={16} color={COLORS.clayText} />
-                                                                <Text style={{ fontSize: 18, fontWeight: '900', color: COLORS.clayText }}>{grandTotal} G</Text>
-                                                            </View>
-                                                        </View>
-                                                    </>
-                                                );
-                                            })()}
-                                        </View>
-
-                                        {/* Price + Balance */}
-                                        <View style={styles.modalPriceRow}>
-                                            <View style={styles.modalPriceBox}>
-                                                <Text style={styles.modalPriceLabel}>Giá</Text>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                                    <MaterialIcons name="monetization-on" size={18} color="#713F12" />
-                                                    <Text style={styles.modalPriceValue}>{discountedPrice}</Text>
-                                                </View>
-                                                {vipStatus?.currentTier?.discountPercent ? (
-                                                    <Text style={{ fontSize: 11, textDecorationLine: 'line-through', color: 'rgba(93,64,55,0.4)', marginTop: 2 }}>
-                                                        Gốc: {selectedReward.pointCost}
-                                                    </Text>
-                                                ) : null}
-                                            </View>
-                                            <View style={styles.modalDivider} />
-                                            <View style={styles.modalPriceBox}>
-                                                <Text style={styles.modalPriceLabel}>Bạn có</Text>
-                                                <Text style={[styles.modalPriceValue, { color: canAfford ? '#22C55E' : '#EF4444' }]}>
-                                                    {userCoins} G
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        {!canAfford && (
-                                            <View style={styles.warningBox}>
-                                                <MaterialIcons name="warning" size={14} color="#B45309" />
-                                                <Text style={styles.warningText}>
-                                                    Thiếu {discountedPrice - userCoins} G để đổi
-                                                </Text>
-                                            </View>
-                                        )}
-
-                                        {selectedReward.stock !== undefined && selectedReward.stock !== null && (
-                                            <Text style={styles.stockInfo}>📦 Còn lại: {selectedReward.stock} cái</Text>
-                                        )}
-
-                                        {/* Actions */}
-                                        <View style={styles.modalActions}>
-                                            <TouchableOpacity style={styles.modalCancelBtn} onPress={closeRewardModal}>
-                                                <Text style={styles.modalCancelText}>Hủy</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={[styles.modalRedeemBtn, (!canAfford || isPurchasing) && { opacity: 0.4 }]}
-                                                disabled={!canAfford || isPurchasing}
-                                                onPress={handlePurchase}
-                                            >
-                                                <LinearGradient
-                                                    colors={[COLORS.clayAccent2, '#EC4899']}
-                                                    style={styles.modalRedeemGradient}
-                                                >
-                                                    {isPurchasing ? (
-                                                        <ActivityIndicator size="small" color="#FFF" />
-                                                    ) : (
-                                                        <>
-                                                            <MaterialIcons name="shopping-cart" size={18} color="#FFF" />
-                                                            <Text style={styles.modalRedeemText}>Đổi ngay</Text>
-                                                        </>
-                                                    )}
-                                                </LinearGradient>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                );
-                            })()}
-                        </TouchableOpacity>
-                    </Animated.View>
-                </TouchableOpacity>
-            </Modal>
-
-            {/* ══════ POST-PURCHASE/USE NOW MODAL ══════ */}
-            <Modal visible={!!redeemVoucher} transparent animationType="fade">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.postPurchaseModal}>
-                        <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 8 }}>{redeemVoucher?.rewardTitleSnapshot ? '🎟️' : '🎉'}</Text>
-                        <Text style={styles.ppTitle}>{purchasedTitle ? 'Đổi thành công!' : 'Dùng Voucher'}</Text>
-                        <Text style={styles.ppSubtitle}>
-                            {purchasedTitle
-                                ? `"${purchasedTitle}" đã vào kho của bạn.`
-                                : `Bạn có muốn dùng "${redeemVoucher?.rewardTitleSnapshot}" ngay không?`}
-                        </Text>
-
-                        <View style={styles.ppActions}>
-                            <TouchableOpacity
-                                style={styles.ppUseLaterBtn}
-                                onPress={() => {
-                                    setRedeemVoucher(null);
-                                    setPurchasedTitle('');
-                                }}
-                            >
-                                <MaterialIcons name="inventory-2" size={18} color={COLORS.clayText} />
-                                <Text style={styles.ppUseLaterText}>Để sau</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.ppUseNowBtn, isRedeeming && { opacity: 0.7 }]}
-                                disabled={isRedeeming}
-                                onPress={() => {
-                                    handleUseVoucher();
-                                    setPurchasedTitle('');
-                                }}
-                            >
-                                <LinearGradient
-                                    colors={[COLORS.clayAccent2, '#EC4899']}
-                                    style={styles.ppUseNowGradient}
-                                >
-                                    {isRedeeming ? (
-                                        <ActivityIndicator size="small" color="#FFF" />
-                                    ) : (
-                                        <>
-                                            <MaterialIcons name="redeem" size={18} color="#FFF" />
-                                            <Text style={styles.ppUseNowText}>Dùng ngay</Text>
-                                        </>
-                                    )}
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
-
-            {/* ── PROCESSING MODAL ── */}
-            <Modal visible={showProcessingModal} animationType="fade" transparent>
-                <View style={styles.inventoryOverlay}>
-                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowProcessingModal(false)} />
-                    <View style={{ backgroundColor: '#FFF', width: '85%', borderRadius: 24, padding: 24, alignItems: 'center', alignSelf: 'center', marginTop: 'auto', marginBottom: 'auto' }}>
-                        <MaterialIcons name="hourglass-top" size={48} color={COLORS.clayAccent2} style={{ marginBottom: 16 }} />
-                        <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.clayText, textAlign: 'center', marginBottom: 8 }}>
-                            Đang xử lý
-                        </Text>
-                        <Text style={{ fontSize: 14, color: 'rgba(93,64,55,0.7)', textAlign: 'center', lineHeight: 20 }}>
-                            Mã của bạn sẽ được chúng tôi xử lý, hãy đợi một chút.
-                            Chúng tôi sẽ gửi cho bạn thông qua Zalo hoặc Messenger.
-                        </Text>
-                        <TouchableOpacity
-                            style={{ marginTop: 24, backgroundColor: COLORS.clayAccent1, paddingVertical: 12, paddingHorizontal: 32, borderRadius: 12 }}
-                            onPress={() => setShowProcessingModal(false)}
-                        >
-                            <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Đã hiểu</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* ── DISCOUNT COUPON MODAL ── */}
-            <Modal visible={showDiscountModal} transparent animationType="fade">
-                <View style={styles.inventoryOverlay}>
-                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowDiscountModal(false)} />
-                    <View style={styles.inventorySheet}>
-                        <View style={styles.inventoryHeader}>
-                            <Text style={styles.inventoryTitle}>Chọn Mã Giảm Giá</Text>
-                            <TouchableOpacity onPress={() => setShowDiscountModal(false)}>
-                                <MaterialIcons name="close" size={24} color="rgba(93,64,55,0.5)" />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            {availableDiscountCoupons.map((c, i) => (
-                                <TouchableOpacity
-                                    key={i}
-                                    style={[
-                                        styles.voucherRow,
-                                        useDiscountCoupon?.type === c.type && { borderColor: '#3B82F6', backgroundColor: 'rgba(59,130,246,0.05)' }
-                                    ]}
-                                    onPress={() => {
-                                        setUseDiscountCoupon(useDiscountCoupon?.type === c.type ? null : c);
-                                        setShowDiscountModal(false);
-                                    }}
-                                >
-                                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(59,130,246,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                                        <MaterialIcons name="local-offer" size={20} color="#2563EB" />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{ fontSize: 15, fontWeight: 'bold', color: COLORS.clayText }}>{c.label}</Text>
-                                        <Text style={{ fontSize: 12, color: 'rgba(93,64,55,0.5)', marginTop: 2 }}>
-                                            Giảm trực tiếp vào giá sản phẩm
-                                        </Text>
-                                    </View>
-                                    {useDiscountCoupon?.type === c.type && (
-                                        <MaterialIcons name="check-circle" size={24} color="#3B82F6" />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* ── FREESHIP COUPON MODAL ── */}
-            <Modal visible={showFreeshipModal} transparent animationType="fade">
-                <View style={styles.inventoryOverlay}>
-                    <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowFreeshipModal(false)} />
-                    <View style={styles.inventorySheet}>
-                        <View style={styles.inventoryHeader}>
-                            <Text style={styles.inventoryTitle}>Chọn Mã Free Ship</Text>
-                            <TouchableOpacity onPress={() => setShowFreeshipModal(false)}>
-                                <MaterialIcons name="close" size={24} color="rgba(93,64,55,0.5)" />
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            {availableFreeshipCoupons.map((c, i) => (
-                                <TouchableOpacity
-                                    key={i}
-                                    style={[
-                                        styles.voucherRow,
-                                        useFreeshipCoupon?.type === c.type && { borderColor: '#22C55E', backgroundColor: 'rgba(34,197,94,0.05)' }
-                                    ]}
-                                    onPress={() => {
-                                        setUseFreeshipCoupon(useFreeshipCoupon?.type === c.type ? null : c);
-                                        setShowFreeshipModal(false);
-                                    }}
-                                >
-                                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(34,197,94,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                                        <MaterialIcons name="local-shipping" size={20} color="#16A34A" />
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={{ fontSize: 15, fontWeight: 'bold', color: COLORS.clayText }}>{c.label}</Text>
-                                        <Text style={{ fontSize: 12, color: 'rgba(93,64,55,0.5)', marginTop: 2 }}>
-                                            Giảm phí vận chuyển
-                                        </Text>
-                                    </View>
-                                    {useFreeshipCoupon?.type === c.type && (
-                                        <MaterialIcons name="check-circle" size={24} color="#22C55E" />
-                                    )}
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
+            <ProcessingModal
+                visible={showProcessingModal}
+                onClose={() => setShowProcessingModal(false)}
+            />
 
             <RewardCelebrationModal
                 visible={!!grantedRewards}
@@ -789,263 +385,43 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.warmBg },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.warmBg },
     scrollContent: { paddingBottom: 20 },
-
-    // Section Header
     sectionHeader: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 16, paddingHorizontal: 24,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+        paddingHorizontal: 24,
     },
     sectionTitle: {
-        fontSize: 20, fontWeight: 'bold', color: COLORS.clayText,
-        textShadowColor: 'rgba(255,255,255,0.5)', textShadowOffset: { width: 1, height: 1 }, textShadowRadius: 1,
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: COLORS.clayText,
     },
     refreshBadge: {
-        backgroundColor: 'rgba(255,255,255,0.6)', paddingHorizontal: 8, paddingVertical: 4,
-        borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
+        backgroundColor: 'rgba(255,255,255,0.6)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
     },
-    refreshText: { fontSize: FONT_SIZES.caption, fontWeight: 'bold', color: COLORS.clayAccent2 },
-
-    // Featured Slide
-    featuredSlide: {
-        width: FEATURED_CARD_W,
-        backgroundColor: COLORS.clayCard,
-        borderRadius: 24, overflow: 'hidden',
-        borderWidth: 1, borderColor: COLORS.whiteOp,
-        shadowColor: '#A68A64', shadowOffset: { width: 8, height: 8 },
-        shadowOpacity: 0.35, shadowRadius: 12, elevation: 10,
+    refreshText: {
+        fontSize: FONT_SIZES.caption,
+        fontWeight: 'bold',
+        color: COLORS.clayAccent2,
     },
-    featuredImageArea: {
-        height: 130, alignItems: 'center', justifyContent: 'center',
-    },
-    rareBadge: {
-        position: 'absolute', top: 12, right: 12,
-        backgroundColor: COLORS.yellowBadge, paddingHorizontal: 10, paddingVertical: 3,
-        borderRadius: 20, transform: [{ rotate: '6deg' }], zIndex: 10,
-        borderWidth: 2, borderColor: '#FFF',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, elevation: 3,
-    },
-    rareText: { fontSize: FONT_SIZES.caption, fontWeight: '900', color: '#713F12' },
-    featuredInfo: { padding: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)' },
-    featuredTitle: { fontSize: 16, fontWeight: 'bold', color: '#FFF', marginBottom: 2 },
-    featuredSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 8 },
-    featuredPriceRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    priceTagYellow: {
-        flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.yellowBadge,
-        paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6,
-        borderWidth: 1, borderColor: '#FEF08A', gap: 2,
-    },
-    priceTextYellow: { fontSize: 12, fontWeight: '900', color: '#713F12' },
-    stockText: { fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
-
-    // Grid
     gridContainer: {
-        flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between',
-        paddingHorizontal: 24, rowGap: 16, columnGap: '4%',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        paddingHorizontal: 24,
     },
-    gridItem: {
-        width: '48%',
-        backgroundColor: COLORS.clayCard, borderRadius: 20, padding: 12,
-        borderWidth: 1, borderColor: COLORS.whiteOp,
-        shadowColor: '#A68A64', shadowOffset: { width: 4, height: 4 },
-        shadowOpacity: 0.3, shadowRadius: 6, elevation: 6, marginBottom: 16,
+    emptyState: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 48,
     },
-    iconInsetBox: {
-        width: '100%', aspectRatio: 1,
-        backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 16,
-        alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-        borderTopWidth: 2, borderLeftWidth: 2,
-        borderTopColor: 'rgba(0,0,0,0.1)', borderLeftColor: 'rgba(0,0,0,0.1)',
-        borderBottomWidth: 1, borderRightWidth: 1,
-        borderBottomColor: 'rgba(255,255,255,0.2)', borderRightColor: 'rgba(255,255,255,0.2)',
-        position: 'relative',
+    emptyText: {
+        fontSize: 14,
+        color: 'rgba(93,64,55,0.5)',
+        marginTop: 12,
     },
-    miniPriceBadge: {
-        position: 'absolute', bottom: 6, right: 6,
-        flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.yellowBadge,
-        paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, gap: 1,
-        borderWidth: 1, borderColor: '#FEF08A',
-    },
-    miniPriceText: { fontSize: FONT_SIZES.caption, fontWeight: '900', color: '#713F12' },
-    itemInfo: { marginBottom: 8 },
-    itemTitle: { fontSize: 14, fontWeight: 'bold', color: '#FFF' },
-    itemSubtitle: { fontSize: FONT_SIZES.caption, fontWeight: '500', color: 'rgba(93,64,55,0.7)', marginTop: 2 },
-    smallRedeemBtn: {
-        backgroundColor: COLORS.clayAccent2, paddingVertical: 6, borderRadius: 8,
-        alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
-    },
-    smallRedeemText: { fontSize: FONT_SIZES.caption, fontWeight: 'bold', color: '#FFF' },
-
-    // Empty
-    emptyState: { alignItems: 'center', paddingVertical: 40, gap: 12 },
-    emptyText: { fontSize: 14, color: COLORS.clayText, opacity: 0.5, textAlign: 'center' },
-
-    // ── REWARD MODAL ──
-    modalOverlay: {
-        flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center', alignItems: 'center',
-    },
-    rewardModal: {
-        backgroundColor: COLORS.warmBg, borderRadius: 28, padding: 24,
-        width: '85%', alignItems: 'center',
-        shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3, shadowRadius: 20, elevation: 10,
-    },
-    rewardIconCircle: {
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: COLORS.clayInset,
-        justifyContent: 'center', alignItems: 'center',
-        marginBottom: 16,
-        borderWidth: 4, borderColor: '#FFF',
-        shadowColor: COLORS.clayAccent1, shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
-    },
-    rewardModalTitle: {
-        fontSize: 22, fontWeight: 'bold', color: COLORS.clayText,
-        marginBottom: 8, textAlign: 'center',
-    },
-    rewardModalDesc: {
-        fontSize: 15, color: 'rgba(93,64,55,0.7)',
-        textAlign: 'center', marginBottom: 24, lineHeight: 22,
-    },
-    rewardBtn: {
-        flex: 1, paddingVertical: 14, borderRadius: 16,
-        alignItems: 'center', justifyContent: 'center',
-    },
-    rewardBtnCancel: {
-        backgroundColor: COLORS.clayInset,
-        borderWidth: 1, borderColor: 'rgba(93,64,55,0.1)',
-    },
-    rewardBtnConfirm: {
-        backgroundColor: COLORS.clayAccent1,
-        shadowColor: COLORS.clayAccent1, shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
-    },
-    rewardBtnTextCancel: {
-        fontSize: 16, fontWeight: 'bold', color: COLORS.clayText,
-    },
-    rewardBtnTextConfirm: {
-        fontSize: 16, fontWeight: 'bold', color: '#FFF',
-    },
-    modalCloseBtn: {
-        position: 'absolute', top: 0, right: 0, zIndex: 10,
-        width: 32, height: 32, borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.5)',
-        alignItems: 'center', justifyContent: 'center',
-    },
-    modalIconWrap: {
-        width: 100, height: 100, borderRadius: 28, alignSelf: 'center',
-        alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-    },
-    modalRareBadge: {
-        position: 'absolute', top: -4, right: -4,
-        backgroundColor: COLORS.yellowBadge, paddingHorizontal: 6, paddingVertical: 2,
-        borderRadius: 8, borderWidth: 1, borderColor: '#FEF08A',
-    },
-    modalTitle: {
-        fontSize: 20, fontWeight: '800', color: COLORS.clayText,
-        textAlign: 'center', marginBottom: 4,
-    },
-    modalDesc: {
-        fontSize: 13, fontWeight: '500', color: 'rgba(93,64,55,0.6)',
-        textAlign: 'center', marginBottom: 16, lineHeight: 18,
-    },
-    modalPriceRow: {
-        flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.5)',
-        borderRadius: 16, padding: 14, marginBottom: 12,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
-    },
-    modalPriceBox: { flex: 1, alignItems: 'center', gap: 4 },
-    modalDivider: { width: 1, backgroundColor: 'rgba(93,64,55,0.1)' },
-    modalPriceLabel: { fontSize: 11, fontWeight: '600', color: 'rgba(93,64,55,0.5)' },
-    modalPriceValue: { fontSize: 20, fontWeight: '900', color: COLORS.clayText },
-    warningBox: {
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        backgroundColor: '#FFFBEB', padding: 10, borderRadius: 10, marginBottom: 12,
-    },
-    warningText: { fontSize: 12, fontWeight: '600', color: '#B45309' },
-    stockInfo: { fontSize: 12, fontWeight: '600', color: 'rgba(93,64,55,0.5)', textAlign: 'center', marginBottom: 12 },
-    modalActions: { flexDirection: 'row', gap: 10 },
-    modalCancelBtn: {
-        flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
-    },
-    modalCancelText: { fontWeight: '700', color: COLORS.clayText },
-    modalRedeemBtn: { flex: 1.5, borderRadius: 14, overflow: 'hidden' },
-    modalRedeemGradient: {
-        paddingVertical: 12, alignItems: 'center', flexDirection: 'row',
-        justifyContent: 'center', gap: 6,
-    },
-    modalRedeemText: { fontWeight: '700', color: '#FFF', fontSize: 15 },
-
-    // ── POST-PURCHASE MODAL ──
-    postPurchaseModal: {
-        backgroundColor: COLORS.warmBg, borderRadius: 28, padding: 28,
-        width: width * 0.85, maxWidth: 380, alignSelf: 'center',
-    },
-    ppTitle: { fontSize: 22, fontWeight: '900', color: COLORS.clayText, textAlign: 'center', marginBottom: 4 },
-    ppSubtitle: { fontSize: 14, fontWeight: '500', color: 'rgba(93,64,55,0.6)', textAlign: 'center', marginBottom: 24 },
-    ppActions: { flexDirection: 'row', gap: 10 },
-    ppUseLaterBtn: {
-        flex: 1, paddingVertical: 12, borderRadius: 14, alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
-        flexDirection: 'row', justifyContent: 'center', gap: 6,
-    },
-    ppUseLaterText: { fontWeight: '700', color: COLORS.clayText, fontSize: 13 },
-    ppUseNowBtn: { flex: 1.5, borderRadius: 14, overflow: 'hidden' },
-    ppUseNowGradient: {
-        paddingVertical: 12, alignItems: 'center', flexDirection: 'row',
-        justifyContent: 'center', gap: 6,
-    },
-    ppUseNowText: { fontWeight: '700', color: '#FFF', fontSize: 14 },
-
-    // ── INVENTORY MODAL ──
-    inventoryOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-    inventorySheet: {
-        backgroundColor: COLORS.warmBg, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-        paddingTop: 16, paddingHorizontal: 20, paddingBottom: 20,
-        maxHeight: '70%',
-    },
-    inventoryHeader: {
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16,
-    },
-    inventoryTitle: { fontSize: 20, fontWeight: '800', color: COLORS.clayText },
-
-    voucherRow: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.5)', padding: 14, borderRadius: 16,
-        marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
-    },
-    voucherTitle: { fontSize: 15, fontWeight: '700', color: COLORS.clayText },
-    voucherCode: {
-        fontSize: 11, fontWeight: '600', color: 'rgba(93,64,55,0.4)',
-        backgroundColor: 'rgba(255,255,255,0.5)', paddingHorizontal: 6, paddingVertical: 1,
-        borderRadius: 4, overflow: 'hidden',
-    },
-    voucherDate: { fontSize: 11, fontWeight: '500', color: 'rgba(93,64,55,0.35)', marginTop: 4 },
-    voucherCostBox: {
-        flexDirection: 'row', alignItems: 'center', gap: 2,
-        backgroundColor: COLORS.yellowBadge, paddingHorizontal: 8, paddingVertical: 4,
-        borderRadius: 8, borderWidth: 1, borderColor: '#FEF08A',
-    },
-    statusBadge: {
-        paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6,
-        backgroundColor: 'rgba(93,64,55,0.08)',
-    },
-    statusText: { fontSize: 10, fontWeight: '700', color: 'rgba(93,64,55,0.5)' },
-
-    // ── FAB ──
-    fab: {
-        position: 'absolute', right: 20,
-        width: 56, height: 56, borderRadius: 28,
-        backgroundColor: '#F59E0B', alignItems: 'center', justifyContent: 'center',
-        shadowColor: '#F59E0B', shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35, shadowRadius: 10, elevation: 8, zIndex: 100,
-    },
-    fabBadge: {
-        position: 'absolute', top: 4, right: 4,
-        minWidth: 18, height: 18, borderRadius: 9,
-        backgroundColor: COLORS.clayAccent2, alignItems: 'center', justifyContent: 'center',
-        borderWidth: 2, borderColor: '#FFF',
-    },
-    fabBadgeText: { fontSize: 10, fontWeight: '900', color: '#FFF' },
 });

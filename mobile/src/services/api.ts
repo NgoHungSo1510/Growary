@@ -4,9 +4,13 @@ import Constants from 'expo-constants';
 
 import { Platform } from 'react-native';
 
-// Use Render backend
-const getApiUrl = () => {
-    return 'https://growary-backend-vb86.onrender.com/api';
+// Dynamic API URL from Constants or environment variable with Render fallback
+const getApiUrl = (): string => {
+    return (
+        Constants.expoConfig?.extra?.apiUrl ??
+        process.env.EXPO_PUBLIC_API_URL ??
+        'https://growary-backend-vb86.onrender.com/api'
+    );
 };
 
 const API_URL = getApiUrl();

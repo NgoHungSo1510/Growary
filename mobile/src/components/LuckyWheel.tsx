@@ -52,7 +52,7 @@ const createPieSlice = (cx: number, cy: number, r: number, startAngle: number, e
     return `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`;
 };
 
-export default function LuckyWheel({ items, onSpinRequest, onSpinComplete, size = 300 }: Props) {
+function LuckyWheelComponent({ items, onSpinRequest, onSpinComplete, size = 300 }: Props) {
     const spinAnim = useRef(new Animated.Value(0)).current;
     const [isSpinning, setIsSpinning] = useState(false);
 
@@ -315,3 +315,5 @@ const styles = StyleSheet.create({
         transform: [{ scale: 0.95 }]
     }
 });
+
+export default React.memo(LuckyWheelComponent);

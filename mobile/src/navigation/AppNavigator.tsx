@@ -22,6 +22,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import CollectionScreen from '../screens/CollectionScreen';
+import BossCollectionScreen from '../screens/BossCollectionScreen';
 import QuizEventScreen from '../screens/QuizEventScreen';
 import FloatingQuizButton from '../components/FloatingQuizButton';
 import FloatingInventory from '../components/FloatingInventory';
@@ -45,6 +46,7 @@ export type RootStackParamList = {
     BossEvent: undefined;
     GachaEvent: undefined;
     Collection: undefined;
+    BossCollection: { collectionId?: string } | undefined;
     EditProfile: undefined;
     Notifications: undefined;
     QuizEvent: undefined;
@@ -144,6 +146,7 @@ const MainNavigator = () => (
             <RootStack.Screen name="BossEvent" component={BossEventScreen} />
             <RootStack.Screen name="GachaEvent" component={GachaEventScreen} />
             <RootStack.Screen name="Collection" component={CollectionScreen} />
+            <RootStack.Screen name="BossCollection" component={BossCollectionScreen} />
             <RootStack.Screen
                 name="EditProfile"
                 component={EditProfileScreen}

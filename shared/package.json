@@ -1,0 +1,9 @@
+{
+  "name": "@growary/shared",
+  "version": "1.0.0",
+  "description": "Shared TypeScript definitions and interfaces for Growary (Backend, Mobile, Admin)",
+  "main": "types/index.ts",
+  "types": "types/index.ts",
+  "scripts": {},
+  "private": true
+}

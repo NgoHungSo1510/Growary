@@ -947,4 +947,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default QuestListContent;
+export default React.memo(QuestListContent);

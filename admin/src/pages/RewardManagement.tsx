@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '../services/api';
+import { MilestoneModal, LevelModal } from '../components/reward';
 
 interface RewardItem {
     _id: string;
@@ -41,34 +42,17 @@ export default function RewardManagement() {
     const [editLevelMode, setEditLevelMode] = useState<Level | null>(null);
     const [showLevelModal, setShowLevelModal] = useState(false);
 
-    const [form, setForm] = useState({
-        type: 'streak' as Tab,
-        target: 10,
-        coins: 0,
-        gachaTickets: 0,
-        rewardItems: [] as string[],
-    });
-
-    const [levelForm, setLevelForm] = useState({
-        level: 1,
-        xpRequired: 0,
-        coinReward: 0,
-        gachaTickets: 0,
-        rewardItems: [] as string[],
-        unlockDescription: ''
-    });
-
     const fetchData = useCallback(async () => {
         try {
             setLoading(true);
-            const [msData, rwData, lvlData] = await Promise.all([
+            const [ms, rw, lvls] = await Promise.all([
                 adminApi.getMilestones(),
                 adminApi.getAllRewards(),
-                adminApi.getLevels()
+                adminApi.getLevels(),
             ]);
-            setMilestones(msData.milestones);
-            setRewardsList(rwData.rewards);
-            setLevels(lvlData.levels || []);
+            setMilestones(ms.milestones || []);
+            setRewardsList(rw.rewards || []);
+            setLevels(lvls.levels || []);
         } catch (e: any) {
             setError(e.message);
         } finally {
@@ -82,40 +66,12 @@ export default function RewardManagement() {
 
     const openCreate = () => {
         setEditMode(null);
-        setForm({
-            type: tab,
-            target: 10,
-            coins: 0,
-            gachaTickets: 0,
-            rewardItems: [],
-        });
         setShowModal(true);
     };
 
     const openEdit = (m: Milestone) => {
         setEditMode(m);
-        setForm({
-            type: m.type,
-            target: m.target,
-            coins: m.coins,
-            gachaTickets: m.gachaTickets || 0,
-            rewardItems: m.rewardItems.map(r => r._id),
-        });
         setShowModal(true);
-    };
-
-    const handleSave = async () => {
-        try {
-            if (editMode) {
-                await adminApi.updateMilestone(editMode._id, form);
-            } else {
-                await adminApi.createMilestone(form);
-            }
-            setShowModal(false);
-            fetchData();
-        } catch (e: any) {
-            setError(e.message);
-        }
     };
 
     const handleDelete = async (id: string) => {
@@ -128,70 +84,14 @@ export default function RewardManagement() {
         }
     };
 
-    const toggleRewardItem = (id: string) => {
-        setForm(prev => {
-            if (prev.rewardItems.includes(id)) {
-                return { ...prev, rewardItems: prev.rewardItems.filter(rid => rid !== id) };
-            } else {
-                return { ...prev, rewardItems: [...prev.rewardItems, id] };
-            }
-        });
-    };
-
-    const toggleLevelRewardItem = (id: string) => {
-        setLevelForm(prev => {
-            if (prev.rewardItems.includes(id)) {
-                return { ...prev, rewardItems: prev.rewardItems.filter(rid => rid !== id) };
-            } else {
-                return { ...prev, rewardItems: [...prev.rewardItems, id] };
-            }
-        });
-    };
-
-    // LEVEL FUNCTIONS
     const openCreateLevel = () => {
         setEditLevelMode(null);
-        setLevelForm({
-            level: levels.length > 0 ? Math.max(...levels.map(l => l.level)) + 1 : 1,
-            xpRequired: 0,
-            coinReward: 0,
-            gachaTickets: 0,
-            rewardItems: [],
-            unlockDescription: ''
-        });
         setShowLevelModal(true);
     };
 
     const openEditLevel = (lvl: Level) => {
         setEditLevelMode(lvl);
-        setLevelForm({
-            level: lvl.level,
-            xpRequired: lvl.xpRequired,
-            coinReward: lvl.coinReward || 0,
-            gachaTickets: lvl.gachaTickets || 0,
-            rewardItems: lvl.rewardItems ? lvl.rewardItems.map(r => r._id) : [],
-            unlockDescription: lvl.unlockDescription || ''
-        });
         setShowLevelModal(true);
-    };
-
-    const handleSaveLevel = async () => {
-        if (levelForm.level <= 0) {
-            setError('Cấp độ phải lớn hơn 0');
-            return;
-        }
-        try {
-            setError('');
-            if (editLevelMode) {
-                await adminApi.updateLevel(editLevelMode._id, levelForm);
-            } else {
-                await adminApi.createLevel(levelForm);
-            }
-            setShowLevelModal(false);
-            fetchData();
-        } catch (e: any) {
-            setError(e.message || 'Lưu thất bại. Có thể do bị trùng Số Cấp.');
-        }
     };
 
     const handleDeleteLevel = async (id: string, levelNum: number) => {
@@ -372,215 +272,22 @@ export default function RewardManagement() {
             )}
 
             {/* CREATE / EDIT MODAL FOR REWARDS */}
-            {showModal && (
-                <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
-                        <div className="modal__header">
-                            <span className="modal__title">{editMode ? '✏️ Cập nhật Mốc' : '➕ Tạo Mốc Thưởng Mới'}</span>
-                            <button className="modal__close" onClick={() => setShowModal(false)}>×</button>
-                        </div>
-                        <div className="modal__body">
-                            <div className="form-group">
-                                <label>Loại mốc</label>
-                                <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as Tab })} disabled={!!editMode}>
-                                    <option value="streak">🔥 Streak liên tục (ngày)</option>
-                                </select>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Mục tiêu để nhận thưởng (Ngày) *</label>
-                                <input
-                                    type="number"
-                                    min="1"
-                                    value={form.target}
-                                    onChange={e => setForm({ ...form, target: Number(e.target.value) })}
-                                />
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                <div className="form-group">
-                                    <label>🪙 Tặng thêm Coins</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={form.coins}
-                                        onChange={e => setForm({ ...form, coins: Number(e.target.value) })}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>🎟️ Tặng Vé Gacha</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        value={form.gachaTickets}
-                                        onChange={e => setForm({ ...form, gachaTickets: Number(e.target.value) })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group" style={{ marginTop: 8 }}>
-                                <label>🎁 Tặng Đặc Quyền (Shop Items dưới dạng Product Tickets)</label>
-                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
-                                    Chọn các phần quà từ cửa hàng. Người chơi sẽ được nhận MIỄN PHÍ vào mục "Quà tặng" khi đạt mốc này.
-                                </div>
-
-                                <div style={{
-                                    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10,
-                                    maxHeight: 240, overflowY: 'auto', padding: 8, background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--card-border)'
-                                }}>
-                                    {rewardsList.map(r => {
-                                        const isSelected = form.rewardItems.includes(r._id);
-                                        return (
-                                            <div
-                                                key={r._id}
-                                                onClick={() => toggleRewardItem(r._id)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: 12, padding: 8,
-                                                    background: isSelected ? 'var(--accent-light)' : 'white',
-                                                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--card-border)'}`,
-                                                    borderRadius: 8, cursor: 'pointer', transition: 'all 0.2s'
-                                                }}
-                                            >
-                                                {r.imageUrl ? (
-                                                    <img src={r.imageUrl} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
-                                                ) : <div style={{ width: 32, height: 32, background: '#eee', borderRadius: 6 }}></div>}
-                                                <div style={{ flex: 1, fontSize: 13 }}>
-                                                    <div style={{ fontWeight: 600 }}>{r.title}</div>
-                                                    <div style={{ color: '#f59e0b', fontSize: 11, fontWeight: 700 }}>🪙 {r.pointCost}</div>
-                                                </div>
-                                                <div style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSelected ? 'var(--accent)' : 'transparent' }}>
-                                                    {isSelected && <span style={{ color: 'white', fontSize: 12 }}>✓</span>}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                        </div>
-                        <div className="modal__footer">
-                            <button className="btn btn--secondary" onClick={() => setShowModal(false)}>Hủy</button>
-                            <button className="btn btn--primary" onClick={handleSave} disabled={form.target <= 0}>
-                                {editMode ? '💾 Lưu thay đổi' : '🚀 Thêm móc thưởng'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <MilestoneModal
+                isOpen={showModal}
+                editMode={editMode}
+                rewardsList={rewardsList}
+                onClose={() => setShowModal(false)}
+                onSaveSuccess={fetchData}
+            />
 
             {/* CREATE/EDIT MODAL FOR LEVELS */}
-            {showLevelModal && (
-                <div className="modal-backdrop" onClick={() => setShowLevelModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 450 }}>
-                        <div className="modal__header">
-                            <span className="modal__title">{editLevelMode ? `✏️ Sửa Cấp ${levelForm.level}` : '➕ Tạo Cấp độ mới'}</span>
-                            <button className="modal__close" onClick={() => setShowLevelModal(false)}>×</button>
-                        </div>
-                        <div className="modal__body">
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                <div className="form-group">
-                                    <label>Số Cấp độ *</label>
-                                    <input
-                                        type="number"
-                                        value={levelForm.level}
-                                        onChange={e => setLevelForm({ ...levelForm, level: Number(e.target.value) })}
-                                        min={1}
-                                        disabled={!!editLevelMode}
-                                        style={{ background: editLevelMode ? '#f3f4f6' : 'white' }}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>XP Yêu cầu *</label>
-                                    <input
-                                        type="number"
-                                        value={levelForm.xpRequired}
-                                        onChange={e => setLevelForm({ ...levelForm, xpRequired: Number(e.target.value) })}
-                                        min={0}
-                                    />
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-                                <div className="form-group">
-                                    <label>🪙 Coin Thưởng (khi đạt cấp)</label>
-                                    <input
-                                        type="number"
-                                        value={levelForm.coinReward}
-                                        onChange={e => setLevelForm({ ...levelForm, coinReward: Number(e.target.value) })}
-                                        min={0}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>🎟️ Tặng Vé Gacha</label>
-                                    <input
-                                        type="number"
-                                        value={levelForm.gachaTickets}
-                                        onChange={e => setLevelForm({ ...levelForm, gachaTickets: Number(e.target.value) })}
-                                        min={0}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-group" style={{ marginTop: 8 }}>
-                                <label>🎁 Tặng Đặc Quyền (Shop Items dưới dạng Product Tickets)</label>
-                                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
-                                    Chọn các phần quà từ cửa hàng. Người chơi sẽ được nhận MIỄN PHÍ vào mục "Quà tặng" khi đạt cấp này.
-                                </div>
-                                <div style={{
-                                    display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10,
-                                    maxHeight: 240, overflowY: 'auto', padding: 8, background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--card-border)'
-                                }}>
-                                    {rewardsList.map(r => {
-                                        const isSelected = levelForm.rewardItems.includes(r._id);
-                                        return (
-                                            <div
-                                                key={r._id}
-                                                onClick={() => toggleLevelRewardItem(r._id)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: 12, padding: 8,
-                                                    background: isSelected ? 'var(--accent-light)' : 'white',
-                                                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--card-border)'}`,
-                                                    borderRadius: 8, cursor: 'pointer', transition: 'all 0.2s'
-                                                }}
-                                            >
-                                                {r.imageUrl ? (
-                                                    <img src={r.imageUrl} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
-                                                ) : <div style={{ width: 32, height: 32, background: '#eee', borderRadius: 6 }}></div>}
-                                                <div style={{ flex: 1, fontSize: 13 }}>
-                                                    <div style={{ fontWeight: 600 }}>{r.title}</div>
-                                                    <div style={{ color: '#f59e0b', fontSize: 11, fontWeight: 700 }}>🪙 {r.pointCost}</div>
-                                                </div>
-                                                <div style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isSelected ? 'var(--accent)' : 'transparent' }}>
-                                                    {isSelected && <span style={{ color: 'white', fontSize: 12 }}>✓</span>}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Mô tả Đặc quyền (Tùy chọn)</label>
-                                <input
-                                    type="text"
-                                    value={levelForm.unlockDescription}
-                                    onChange={e => setLevelForm({ ...levelForm, unlockDescription: e.target.value })}
-                                    placeholder="Ví dụ: Mở khóa mua Khung Avatar Bạc"
-                                />
-                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                                    Cái này sẽ hiển thị lên giao diện Roadmap và Thông báo thăng cấp.
-                                </div>
-                            </div>
-                        </div>
-                        <div className="modal__footer">
-                            <button className="btn btn--secondary" onClick={() => setShowLevelModal(false)}>Hủy</button>
-                            <button className="btn btn--primary" onClick={handleSaveLevel}>
-                                {editLevelMode ? '💾 Lưu thay đổi' : '🚀 Tạo Cấp độ'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <LevelModal
+                isOpen={showLevelModal}
+                editLevelMode={editLevelMode}
+                rewardsList={rewardsList}
+                onClose={() => setShowLevelModal(false)}
+                onSaveSuccess={fetchData}
+            />
         </div>
     );
 }

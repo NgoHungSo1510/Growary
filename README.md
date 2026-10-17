@@ -1,99 +1,129 @@
 # 🌱 Growary - Unified Productivity & Gamification Suite
 
-**Growary** là một hệ sinh thái ứng dụng giúp tối ưu hóa hiệu suất làm việc thông qua cơ chế Gamification (Trò chơi hóa). Ứng dụng tích hợp quản lý nhiệm vụ, hệ thống cấp độ, săn Boss kỷ luật và đổi thưởng vật phẩm thực tế.
-Có thể trải nghiệm thông qua ứng dụng: https://drive.google.com/file/d/1q6-nLC-blY0GwsL9wdk3SJmTDbrM1SVx/view?usp=sharing
+**Growary** là hệ sinh thái ứng dụng quản lý công việc và mục tiêu cá nhân kết hợp yếu tố **Gamification** (Trò chơi hóa) đỉnh cao. Dự án giúp biến các thói quen hàng ngày thành các nhiệm vụ RPG hấp dẫn, tích lũy XP thăng cấp, cùng cộng đồng săn Boss kỷ luật và đổi thưởng phần quà thực tế.
+
 ---
 
-## 📁 Cấu trúc Dự án (Monorepo)
-
-Dự án được tổ chức theo cấu trúc monorepo bao gồm 3 thành phần chính:
+## 📁 Cấu Trúc Dự Án (Monorepo)
 
 ```bash
 Growary/
-├── backend/          # Node.js + Express API & MongoDB (Mongoose)
-│   ├── src/models/   # Schemas cho User, Boss, Level, Reward...
-│   ├── src/routes/   # API logic cho mobile & admin
-│   └── src/utils/    # Xử lý Logic thưởng & Leveling
-├── admin/            # React + Vite (Dashboard Quản trị)
-│   └── src/pages/    # Quản lý Quest, Shop, User & Boss Timeline
-└── mobile/           # React Native + Expo (Ứng dụng cho User)
-    └── src/screens/  # HomeScreen, Boss Event, Shop...
+├── backend/            # REST API (Node.js + Express + TypeScript + Mongoose)
+│   ├── src/models/     # Schemas (User, DailyPlan, BossEvent, Reward, Voucher...)
+│   ├── src/routes/     # API routes (Auth, Plans, Rewards, Boss, Admin...)
+│   ├── src/services/   # Core Business Services (Level, VIP, Plan, Reward, Boss...)
+│   ├── src/validators/ # Zod validation schemas cho mọi write request
+│   ├── src/jobs/       # Cron jobs (Streak reset, Cashback, Penalty, Boss rotation)
+│   └── src/__tests__/  # Unit & Integration test suites (Jest + Supertest)
+├── mobile/             # React Native Mobile App (Expo SDK 54 + TypeScript)
+│   ├── src/screens/    # Màn hình chính (Home, Tasks, Boss Event, Shop, Profile...)
+│   ├── src/components/ # Reusable UI components (Task, Gacha, Boss, Shop...)
+│   └── src/hooks/      # Custom React hooks quản lý state và API
+├── admin/              # Dashboard Quản Trị Viên (React + Vite + TypeScript)
+│   ├── src/pages/      # 14 trang quản trị (< 400 dòng/trang)
+│   ├── src/components/ # Shared common modals, badges & search bars
+│   └── src/services/   # Domain-driven API services
+├── shared/             # Single Source of Truth cho Type Definitions
+│   └── types/          # User, Task, Boss, Reward, Plan, Event types (@shared/*)
+└── docs/               # Tài liệu hệ thống & API Reference
 ```
 
 ---
 
-## ✨ Tính năng Nổi bật
+## 🚀 Hướng Dẫn Cài Đặt Nhanh (< 15 Phút)
 
-### 🎮 Gamification & Hệ thống Cấp độ
-- **Thăng cấp (Level System):** Tích lũy XP từ nhiệm vụ để lên cấp. Nhận thưởng tự động (Coins, Vé Gacha, Voucher) mỗi khi thăng cấp.
-- **Săn Boss Kỷ luật (Boss Hunting):** Sự kiện cộng đồng. XP nhiệm vụ biến thành sát thương đánh Boss. Nhận rương báu lớn khi Boss bị tiêu diệt.
-- **Chuỗi Kỷ luật (Streak):** Duy trì hoàn thành ít nhất 3 nhiệm vụ/ngày để nhận mốc thưởng Streak đặc biệt.
-
-### 📝 Quản lý Nhiệm vụ Thông minh
-- **Kho nhiệm vụ hệ thống:** Thư viện nhiệm vụ đa dạng đã được thiết lập sẵn.
-- **Nghiệm vụ tùy chỉnh:** Người dùng có thể tự đề xuất nhiệm vụ, chờ Admin phê duyệt để nhận thưởng.
-- **Nhật ký tiến độ:** Tự động lưu lại lịch sử làm việc hàng ngày.
-
-### 🛍️ Cửa hàng & Phần thưởng
-- **Shop Vật phẩm:** Đổi Coin tích lũy lấy Voucher hoặc quà tặng vật lý.
-- **Quản lý Voucher:** Hệ thống mã QR và trạng thái sử dụng (Chưa dùng, Đã dùng, Hết hạn).
-- **Vòng quay may mắn:** Sử dụng vé Gacha nhận được từ Level-up/Boss để thử vận may.
-
-### 🛠️ Bảng Quản trị (Admin Dashboard)
-- **Boss Timeline:** Quản lý sự kiện Boss qua biểu đồ trục thời gian (Roadmap) trực quan.
-- **Duyệt nhiệm vụ:** Phê duyệt nhanh chóng các yêu cầu từ User.
-- **Thống kê:** Theo dõi tăng trưởng người dùng và hiệu quả hoàn thành mục tiêu.
+### 1. Yêu Cầu Hệ Thống (Prerequisites)
+- **Node.js**: Phiên bản >= 18.x (khuyên dùng Node 20 LTS)
+- **MongoDB**: MongoDB Server local (cổng 27017) hoặc MongoDB Atlas Cloud URI
+- **Expo CLI**: `npm install -g expo-cli` (cho Mobile App)
 
 ---
 
-## 🚀 Hướng dẫn Cài đặt
+### 2. Thiết Lập Backend API
 
-### 1. Yêu cầu hệ thống
-- **Node.js**: Phiên bản 18+
-- **MongoDB**: Local hoặc MongoDB Atlas (Cloud)
-
-### 2. Khởi chạy Backend
 ```bash
+# 1. Di chuyển vào thư mục backend
 cd backend
-npm install
-npm run dev
-```
-*Tạo file `.env` dựa trên `.env.example` và cấu hình `MONGODB_URI`.*
 
-### 3. Khởi chạy Admin Panel
+# 2. Cài đặt dependencies
+npm install
+
+# 3. Tạo file biến môi trường từ mẫu
+cp .env.example .env
+# Chỉnh sửa MONGODB_URI và JWT_SECRET trong .env nếu cần
+
+# 4. Khởi chạy server ở chế độ Development (Nodemon + ts-node)
+npm run dev
+# Server lắng nghe tại: http://localhost:5000 (API: http://localhost:5000/api)
+
+# 5. Chạy bộ kiểm thử tự động (Unit & Integration Tests)
+npm test
+```
+
+---
+
+### 3. Thiết Lập Admin Dashboard
+
 ```bash
+# 1. Di chuyển vào thư mục admin
 cd admin
-npm install
-npm run dev
-```
-*Truy cập tại: `http://localhost:5173`*
 
-### 4. Khởi chạy Mobile App
-```bash
-cd mobile
+# 2. Cài đặt dependencies
 npm install
+
+# 3. Tạo file biến môi trường từ mẫu
+cp .env.example .env
+# VITE_API_URL=http://localhost:5000/api
+
+# 4. Khởi chạy Admin Dashboard
+npm run dev
+# Truy cập giao diện tại: http://localhost:5174
+```
+
+---
+
+### 4. Thiết Lập Mobile App (React Native / Expo)
+
+```bash
+# 1. Di chuyển vào thư mục mobile
+cd mobile
+
+# 2. Cài đặt dependencies
+npm install
+
+# 3. Tạo file biến môi trường từ mẫu
+cp .env.example .env
+# EXPO_PUBLIC_API_URL=http://localhost:5000/api (hoặc LAN IP máy tính của bạn)
+
+# 4. Khởi chạy Expo Metro Bundler
 npx expo start
 ```
-*Dùng **Expo Go** để scan mã QR trên thiết bị thật.*
+- Quét mã QR bằng ứng dụng **Expo Go** trên điện thoại thật (iOS / Android).
+- Hoặc nhấn `a` để chạy trên Android Emulator, `i` cho iOS Simulator, `w` cho Web browser.
 
 ---
 
-## 🛠️ Stack Công nghệ
+## 🧪 Kiểm Thử & Đảm Bảo Chất Lượng (Quality Assurance)
 
-- **Frontend (Web):** React, Vite, CSS Vanilla (Modern UI/UX).
-- **Mobile:** React Native, Expo, Reanimated.
-- **Backend:** Node.js, Express, Mongoose.
-- **Database:** MongoDB.
-- **UI Architecture:** Claymorphism & Glassmorphism Design Styles.
+Dự án áp dụng quy trình kiểm thử nghiêm ngặt trước khi merge code:
 
----
-
-## 📝 Milestone Đã Hoàn Thành
-- [x] Hệ thống Level & Logic Delta XP.
-- [x] Giao diện Boss Timeline (Roadmap) trên Admin.
-- [x] Cơ chế trao thưởng Unified Reward (Coins + Gacha + Items).
-- [x] Tích hợp Cloudinary cho minh chứng hoàn thành nhiệm vụ.
+| Module | Lệnh Kiểm Thử | Trạng Thái |
+|---|---|:---:|
+| **Backend Tests** | `cd backend && npm test` | ✅ 8/8 suites PASS (46 tests) |
+| **Backend Type-Check** | `cd backend && npx tsc --noEmit` | ✅ 0 errors |
+| **Mobile Type-Check** | `cd mobile && npx tsc --noEmit` | ✅ 0 errors |
+| **Admin Production Build** | `cd admin && npm run build` | ✅ 0 errors |
 
 ---
 
-Made with 💜 by Ostro-Ngô Hùng Sở-0369402764
+## 📚 Tài Liệu Tham Khảo
+
+- [📘 Chi tiết API Endpoints](file:///d:/Downloads/SE%20Project/Growary/docs/API_DOCUMENTATION.md): Danh mục toàn bộ API endpoints, request bodies & response formats.
+- [🤝 Hướng dẫn Đóng Góp (Contributing Guide)](file:///d:/Downloads/SE%20Project/Growary/CONTRIBUTING.md): Quy chuẩn đặt tên nhánh Git, Commit convention và quy trình Pull Request.
+- [📋 Kế hoạch & Nhật ký Code Review](file:///d:/Downloads/SE%20Project/Growary/plan%20update/review-16-10.md): Lịch trình và checklist chi tiết 8 mục nâng cấp chất lượng mã nguồn.
+
+---
+
+## 🛡️ License
+
+Dự án phát triển nội bộ bởi đội ngũ **Growary Team**. Mọi quyền được bảo lưu.

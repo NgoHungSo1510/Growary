@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ClayHeader from '../components/ClayHeader';
 import { COLORS } from '../theme';
@@ -97,7 +97,15 @@ export default function EventScreen({ navigation }: any) {
                                             <>
                                                 <Image source={{ uri: boss.avatarImageUrl }} style={styles.thumbnailImg} />
                                                 {boss.currentHp > 0 && (
-                                                    <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" />
+                                                    <>
+                                                        {/* Cross-platform blur: blurred image overlay + dark tint */}
+                                                        <Image
+                                                            source={{ uri: boss.avatarImageUrl }}
+                                                            style={[StyleSheet.absoluteFill, { transform: [{ scale: 1.2 }] }]}
+                                                            blurRadius={15}
+                                                        />
+                                                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]} />
+                                                    </>
                                                 )}
                                             </>
                                         ) : (

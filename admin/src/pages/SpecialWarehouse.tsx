@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../services/api';
+import { SpecialItemModal, MysteryBoxModal } from '../components/warehouse';
 
 export default function SpecialWarehouse() {
     const [activeTab, setActiveTab] = useState<'items' | 'boxes' | 'inventory' | 'grant'>('items');
@@ -7,18 +8,13 @@ export default function SpecialWarehouse() {
     const [items, setItems] = useState<any[]>([]);
     const [showItemModal, setShowItemModal] = useState(false);
     const [editItemId, setEditItemId] = useState<string | null>(null);
-    const [itemForm, setItemForm] = useState({
-        name: '', description: '', type: 'coin', value: 0, isFragmentable: false, requiredFragments: 10, isActive: true, imageUrl: ''
-    });
+    const [editItemData, setEditItemData] = useState<any | null>(null);
 
     // Boxes state
     const [boxes, setBoxes] = useState<any[]>([]);
     const [showBoxModal, setShowBoxModal] = useState(false);
     const [editBoxId, setEditBoxId] = useState<string | null>(null);
-    const [boxForm, setBoxForm] = useState({
-        name: '', description: '', itemType: '', rarity: 'common', bonusDropChance: 0, isActive: true, imageUrl: '',
-        rewards: [] as { specialItem: string; rewardForm: 'full' | 'fragment'; amount: number; probability: number }[]
-    });
+    const [editBoxData, setEditBoxData] = useState<any | null>(null);
 
     // Inventory state
     const [searchUser, setSearchUser] = useState('');
@@ -56,35 +52,9 @@ export default function SpecialWarehouse() {
     };
 
     // --- Special Items ---
-    const handleSaveItem = async () => {
-        try {
-            if (editItemId) {
-                await adminApi.updateSpecialItem(editItemId, itemForm);
-                alert('Cập nhật vật phẩm thành công!');
-            } else {
-                await adminApi.createSpecialItem(itemForm);
-                alert('Tạo vật phẩm thành công!');
-            }
-            setShowItemModal(false);
-            setEditItemId(null);
-            loadItems();
-        } catch (error: any) {
-            alert('Lỗi: ' + error.message);
-        }
-    };
-
     const handleEditItem = (item: any) => {
         setEditItemId(item._id);
-        setItemForm({
-            name: item.name,
-            description: item.description || '',
-            type: item.type,
-            value: item.value || 0,
-            isFragmentable: item.isFragmentable || item.hasFragment || false,
-            requiredFragments: item.requiredFragments || item.fragmentsRequired || 10,
-            isActive: item.isActive,
-            imageUrl: item.imageUrl || ''
-        });
+        setEditItemData(item);
         setShowItemModal(true);
     };
 
@@ -97,40 +67,9 @@ export default function SpecialWarehouse() {
     };
 
     // --- Mystery Boxes ---
-    const handleSaveBox = async () => {
-        try {
-            if (editBoxId) {
-                await adminApi.updateMysteryBox(editBoxId, boxForm);
-                alert('Cập nhật Box thành công!');
-            } else {
-                await adminApi.createMysteryBox(boxForm);
-                alert('Tạo Box thành công!');
-            }
-            setShowBoxModal(false);
-            setEditBoxId(null);
-            loadBoxes();
-        } catch (error: any) {
-            alert('Lỗi: ' + error.message);
-        }
-    };
-
     const handleEditBox = (box: any) => {
         setEditBoxId(box._id);
-        setBoxForm({
-            name: box.name,
-            description: box.description || '',
-            itemType: box.itemType,
-            rarity: box.rarity || 'common',
-            bonusDropChance: box.bonusDropChance || 0,
-            isActive: box.isActive,
-            imageUrl: box.imageUrl || '',
-            rewards: box.rewards ? box.rewards.map((r: any) => ({
-                specialItem: r.specialItem?._id || r.specialItem,
-                rewardForm: r.rewardForm,
-                amount: r.amount,
-                probability: r.probability
-            })) : []
-        });
+        setEditBoxData(box);
         setShowBoxModal(true);
     };
 
@@ -220,7 +159,7 @@ export default function SpecialWarehouse() {
                         <h3>Danh sách Vật phẩm Đặc biệt</h3>
                         <button style={{ background: '#10B981', color: '#FFF', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' }} onClick={() => {
                             setEditItemId(null);
-                            setItemForm({ name: '', description: '', type: 'coin', value: 0, isFragmentable: false, requiredFragments: 10, isActive: true, imageUrl: '' });
+                            setEditItemData(null);
                             setShowItemModal(true);
                         }}>
                             + Tạo Vật Phẩm
@@ -265,7 +204,7 @@ export default function SpecialWarehouse() {
                         <h3>Danh sách Hộp Đặc Biệt</h3>
                         <button style={{ background: '#3B82F6', color: '#FFF', padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' }} onClick={() => {
                             setEditBoxId(null);
-                            setBoxForm({ name: '', description: '', itemType: '', rarity: 'common', bonusDropChance: 0, isActive: true, imageUrl: '', rewards: [] });
+                            setEditBoxData(null);
                             setShowBoxModal(true);
                         }}>
                             + Tạo Box Mới
@@ -404,147 +343,24 @@ export default function SpecialWarehouse() {
                 </div>
             )}
 
-            {/* Modal Create Item */}
-            {showItemModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ background: '#1E293B', padding: 24, borderRadius: 12, width: 400, color: '#FFF' }}>
-                        <h3>{editItemId ? 'Sửa Vật Phẩm' : 'Tạo Vật Phẩm'}</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Tên vật phẩm</label>
-                                <input placeholder="Nhập tên..." value={itemForm.name} onChange={e => setItemForm({ ...itemForm, name: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Mô tả ngắn</label>
-                                <input placeholder="Nhập mô tả..." value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Link Ảnh (URL)</label>
-                                <input placeholder="https://..." value={itemForm.imageUrl} onChange={e => setItemForm({ ...itemForm, imageUrl: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Loại định danh (Dùng cho code)</label>
-                                <select value={itemForm.type} onChange={e => setItemForm({ ...itemForm, type: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }}>
-                                    <option value="coin">Coin</option>
-                                    <option value="exp">EXP</option>
-                                    <option value="gacha_ticket">Gacha Ticket</option>
-                                    <option value="discount_ticket">Discount Ticket</option>
-                                    <option value="free_ship">Free Ship</option>
-                                    <option value="product">Sản Phẩm (Hiện vật)</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Giá trị (Nếu có, vd 5000 EXP)</label>
-                                <input type="number" placeholder="5000" value={itemForm.value} onChange={e => setItemForm({ ...itemForm, value: Number(e.target.value) })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                            </div>
+            {/* Modal Create/Edit Item */}
+            <SpecialItemModal
+                isOpen={showItemModal}
+                editItemId={editItemId}
+                initialData={editItemData}
+                onClose={() => setShowItemModal(false)}
+                onSaveSuccess={loadItems}
+            />
 
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 8 }}>
-                                <input type="checkbox" checked={itemForm.isFragmentable} onChange={e => setItemForm({ ...itemForm, isFragmentable: e.target.checked })} style={{ width: 16, height: 16 }} />
-                                Cho phép thu thập dạng mảnh?
-                            </label>
-
-                            {itemForm.isFragmentable && (
-                                <div>
-                                    <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Số mảnh cần để ghép thành 1 vật phẩm</label>
-                                    <input type="number" placeholder="10" value={itemForm.requiredFragments} onChange={e => setItemForm({ ...itemForm, requiredFragments: Number(e.target.value) })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                                </div>
-                            )}
-
-                            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                                <button onClick={handleSaveItem} style={{ flex: 1, padding: '10px 0', background: '#10B981', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 'bold' }}>Lưu</button>
-                                <button onClick={() => setShowItemModal(false)} style={{ flex: 1, padding: '10px 0', background: '#64748B', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 'bold' }}>Huỷ</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Modal Create Box */}
-            {showBoxModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, overflowY: 'auto', padding: 20 }}>
-                    <div style={{ background: '#1E293B', padding: 24, borderRadius: 12, width: 600, color: '#FFF', maxHeight: '90vh', overflowY: 'auto' }}>
-                        <h3>{editBoxId ? 'Sửa Box Đặc Biệt' : 'Tạo Box Đặc Biệt'}</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 16 }}>
-                            <div style={{ display: 'flex', gap: 12 }}>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Tên Box</label>
-                                    <input placeholder="VD: Hộp Quà Tân Thủ" value={boxForm.name} onChange={e => setBoxForm({ ...boxForm, name: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Loại Box (Code ID)</label>
-                                    <input placeholder="VD: starter_box_1" value={boxForm.itemType} onChange={e => setBoxForm({ ...boxForm, itemType: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Mô tả Box</label>
-                                <input placeholder="Nhập mô tả..." value={boxForm.description} onChange={e => setBoxForm({ ...boxForm, description: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                            </div>
-
-                            <div style={{ display: 'flex', gap: 12 }}>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Phẩm chất Box</label>
-                                    <select value={boxForm.rarity} onChange={e => setBoxForm({ ...boxForm, rarity: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }}>
-                                        <option value="common">Thường (Common)</option>
-                                        <option value="rare">Hiếm (Rare)</option>
-                                        <option value="epic">Sử Thi (Epic)</option>
-                                        <option value="legendary">Huyền Thoại (Legendary)</option>
-                                    </select>
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Tỉ lệ rơi thêm đồ (Bonus %)</label>
-                                    <input type="number" min="0" max="100" value={boxForm.bonusDropChance} onChange={e => setBoxForm({ ...boxForm, bonusDropChance: Number(e.target.value) })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Link Ảnh Box (URL)</label>
-                                <input placeholder="https://..." value={boxForm.imageUrl} onChange={e => setBoxForm({ ...boxForm, imageUrl: e.target.value })} style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }} />
-                            </div>
-
-                            <hr style={{ borderColor: '#334155', margin: '12px 0' }} />
-                            
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h4 style={{ margin: 0, color: '#38BDF8' }}>Danh Sách Phần Thưởng (Pool)</h4>
-                                <button onClick={() => setBoxForm({...boxForm, rewards: [...boxForm.rewards, { specialItem: items[0]?._id || '', rewardForm: 'full', amount: 1, probability: 10 }]})} style={{ background: '#38BDF8', color: '#0F172A', padding: '4px 12px', borderRadius: 4, border: 'none', fontWeight: 'bold' }}>+ Thêm quà</button>
-                            </div>
-
-                            {boxForm.rewards.map((r, i) => (
-                                <div key={i} style={{ display: 'flex', gap: 8, background: '#0F172A', padding: 12, borderRadius: 8, alignItems: 'center' }}>
-                                    <div style={{ flex: 2 }}>
-                                        <label style={{ fontSize: 10, color: '#94A3B8' }}>Vật phẩm</label>
-                                        <select value={r.specialItem} onChange={e => { const nr = [...boxForm.rewards]; nr[i].specialItem = e.target.value; setBoxForm({...boxForm, rewards: nr}); }} style={{ width: '100%', padding: 4 }}>
-                                            <option value="" disabled>Chọn vật phẩm...</option>
-                                            {items.map(it => <option key={it._id} value={it._id}>{it.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: 10, color: '#94A3B8' }}>Dạng</label>
-                                        <select value={r.rewardForm} onChange={e => { const nr = [...boxForm.rewards]; nr[i].rewardForm = e.target.value as any; setBoxForm({...boxForm, rewards: nr}); }} style={{ width: '100%', padding: 4 }}>
-                                            <option value="full">Nguyên bản</option>
-                                            <option value="fragment">Dạng Mảnh</option>
-                                        </select>
-                                    </div>
-                                    <div style={{ width: 60 }}>
-                                        <label style={{ fontSize: 10, color: '#94A3B8' }}>SL</label>
-                                        <input type="number" min="1" value={r.amount} onChange={e => { const nr = [...boxForm.rewards]; nr[i].amount = Number(e.target.value); setBoxForm({...boxForm, rewards: nr}); }} style={{ width: '100%', padding: 4 }} />
-                                    </div>
-                                    <div style={{ width: 80 }}>
-                                        <label style={{ fontSize: 10, color: '#94A3B8' }}>Tỷ lệ (%)</label>
-                                        <input type="number" min="0" max="100" value={r.probability} onChange={e => { const nr = [...boxForm.rewards]; nr[i].probability = Number(e.target.value); setBoxForm({...boxForm, rewards: nr}); }} style={{ width: '100%', padding: 4 }} />
-                                    </div>
-                                    <button onClick={() => { const nr = boxForm.rewards.filter((_, idx) => idx !== i); setBoxForm({...boxForm, rewards: nr}) }} style={{ background: 'transparent', border: 'none', color: '#EF4444', fontSize: 16, cursor: 'pointer', marginTop: 12 }}>✕</button>
-                                </div>
-                            ))}
-
-                            <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                                <button onClick={handleSaveBox} style={{ flex: 1, padding: '10px 0', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 'bold' }}>Lưu Box</button>
-                                <button onClick={() => setShowBoxModal(false)} style={{ flex: 1, padding: '10px 0', background: '#64748B', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 'bold' }}>Huỷ</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Modal Create/Edit Box */}
+            <MysteryBoxModal
+                isOpen={showBoxModal}
+                editBoxId={editBoxId}
+                initialData={editBoxData}
+                items={items}
+                onClose={() => setShowBoxModal(false)}
+                onSaveSuccess={loadBoxes}
+            />
         </div>
     );
 }

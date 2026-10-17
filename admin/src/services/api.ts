@@ -1,287 +1,235 @@
-const API_URL = 'https://growary-backend-vb86.onrender.com/api';
+import { httpClient } from './client';
+import { userService } from './userService';
+import { rewardService } from './rewardService';
+import { questService } from './questService';
+import { bossService } from './bossService';
+import { eventService } from './eventService';
 
 class AdminApi {
-    private token: string | null;
-
-    constructor() {
-        this.token = localStorage.getItem('adminToken');
-    }
-
-    private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-        const headers: Record<string, string> = {
-            'Content-Type': 'application/json',
-            ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
-        };
-
-        const res = await fetch(`${API_URL}${path}`, { ...options, headers });
-
-        if (res.status === 401) {
-            this.token = null;
-            localStorage.removeItem('adminToken');
-            window.location.href = '/login';
-            throw new Error('Unauthorized');
-        }
-
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: 'Request failed' }));
-            throw new Error(err.error || 'Request failed');
-        }
-
-        return res.json();
-    }
-
     // Generic REST
     async get<T = any>(path: string) {
-        return this.request<T>(path);
+        return httpClient.get<T>(path);
     }
-    async post<T = any>(path: string, data: any) {
-        return this.request<T>(path, { method: 'POST', body: JSON.stringify(data) });
+    async post<T = any>(path: string, data?: any) {
+        return httpClient.post<T>(path, data);
     }
-    async put<T = any>(path: string, data: any) {
-        return this.request<T>(path, { method: 'PUT', body: JSON.stringify(data) });
+    async put<T = any>(path: string, data?: any) {
+        return httpClient.put<T>(path, data);
+    }
+    async patch<T = any>(path: string, data?: any) {
+        return httpClient.patch<T>(path, data);
     }
     async delete<T = any>(path: string) {
-        return this.request<T>(path, { method: 'DELETE' });
+        return httpClient.delete<T>(path);
     }
 
     // Auth
     async login(email: string, password: string) {
-        const data = await this.request<{ token: string; user: any }>('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-        });
-        this.token = data.token;
-        localStorage.setItem('adminToken', data.token);
-        return data;
+        return userService.login(email, password);
     }
-
     logout() {
-        this.token = null;
-        localStorage.removeItem('adminToken');
+        userService.logout();
     }
-
     isLoggedIn() {
-        return !!this.token;
+        return userService.isLoggedIn();
     }
 
     // Dashboard
     async getStats() {
-        return this.request<{
-            stats: { totalUsers: number; newUsersToday: number; pendingVouchers: number; pendingTasks: number; activeUsers: number; totalXPGranted: number; activeUsersToday: number; tasksCompletedToday: number };
-            activity: { labels: string[]; tasksCompleted: number[]; xpGranted: number[] };
-        }>('/admin/stats');
+        return userService.getStats();
     }
 
-    // Task Templates (system tasks)
+    // Task Templates & Approvals
     async getSystemTasks() {
-        return this.request<{ tasks: any[] }>('/tasks/system');
+        return questService.getSystemTasks();
     }
-
     async createTask(data: { title: string; description?: string; pointsReward: number; category: string; estimatedMinutes?: number; isMandatory?: boolean }) {
-        return this.request<{ task: any }>('/tasks', { method: 'POST', body: JSON.stringify(data) });
+        return questService.createTask(data);
     }
-
     async updateTask(id: string, data: any) {
-        return this.request<{ task: any }>(`/tasks/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return questService.updateTask(id, data);
     }
-
     async deleteTask(id: string) {
-        return this.request<{ message: string }>(`/tasks/${id}`, { method: 'DELETE' });
+        return questService.deleteTask(id);
     }
-
-    // Task Approval
     async getPendingTasks() {
-        return this.request<{ tasks: any[] }>('/admin/tasks/pending');
+        return questService.getPendingTasks();
     }
-
     async approveTask(planId: string, taskId: string, adjustedPoints?: number, adjustedCoins?: number) {
-        return this.request<{ message: string; task: any }>(`/admin/tasks/${planId}/${taskId}/approve`, {
-            method: 'PATCH',
-            body: JSON.stringify({ adjustedPoints, adjustedCoins }),
-        });
+        return questService.approveTask(planId, taskId, adjustedPoints, adjustedCoins);
     }
-
     async rejectTask(planId: string, taskId: string) {
-        return this.request<{ message: string; task: any }>(`/admin/tasks/${planId}/${taskId}/reject`, {
-            method: 'PATCH',
-        });
+        return questService.rejectTask(planId, taskId);
     }
 
     // Users
     async getUsers(params?: { search?: string; page?: number }) {
-        const query = new URLSearchParams();
-        if (params?.search) query.set('search', params.search);
-        if (params?.page) query.set('page', String(params.page));
-        return this.request<{ users: any[]; total: number; page: number; pages: number }>(`/admin/users?${query}`);
+        return userService.getUsers(params);
     }
-
     async getUser(id: string) {
-        return this.request<{ user: any }>(`/admin/users/${id}`);
+        return userService.getUser(id);
     }
-
     async adjustPoints(userId: string, amount: number, reason?: string) {
-        return this.request<{ user: any; message: string }>(`/admin/users/${userId}/points`, {
-            method: 'PATCH',
-            body: JSON.stringify({ amount, reason }),
-        });
+        return userService.adjustPoints(userId, amount, reason);
     }
-
     async updateUser(id: string, data: any) {
-        return this.request<{ user: any; message: string }>(`/admin/users/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        });
+        return userService.updateUser(id, data);
     }
 
-    // Rewards (admin sees all — shelf + warehouse)
+    // Rewards & Vouchers
     async getAllRewards() {
-        return this.request<{ rewards: any[] }>('/admin/rewards');
+        return rewardService.getAllRewards();
     }
-
     async createReward(data: { title: string; description?: string; pointCost: number; imageUrl?: string; stock?: number; isActive?: boolean }) {
-        return this.request<{ reward: any }>('/rewards', { method: 'POST', body: JSON.stringify(data) });
+        return rewardService.createReward(data);
     }
-
     async updateReward(id: string, data: any) {
-        return this.request<{ reward: any }>(`/rewards/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return rewardService.updateReward(id, data);
     }
-
-    // Vouchers
     async getAllVouchers(status?: string) {
-        const query = status ? `?status=${status}` : '';
-        return this.request<{ vouchers: any[] }>(`/admin/vouchers${query}`);
+        return rewardService.getAllVouchers(status);
     }
-
     async confirmVoucher(code: string) {
-        return this.request<{ voucher: any; message: string }>(`/rewards/vouchers/${code}/confirm`, { method: 'PATCH' });
+        return rewardService.confirmVoucher(code);
     }
 
-    // Events
+    // Events & Milestones
     async getEvents() {
-        return this.request<{ events: any[] }>('/admin/events');
+        return eventService.getEvents();
     }
-
     async createEvent(data: { title: string; description: string; bannerUrl?: string; startDate: string; endDate: string; specialTasks?: any[] }) {
-        return this.request<{ event: any }>('/admin/events', { method: 'POST', body: JSON.stringify(data) });
+        return eventService.createEvent(data);
     }
-
     async updateEvent(id: string, data: any) {
-        return this.request<{ event: any }>(`/admin/events/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return eventService.updateEvent(id, data);
     }
-
     async deleteEvent(id: string) {
-        return this.request<{ message: string }>(`/admin/events/${id}`, { method: 'DELETE' });
+        return eventService.deleteEvent(id);
     }
-
-    // Milestone Rewards
     async getMilestones(type?: string) {
-        return this.request<{ milestones: any[] }>(`/admin/milestones${type ? `?type=${type}` : ''}`);
+        return eventService.getMilestones(type);
     }
     async createMilestone(data: any) {
-        return this.request<{ milestone: any }>('/admin/milestones', { method: 'POST', body: JSON.stringify(data) });
+        return eventService.createMilestone(data);
     }
     async updateMilestone(id: string, data: any) {
-        return this.request<{ milestone: any }>(`/admin/milestones/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return eventService.updateMilestone(id, data);
     }
     async deleteMilestone(id: string) {
-        return this.request<{ message: string }>(`/admin/milestones/${id}`, { method: 'DELETE' });
+        return eventService.deleteMilestone(id);
     }
 
     // Upload
     async uploadImage(base64Image: string) {
-        return this.request<{ url: string; imageUrl?: string }>('/upload/proof', {
-            method: 'POST',
-            body: JSON.stringify({ image: base64Image }),
-        });
+        return rewardService.uploadImage(base64Image);
     }
 
     // Levels
     async getLevels() {
-        return this.request<{ levels: any[] }>('/admin/levels');
+        return eventService.getLevels();
     }
-
     async createLevel(data: { level: number; xpRequired: number; coinReward: number; unlockDescription?: string }) {
-        return this.request<{ level: any }>('/admin/levels', { method: 'POST', body: JSON.stringify(data) });
+        return eventService.createLevel(data);
     }
-
     async updateLevel(id: string, data: any) {
-        return this.request<{ level: any }>(`/admin/levels/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return eventService.updateLevel(id, data);
     }
-
     async deleteLevel(id: string) {
-        return this.request<{ message: string }>(`/admin/levels/${id}`, { method: 'DELETE' });
+        return eventService.deleteLevel(id);
     }
 
     // Penalty Config
     async getPenaltyConfig() {
-        return this.request<{ config: any }>('/admin/penalty-config');
+        return questService.getPenaltyConfig();
     }
     async updatePenaltyConfig(data: any) {
-        return this.request<{ config: any }>('/admin/penalty-config', { method: 'PUT', body: JSON.stringify(data) });
+        return questService.updatePenaltyConfig(data);
     }
 
     // Notifications
     async getNotifications() {
-        return this.request<{ configs: any[] }>('/admin/notifications');
+        return eventService.getNotifications();
     }
     async createNotification(data: any) {
-        return this.request<{ config: any }>('/admin/notifications', { method: 'POST', body: JSON.stringify(data) });
+        return eventService.createNotification(data);
     }
     async updateNotification(id: string, data: any) {
-        return this.request<{ config: any }>(`/admin/notifications/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return eventService.updateNotification(id, data);
     }
     async deleteNotification(id: string) {
-        return this.request<{ message: string }>(`/admin/notifications/${id}`, { method: 'DELETE' });
+        return eventService.deleteNotification(id);
     }
 
     // VIP Config
     async getVipConfig() {
-        return this.request<{ tiers: any[] }>('/admin/vip-config');
+        return userService.getVipConfig();
     }
-
     async updateVipConfig(tiers: any[]) {
-        return this.request<{ message: string }>('/admin/vip-config', { method: 'PUT', body: JSON.stringify({ tiers }) });
+        return userService.updateVipConfig(tiers);
     }
-
     async resetVip(userId: string, resetToTier: number = 0) {
-        return this.request<{ message: string; user: any }>('/admin/vip-config/reset', {
-            method: 'POST',
-            body: JSON.stringify({ userId, resetToTier }),
-        });
+        return userService.resetVip(userId, resetToTier);
     }
 
-    // Special Warehouse
+    // Special Warehouse & Items
     async getMysteryBoxes() {
-        return this.request<{ boxes: any[] }>('/admin/mystery-boxes');
+        return rewardService.getMysteryBoxes();
     }
     async createMysteryBox(data: any) {
-        return this.request<{ box: any }>('/admin/mystery-boxes', { method: 'POST', body: JSON.stringify(data) });
+        return rewardService.createMysteryBox(data);
     }
     async updateMysteryBox(id: string, data: any) {
-        return this.request<{ box: any }>(`/admin/mystery-boxes/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return rewardService.updateMysteryBox(id, data);
     }
     async deleteMysteryBox(id: string) {
-        return this.request<{ message: string }>(`/admin/mystery-boxes/${id}`, { method: 'DELETE' });
+        return rewardService.deleteMysteryBox(id);
     }
     async getUserInventory(userId: string) {
-        return this.request<{ inventory: any[] }>(`/admin/user-inventory/${userId}`);
+        return userService.getUserInventory(userId);
     }
     async grantInventoryItem(data: { userId: string; itemType: string; specialItem?: string; mysteryBox?: string; rewardForm?: string; quantity: number; reason: string }) {
-        return this.request<{ message: string; inventory: any }>('/admin/inventory/grant', { method: 'POST', body: JSON.stringify(data) });
+        return userService.grantInventoryItem(data);
     }
-
-    // Special Items
     async getSpecialItems() {
-        return this.request<{ items: any[] }>('/admin/special-items');
+        return rewardService.getSpecialItems();
     }
     async createSpecialItem(data: any) {
-        return this.request<{ item: any }>('/admin/special-items', { method: 'POST', body: JSON.stringify(data) });
+        return rewardService.createSpecialItem(data);
     }
     async updateSpecialItem(id: string, data: any) {
-        return this.request<{ item: any }>(`/admin/special-items/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+        return rewardService.updateSpecialItem(id, data);
     }
     async deleteSpecialItem(id: string) {
-        return this.request<{ message: string }>(`/admin/special-items/${id}`, { method: 'DELETE' });
+        return rewardService.deleteSpecialItem(id);
+    }
+
+    // Boss Operations
+    async getBossEvents() {
+        return bossService.getBossEvents();
+    }
+    async createBossEvent(data: any) {
+        return bossService.createBossEvent(data);
+    }
+    async updateBossEvent(id: string, data: any) {
+        return bossService.updateBossEvent(id, data);
+    }
+    async deleteBossEvent(id: string) {
+        return bossService.deleteBossEvent(id);
+    }
+    async getBossWeeklyHistory() {
+        return bossService.getWeeklyHistory();
+    }
+    async getBossCollections() {
+        return bossService.getBossCollections();
+    }
+    async createBossCollection(data: any) {
+        return bossService.createBossCollection(data);
+    }
+    async updateBossCollection(id: string, data: any) {
+        return bossService.updateBossCollection(id, data);
+    }
+    async deleteBossCollection(id: string) {
+        return bossService.deleteBossCollection(id);
     }
 }
 
