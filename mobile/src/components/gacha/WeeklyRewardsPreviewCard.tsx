@@ -10,13 +10,33 @@ interface WeeklyRewardsPreviewCardProps {
     style?: StyleProp<ViewStyle>;
 }
 
+export const DEFAULT_WEEKLY_REWARDS: WeeklyRewardsConfig = {
+    top1: {
+        box: { name: 'Rương Sử Thi Ma Thuật', rarity: 'epic', color: '#A855F7' },
+        coins: 1500,
+        xp: 500,
+        tickets: 3,
+    },
+    top2: {
+        box: { name: 'Rương Thần Bí Hoàng Kim', rarity: 'rare', color: '#3B82F6' },
+        coins: 1000,
+        xp: 250,
+        tickets: 1,
+    },
+    top3: {
+        box: { name: 'Rương Gỗ Rừng Sâu', rarity: 'normal', color: '#94A3B8' },
+        coins: 500,
+        xp: 100,
+        tickets: 0,
+    },
+};
+
 export const WeeklyRewardsPreviewCard: React.FC<WeeklyRewardsPreviewCardProps> = ({
     rewards,
     style,
 }) => {
     const [expanded, setExpanded] = useState(true);
-
-    if (!rewards) return null;
+    const activeRewards = rewards || DEFAULT_WEEKLY_REWARDS;
 
     const renderTierRow = (
         tier: WeeklyRewardTier | undefined,
@@ -99,9 +119,9 @@ export const WeeklyRewardsPreviewCard: React.FC<WeeklyRewardsPreviewCardProps> =
 
                 {expanded && (
                     <View style={styles.body}>
-                        {renderTierRow(rewards.top1, 'TOP 1', '#FEF3C7', '🥇')}
-                        {renderTierRow(rewards.top2, 'TOP 2', '#F1F5F9', '🥈')}
-                        {renderTierRow(rewards.top3, 'TOP 3', '#FFEDD5', '🥉')}
+                        {renderTierRow(activeRewards.top1, 'TOP 1', '#FEF3C7', '🥇')}
+                        {renderTierRow(activeRewards.top2, 'TOP 2', '#F1F5F9', '🥈')}
+                        {renderTierRow(activeRewards.top3, 'TOP 3', '#FFEDD5', '🥉')}
                     </View>
                 )}
             </LinearGradient>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -53,6 +53,7 @@ export default function GachaEventScreen({ navigation }: any) {
 
     // Celebration modal state
     const [celebrationData, setCelebrationData] = useState<any>(null);
+    const scrollViewRef = useRef<ScrollView>(null);
 
     const loadHistoryData = useCallback(
         async (page = 1, rarity = historyFilter, append = false) => {
@@ -177,12 +178,19 @@ export default function GachaEventScreen({ navigation }: any) {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                ref={scrollViewRef}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+            >
                 {/* Real-time Countdown Badge */}
                 <GachaCountdownBadge countdown={countdown} isUrgent={isUrgent} style={styles.countdownBadge} />
 
                 {/* User Personal Score Card */}
-                <GachaUserScoreCard currentUser={leaderboard?.currentWeek?.currentUser} />
+                <GachaUserScoreCard
+                    currentUser={leaderboard?.currentWeek?.currentUser}
+                    onPressRewards={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+                />
 
                 {/* This Week's Prize Pool Preview */}
                 <WeeklyRewardsPreviewCard rewards={weeklyEvent?.weeklyRewards} />
@@ -215,6 +223,7 @@ export default function GachaEventScreen({ navigation }: any) {
                 {/* Weekly Leaderboard & Hall of Fame */}
                 <GachaLeaderboard
                     leaderboard={leaderboard}
+                    rewards={weeklyEvent?.weeklyRewards}
                     onRefresh={refreshLeaderboard}
                 />
 

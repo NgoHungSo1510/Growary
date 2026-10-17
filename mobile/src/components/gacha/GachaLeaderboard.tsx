@@ -10,13 +10,15 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GachaLeaderboardResponse, GachaLeaderboardEntry, GachaItemRarity } from '@shared';
+import { GachaLeaderboardResponse, GachaLeaderboardEntry, GachaItemRarity, WeeklyRewardsConfig } from '@shared';
 import { COLORS } from '../../theme';
 import { RARITY_THEMES } from './ReelCard';
 import CommunityHonorFeed from './CommunityHonorFeed';
+import { WeeklyRewardsPreviewCard } from './WeeklyRewardsPreviewCard';
 
 interface GachaLeaderboardProps {
     leaderboard: GachaLeaderboardResponse | null;
+    rewards?: WeeklyRewardsConfig;
     loading?: boolean;
     onRefresh?: () => void;
     style?: StyleProp<ViewStyle>;
@@ -24,6 +26,7 @@ interface GachaLeaderboardProps {
 
 export const GachaLeaderboard: React.FC<GachaLeaderboardProps> = ({
     leaderboard,
+    rewards,
     loading = false,
     onRefresh,
     style,
@@ -119,6 +122,12 @@ export const GachaLeaderboard: React.FC<GachaLeaderboardProps> = ({
                 <ActivityIndicator size="small" color="#FFA726" style={{ marginVertical: 24 }} />
             ) : selectedTab === 'current' ? (
                 <View style={styles.content}>
+                    {/* Weekly Top Rewards Pool */}
+                    <WeeklyRewardsPreviewCard
+                        rewards={rewards}
+                        style={styles.rewardsPreview}
+                    />
+
                     {/* Current User Standing Card */}
                     {currentUser && (
                         <View style={styles.currentUserCard}>
@@ -344,6 +353,10 @@ const styles = StyleSheet.create({
     hofScore: {
         fontSize: 11,
         color: '#4E342E',
+    },
+    rewardsPreview: {
+        marginHorizontal: 0,
+        marginBottom: 12,
     },
 });
 

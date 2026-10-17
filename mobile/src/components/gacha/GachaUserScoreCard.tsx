@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GachaLeaderboardEntry, GachaItemRarity } from '@shared';
@@ -7,11 +7,13 @@ import { RARITY_THEMES } from './ReelCard';
 
 interface GachaUserScoreCardProps {
     currentUser?: GachaLeaderboardEntry;
+    onPressRewards?: () => void;
     style?: StyleProp<ViewStyle>;
 }
 
 export const GachaUserScoreCard: React.FC<GachaUserScoreCardProps> = ({
     currentUser,
+    onPressRewards,
     style,
 }) => {
     const totalScore = currentUser?.totalScore ?? 0;
@@ -35,11 +37,22 @@ export const GachaUserScoreCard: React.FC<GachaUserScoreCardProps> = ({
                         <MaterialCommunityIcons name="target" size={18} color="#FBBF24" />
                         <Text style={styles.title}>Thành Tích Tuần Này Của Bạn</Text>
                     </View>
-                    <View style={[styles.rarityBadge, { borderColor: rarityTheme.border }]}>
-                        <Text style={[styles.rarityText, { color: rarityTheme.border }]}>
-                            {rarityTheme.label}
-                        </Text>
-                    </View>
+                    {onPressRewards ? (
+                        <TouchableOpacity
+                            style={styles.rewardsHeaderBtn}
+                            onPress={onPressRewards}
+                            activeOpacity={0.8}
+                        >
+                            <MaterialCommunityIcons name="gift" size={14} color="#F59E0B" />
+                            <Text style={styles.rewardsHeaderBtnText}>Quà Đua Top</Text>
+                        </TouchableOpacity>
+                    ) : spinCount > 0 ? (
+                        <View style={[styles.rarityBadge, { borderColor: rarityTheme.border }]}>
+                            <Text style={[styles.rarityText, { color: rarityTheme.border }]}>
+                                {rarityTheme.label}
+                            </Text>
+                        </View>
+                    ) : null}
                 </View>
 
                 {/* Metrics Grid */}
@@ -126,6 +139,22 @@ const styles = StyleSheet.create({
     rarityText: {
         fontSize: 10,
         fontWeight: '800',
+    },
+    rewardsHeaderBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+        borderWidth: 1,
+        borderColor: '#F59E0B',
+    },
+    rewardsHeaderBtnText: {
+        fontSize: 11,
+        fontWeight: '800',
+        color: '#FBBF24',
     },
     metricsRow: {
         flexDirection: 'row',
