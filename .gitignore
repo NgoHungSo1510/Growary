@@ -23,6 +23,7 @@ Thumbs.db
 !.vscode/extensions.json
 .agent/
 .gemini/
+.superpowers/
 
 # Mobile / Expo
 .expo/
