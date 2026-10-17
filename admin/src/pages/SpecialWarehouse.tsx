@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../services/api';
-import { SpecialItemModal, MysteryBoxModal } from '../components/warehouse';
+import { SpecialItemModal, MysteryBoxModal, ProductFragmentMappingTab } from '../components/warehouse';
 
 export default function SpecialWarehouse() {
-    const [activeTab, setActiveTab] = useState<'items' | 'boxes' | 'inventory' | 'grant'>('items');
+    const [activeTab, setActiveTab] = useState<'items' | 'boxes' | 'inventory' | 'grant' | 'mapping'>('items');
 
     const [items, setItems] = useState<any[]>([]);
     const [showItemModal, setShowItemModal] = useState(false);
@@ -149,6 +149,12 @@ export default function SpecialWarehouse() {
                     style={{ padding: '8px 16px', borderRadius: 8, background: activeTab === 'grant' ? '#3B82F6' : '#334155', color: '#FFF', border: 'none', cursor: 'pointer' }}
                 >
                     Cấp Phát
+                </button>
+                <button
+                    onClick={() => setActiveTab('mapping')}
+                    style={{ padding: '8px 16px', borderRadius: 8, background: activeTab === 'mapping' ? '#3B82F6' : '#334155', color: '#FFF', border: 'none', cursor: 'pointer' }}
+                >
+                    Ánh Xạ Mảnh
                 </button>
             </div>
 
@@ -341,6 +347,11 @@ export default function SpecialWarehouse() {
                         </button>
                     </div>
                 </div>
+            )}
+
+            {/* TAB: MAPPING */}
+            {activeTab === 'mapping' && (
+                <ProductFragmentMappingTab />
             )}
 
             {/* Modal Create/Edit Item */}
