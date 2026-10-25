@@ -1,20 +1,12 @@
-import React from 'react';
-
-export interface QuizTopic {
-  _id?: string;
-  name?: string;
-  description?: string;
-  colorAccent?: string;
-  iconName?: string;
-  isActive?: boolean;
-}
+import React, { useState } from 'react';
+import { QuizTopicDTO } from '@shared';
 
 interface QuizTopicModalProps {
   isOpen: boolean;
-  topic: Partial<QuizTopic> | null;
+  topic: Partial<QuizTopicDTO> | null;
   onClose: () => void;
-  onSave: (topic: Partial<QuizTopic>) => Promise<void>;
-  onChange: React.Dispatch<React.SetStateAction<Partial<QuizTopic> | null>>;
+  onSave: (topic: Partial<QuizTopicDTO>) => Promise<void>;
+  onChange: React.Dispatch<React.SetStateAction<Partial<QuizTopicDTO> | null>>;
 }
 
 export const QuizTopicModal: React.FC<QuizTopicModalProps> = ({
@@ -24,14 +16,25 @@ export const QuizTopicModal: React.FC<QuizTopicModalProps> = ({
   onSave,
   onChange,
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   if (!isOpen || !topic) return null;
 
-  const fields: { label: string; key: keyof QuizTopic; type: string }[] = [
+  const fields: { label: string; key: keyof QuizTopicDTO; type: string }[] = [
     { label: 'Tên chủ đề *', key: 'name', type: 'text' },
     { label: 'Mô tả', key: 'description', type: 'text' },
     { label: 'Màu accent (hex)', key: 'colorAccent', type: 'color' },
     { label: 'MaterialIcon name', key: 'iconName', type: 'text' },
   ];
+
+  const handleSave = async () => {
+    try {
+      setIsSubmitting(true);
+      await onSave(topic);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -46,7 +49,7 @@ export const QuizTopicModal: React.FC<QuizTopicModalProps> = ({
               <label style={{ fontSize: 13, fontWeight: 'bold' }}>{label}</label>
               <input
                 type={type}
-                value={(topic as any)[key] ?? ''}
+                value={(topic[key] as string | undefined) ?? ''}
                 onChange={e =>
                   onChange(prev => ({
                     ...prev!,
@@ -72,8 +75,12 @@ export const QuizTopicModal: React.FC<QuizTopicModalProps> = ({
           </label>
         </div>
         <div className="modal__footer">
-          <button className="btn btn--secondary" onClick={onClose}>Hủy</button>
-          <button className="btn btn--primary" onClick={() => onSave(topic)}>💾 Lưu</button>
+          <button className="btn btn--secondary" onClick={onClose} disabled={isSubmitting}>
+            Hủy
+          </button>
+          <button className="btn btn--primary" onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? 'Đang lưu...' : '💾 Lưu'}
+          </button>
         </div>
       </div>
     </div>

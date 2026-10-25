@@ -1,21 +1,13 @@
-import React from 'react';
-
-export interface QuizQuestionItem {
-  _id?: string;
-  topic?: any;
-  question?: string;
-  options?: string[];
-  correctIndex?: number;
-  difficulty?: 'easy' | 'medium' | 'hard';
-}
+import React, { useState } from 'react';
+import { QuizQuestionAdminDTO, QuizDifficulty } from '@shared';
 
 interface QuizQuestionModalProps {
   isOpen: boolean;
-  question: Partial<QuizQuestionItem> | null;
+  question: Partial<QuizQuestionAdminDTO> | null;
   topics: { _id: string; name: string }[];
   onClose: () => void;
-  onSave: (question: Partial<QuizQuestionItem>) => Promise<void>;
-  onChange: React.Dispatch<React.SetStateAction<Partial<QuizQuestionItem> | null>>;
+  onSave: (question: Partial<QuizQuestionAdminDTO>) => Promise<void>;
+  onChange: React.Dispatch<React.SetStateAction<Partial<QuizQuestionAdminDTO> | null>>;
 }
 
 export const QuizQuestionModal: React.FC<QuizQuestionModalProps> = ({
@@ -26,7 +18,22 @@ export const QuizQuestionModal: React.FC<QuizQuestionModalProps> = ({
   onSave,
   onChange,
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   if (!isOpen || !question) return null;
+
+  const currentTopicId = typeof question.topic === 'string'
+    ? question.topic
+    : question.topic?._id ?? '';
+
+  const handleSave = async () => {
+    try {
+      setIsSubmitting(true);
+      await onSave(question);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -39,8 +46,8 @@ export const QuizQuestionModal: React.FC<QuizQuestionModalProps> = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label style={{ fontSize: 13, fontWeight: 'bold' }}>Chủ đề *</label>
             <select
-              value={(question.topic as any) ?? ''}
-              onChange={e => onChange(p => ({ ...p!, topic: e.target.value as any }))}
+              value={currentTopicId}
+              onChange={e => onChange(p => ({ ...p!, topic: e.target.value }))}
               style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14 }}
             >
               <option value="">Chọn chủ đề</option>
@@ -99,7 +106,7 @@ export const QuizQuestionModal: React.FC<QuizQuestionModalProps> = ({
             <label style={{ fontSize: 13, fontWeight: 'bold' }}>Độ khó</label>
             <select
               value={question.difficulty ?? 'medium'}
-              onChange={e => onChange(p => ({ ...p!, difficulty: e.target.value as any }))}
+              onChange={e => onChange(p => ({ ...p!, difficulty: e.target.value as QuizDifficulty }))}
               style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 14 }}
             >
               <option value="easy">Dễ</option>
@@ -109,8 +116,12 @@ export const QuizQuestionModal: React.FC<QuizQuestionModalProps> = ({
           </div>
         </div>
         <div className="modal__footer">
-          <button className="btn btn--secondary" onClick={onClose}>Hủy</button>
-          <button className="btn btn--primary" onClick={() => onSave(question)}>💾 Lưu</button>
+          <button className="btn btn--secondary" onClick={onClose} disabled={isSubmitting}>
+            Hủy
+          </button>
+          <button className="btn btn--primary" onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? 'Đang lưu...' : '💾 Lưu'}
+          </button>
         </div>
       </div>
     </div>
