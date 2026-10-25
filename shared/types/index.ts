@@ -6,3 +6,4 @@ export * from './reward';
 export * from './plan';
 export * from './event';
 export * from './gacha';
+export * from './quiz';
