@@ -23,7 +23,19 @@ export const COLORS = {
     inputBorder: 'rgba(253, 195, 161, 0.5)',
     tileBg: '#FFFDF5',
     tileShadow: 'rgba(210, 150, 100, 0.25)',
+    quizPrimary: '#2563EB',
+    quizPrimaryDark: '#1D4ED8',
+    quizTimerSafe: '#2563EB',
+    quizTimerWarn: '#F97316',
+    quizTimerDanger: '#EF4444',
+    quizCorrect: '#22C55E',
+    quizWrong: '#EF4444',
+    quizDifficultyEasy: '#10B981',
+    quizDifficultyMedium: '#F59E0B',
+    quizDifficultyHard: '#EF4444',
+    quizStreak: '#F97316',
 } as const;
+
 
 export const SPACING = {
     xs: 4,

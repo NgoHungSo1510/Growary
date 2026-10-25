@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '../services/api';
 import type { Reward, Voucher } from '../types';
-import { VipConfigTab, VoucherRedeemTab, RewardFormModal } from '../components/shop';
+import { VipConfigTab, VoucherRedeemTab, RewardFormModal, ShopEventTab } from '../components/shop';
 
-type ShopTab = 'shelf' | 'warehouse' | 'redeem' | 'vip';
+type ShopTab = 'shelf' | 'warehouse' | 'redeem' | 'vip' | 'events';
 
 export default function ShopRedemption() {
     const [tab, setTab] = useState<ShopTab>('shelf');
@@ -134,7 +134,15 @@ export default function ShopRedemption() {
                 <button className={`tabs__tab${tab === 'vip' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('vip')}>
                     👑 Thẻ hạng
                 </button>
+                <button className={`tabs__tab${tab === 'events' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('events')}>
+                    ⚡ Sự kiện Shop
+                </button>
             </div>
+
+            {/* TAB: Sự kiện Shop */}
+            {tab === 'events' && (
+                <ShopEventTab />
+            )}
 
             {/* TAB: Trên kệ */}
             {tab === 'shelf' && (

@@ -1,27 +1,12 @@
-import React from 'react';
-
-export interface QuizEvent {
-  _id?: string;
-  title?: string;
-  description?: string;
-  startTime?: string;
-  endTime?: string;
-  status?: 'upcoming' | 'active' | 'completed';
-  colorBg?: string;
-  colorIcon?: string;
-  iconName?: string;
-  rewardPerCorrect?: number;
-  maxAttemptsPerUser?: number;
-  attemptCooldownHours?: number;
-  questionsPerAttempt?: number;
-}
+import React, { useState } from 'react';
+import { QuizEventDTO } from '@shared';
 
 interface QuizEventModalProps {
   isOpen: boolean;
-  event: Partial<QuizEvent> | null;
+  event: Partial<QuizEventDTO> | null;
   onClose: () => void;
-  onSave: (event: Partial<QuizEvent>) => Promise<void>;
-  onChange: React.Dispatch<React.SetStateAction<Partial<QuizEvent> | null>>;
+  onSave: (event: Partial<QuizEventDTO>) => Promise<void>;
+  onChange: React.Dispatch<React.SetStateAction<Partial<QuizEventDTO> | null>>;
 }
 
 export const QuizEventModal: React.FC<QuizEventModalProps> = ({
@@ -31,9 +16,11 @@ export const QuizEventModal: React.FC<QuizEventModalProps> = ({
   onSave,
   onChange,
 }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   if (!isOpen || !event) return null;
 
-  const fields: { label: string; key: keyof QuizEvent; type: string }[] = [
+  const fields: { label: string; key: keyof QuizEventDTO; type: string }[] = [
     { label: 'Tên sự kiện *', key: 'title', type: 'text' },
     { label: 'Mô tả', key: 'description', type: 'text' },
     { label: 'Thời gian bắt đầu *', key: 'startTime', type: 'datetime-local' },
@@ -46,6 +33,15 @@ export const QuizEventModal: React.FC<QuizEventModalProps> = ({
     { label: 'Màu icon (hex)', key: 'colorIcon', type: 'color' },
     { label: 'MaterialIcon name', key: 'iconName', type: 'text' },
   ];
+
+  const handleSave = async () => {
+    try {
+      setIsSubmitting(true);
+      await onSave(event);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -60,7 +56,7 @@ export const QuizEventModal: React.FC<QuizEventModalProps> = ({
               <label style={{ fontSize: 13, fontWeight: 'bold' }}>{label}</label>
               <input
                 type={type}
-                value={(event as any)[key] ?? ''}
+                value={(event[key] as string | number | undefined) ?? ''}
                 onChange={e =>
                   onChange(prev => ({
                     ...prev!,
@@ -88,8 +84,12 @@ export const QuizEventModal: React.FC<QuizEventModalProps> = ({
           </div>
         </div>
         <div className="modal__footer">
-          <button className="btn btn--secondary" onClick={onClose}>Hủy</button>
-          <button className="btn btn--primary" onClick={() => onSave(event)}>💾 Lưu</button>
+          <button className="btn btn--secondary" onClick={onClose} disabled={isSubmitting}>
+            Hủy
+          </button>
+          <button className="btn btn--primary" onClick={handleSave} disabled={isSubmitting}>
+            {isSubmitting ? 'Đang lưu...' : '💾 Lưu'}
+          </button>
         </div>
       </div>
     </div>

@@ -41,19 +41,62 @@ export interface MysteryBoxReward {
 }
 
 export interface InventoryItem {
-    itemType: string;
+    id?: string;
+    boxId?: string;
+    itemType: 'special_item' | 'mystery_box' | string;
     quantity: number;
     displayName: string;
     color: string;
     canExchange: boolean;
     lastUpdated: string | Date;
-    rewardForm?: string;
+    rewardForm?: 'full' | 'fragment' | string;
+    rarity?: string;
     specialItem?: {
         _id?: string;
         type?: string;
         name?: string;
         imageUrl?: string;
         requiredFragments?: number;
-        [key: string]: any;
+        [key: string]: unknown;
     };
+}
+
+export interface SpecialItemConfig {
+    _id: string;
+    reward: Reward | string;
+    fragmentType: string;
+    isActive: boolean;
+    addedToBoxPool: boolean;
+    createdBy?: string;
+    createdAt?: string;
+}
+
+export interface InventoryMysteryBox {
+    boxId: string;
+    name: string;
+    rarity: 'normal' | 'rare' | 'epic' | 'legend';
+    quantity: number;
+    iconUrl?: string;
+}
+
+export interface OpenMysteryBoxResult {
+    success: boolean;
+    rewardType: 'coins' | 'gacha_ticket' | 'fragment' | 'voucher' | 'special_item';
+    rewardName: string;
+    amount: number;
+    voucherCode?: string;
+    iconUrl?: string;
+    boxId?: string;
+    boxName?: string;
+    remainingBoxes?: number;
+    userInventoryUpdated?: {
+        remainingBoxes: number;
+    };
+    rewards?: {
+        type: string;
+        name: string;
+        amount: number;
+        rarity?: string;
+        iconUrl?: string;
+    }[];
 }

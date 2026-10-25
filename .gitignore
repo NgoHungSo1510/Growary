@@ -21,8 +21,12 @@ Thumbs.db
 # VS Code
 .vscode/*
 !.vscode/extensions.json
-.agent/
+.agent/*
+!.agent/skills/
+!.agent/AGENTS.md
+!.agent/GEMINI.md
 .gemini/
+.superpowers/
 
 # Mobile / Expo
 .expo/

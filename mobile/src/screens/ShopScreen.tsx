@@ -25,7 +25,11 @@ import {
     VoucherRedeemModal,
     ProcessingModal,
     FEATURED_CARD_W,
+    FlashSaleBanner,
+    SaleEventModal,
+    FeaturedCarousel,
 } from '../components/shop';
+import { useShopEvent } from '../hooks/useShopEvent';
 
 export default function ShopScreen() {
     const { user, refreshUser } = useAuth();
@@ -38,6 +42,14 @@ export default function ShopScreen() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+
+    // Active Shop Event
+    const {
+        event: shopEvent,
+        countdown: shopEventCountdown,
+        showPopup: showSalePopup,
+        dismissPopup: dismissSalePopup,
+    } = useShopEvent();
 
     // Modal states
     const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
@@ -247,6 +259,12 @@ export default function ShopScreen() {
                     />
                 }
             >
+                {/* FLASH SALE BANNER */}
+                <FlashSaleBanner
+                    event={shopEvent}
+                    countdown={shopEventCountdown}
+                />
+
                 {vipStatus && (
                     <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
                         <VipMiniCard
@@ -256,35 +274,14 @@ export default function ShopScreen() {
                     </View>
                 )}
 
-                {/* FEATURED SLIDE */}
+                {/* FEATURED CAROUSEL */}
                 {featuredRewards.length > 0 && (
-                    <>
-                        <View style={styles.sectionHeader}>
-                            <Text style={styles.sectionTitle}>⭐ Nổi bật</Text>
-                            <View style={styles.refreshBadge}>
-                                <Text style={styles.refreshText}>RARE</Text>
-                            </View>
-                        </View>
-
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            snapToInterval={FEATURED_CARD_W + 16}
-                            decelerationRate="fast"
-                            contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}
-                            style={{ marginBottom: 24 }}
-                        >
-                            {featuredRewards.map((reward) => (
-                                <RewardCard
-                                    key={reward._id}
-                                    reward={reward}
-                                    vipStatus={vipStatus}
-                                    onPress={openRewardModal}
-                                    variant="featured"
-                                />
-                            ))}
-                        </ScrollView>
-                    </>
+                    <FeaturedCarousel
+                        rewards={featuredRewards}
+                        vipStatus={vipStatus}
+                        saleDiscountPercent={shopEvent?.discountPercent || 0}
+                        onPressReward={openRewardModal}
+                    />
                 )}
 
                 {/* REGULAR GRID */}
@@ -303,6 +300,7 @@ export default function ShopScreen() {
                             vipStatus={vipStatus}
                             onPress={openRewardModal}
                             variant="grid"
+                            saleDiscountPercent={shopEvent?.discountPercent || 0}
                         />
                     ))}
                 </View>
@@ -376,6 +374,13 @@ export default function ShopScreen() {
                 visible={!!grantedRewards}
                 rewards={grantedRewards}
                 onClose={() => setGrantedRewards(null)}
+            />
+
+            {/* Sale Event Announcement Modal */}
+            <SaleEventModal
+                visible={showSalePopup}
+                event={shopEvent}
+                onClose={dismissSalePopup}
             />
         </View>
     );
