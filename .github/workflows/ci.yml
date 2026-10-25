@@ -1,0 +1,89 @@
+name: Growary Monorepo CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-ci:
+    name: Backend (TSC & Jest Tests)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+
+      - name: TypeScript type-check backend
+        run: npx --prefix backend tsc -p backend/tsconfig.json --noEmit
+
+      - name: Run backend Jest test suite
+        run: npm --prefix backend test -- --ci --runInBand --detectOpenHandles
+
+  mobile-ci:
+    name: Mobile (TypeScript Type-Check)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        run: npm --prefix mobile ci
+
+      - name: TypeScript type-check mobile
+        run: npx --prefix mobile tsc -p mobile/tsconfig.json --noEmit
+
+  admin-ci:
+    name: Admin (Vite Production Build)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: admin/package-lock.json
+
+      - name: Install admin dependencies
+        run: npm --prefix admin ci
+
+      - name: Build admin dashboard
+        run: npm --prefix admin run build
+
+  ci-gate:
+    name: Monorepo Quality Gate
+    needs: [backend-ci, mobile-ci, admin-ci]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Quality Check Status
+        run: |
+          echo "🎉 All Monorepo CI Quality Gates passed successfully!"
+          echo "Backend, Mobile, and Admin have all compiled and passed verification."
