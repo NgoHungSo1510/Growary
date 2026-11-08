@@ -192,7 +192,7 @@ export const getUserInventoryItems = async (userId: string) => {
         .populate('items.specialItem')
         .populate('items.mysteryBox');
 
-    const items = inventory ? inventory.items : [];
+    const items = inventory ? inventory.items.filter(item => item.quantity > 0) : [];
 
     return items.map(item => {
         if (item.itemType === 'mystery_box') {

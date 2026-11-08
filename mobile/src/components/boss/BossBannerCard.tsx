@@ -57,9 +57,14 @@ export const BossBannerCard: React.FC<BossBannerCardProps> = ({
                         <Image source={{ uri: boss.avatarImageUrl }} style={styles.bannerImage} />
                         {!isBossDefeated && (
                             <>
-                                <BlurView intensity={80} style={StyleSheet.absoluteFill} tint="dark" />
+                                <Image
+                                    source={{ uri: boss.avatarImageUrl }}
+                                    style={[StyleSheet.absoluteFill, styles.bannerImage, { transform: [{ scale: 1.15 }] }]}
+                                    blurRadius={18}
+                                />
+                                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.55)' }]} />
                                 <View style={styles.lockIconOverlay}>
-                                    <MaterialIcons name="lock" size={80} color="rgba(255,255,255,0.7)" />
+                                    <MaterialIcons name="lock" size={72} color="rgba(255, 255, 255, 0.85)" />
                                 </View>
                             </>
                         )}

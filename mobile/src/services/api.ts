@@ -43,8 +43,8 @@ class ApiService {
         this.api.interceptors.response.use(
             (response) => response,
             (error: AxiosError) => {
-                if (error.response?.status === 401) {
-                    // Token expired - clear and redirect to login
+                if (error.response?.status === 401 && error.config?.url?.includes('/auth/me')) {
+                    // Token expired - clear and redirect to login only when profile endpoint explicitly says 401
                     SecureStore.deleteItemAsync('authToken');
                 }
                 return Promise.reject(error);

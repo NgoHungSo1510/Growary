@@ -13,6 +13,11 @@ export const updateUserSchema = z.object({
     xp: z.number().min(0).optional(),
     level: z.number().min(1).optional(),
     vipTier: z.number().min(0).max(11).optional(),
+    gachaTickets: z.number().min(0).optional(),
+    totalCoinsSpent: z.number().min(0).optional(),
+    currentStreak: z.number().min(0).optional(),
+    longestStreak: z.number().min(0).optional(),
+    totalPointsEarned: z.number().min(0).optional(),
     settings: z.record(z.string(), z.any()).optional(),
 });
 

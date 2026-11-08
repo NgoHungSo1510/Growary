@@ -35,7 +35,7 @@ export default function InventoryScreen() {
         try {
             setLoading(true);
             const res = await apiService.getInventory();
-            setInventory(res.inventory || []);
+            setInventory((res.inventory || []).filter((item: InventoryItem) => item.quantity > 0));
         } catch (e) {
             console.error('Failed to load inventory', e);
         } finally {
