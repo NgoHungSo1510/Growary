@@ -24,6 +24,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import CollectionScreen from '../screens/CollectionScreen';
 import BossCollectionScreen from '../screens/BossCollectionScreen';
 import QuizEventScreen from '../screens/QuizEventScreen';
+import SeasonPassScreen from '../screens/SeasonPassScreen';
 import FloatingQuizButton from '../components/FloatingQuizButton';
 import FloatingInventory from '../components/FloatingInventory';
 
@@ -50,6 +51,7 @@ export type RootStackParamList = {
     EditProfile: undefined;
     Notifications: undefined;
     QuizEvent: undefined;
+    SeasonPass: undefined;
 };
 
 const AuthStack = createStackNavigator<AuthStackParamList>();
@@ -154,6 +156,7 @@ const MainNavigator = () => (
             />
             <RootStack.Screen name="Notifications" component={NotificationsScreen} />
             <RootStack.Screen name="QuizEvent" component={QuizEventScreen} />
+            <RootStack.Screen name="SeasonPass" component={SeasonPassScreen} />
         </RootStack.Navigator>
         <GlobalNotification />
         <FloatingQuizButton />

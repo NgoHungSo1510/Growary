@@ -23,6 +23,8 @@ import { apiService } from '../services/api';
 import { COLORS, FONT_SIZES, SHADOWS } from '../theme';
 import { VipMiniCard } from '../components/VipMiniCard';
 import { VipDetailSection } from '../components/profile/VipDetailSection';
+import { ProfileSeasonBadge } from '../components/seasonPass';
+import { getAvatarFrameStyle } from '../utils/seasonPassHelpers';
 import { VipStatusResponse } from '../types';
 
 const { width, height } = Dimensions.get('window');
@@ -79,6 +81,8 @@ export default function ProfileScreen({ route }: any) {
         }
     };
 
+    const activeFrame = getAvatarFrameStyle(user?.avatarFrame);
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" />
@@ -97,7 +101,12 @@ export default function ProfileScreen({ route }: any) {
 
                     {/* Avatar */}
                     <View style={styles.avatarContainer}>
-                        <View style={styles.avatarFrame}>
+                        <View
+                            style={[
+                                styles.avatarFrame,
+                                activeFrame && { borderColor: activeFrame.borderColor },
+                            ]}
+                        >
                             <LinearGradient
                                 colors={[COLORS.clayAccent1, COLORS.clayAccent2]}
                                 style={styles.avatarGradient}
@@ -221,6 +230,13 @@ export default function ProfileScreen({ route }: any) {
                         <MaterialIcons name="open-in-new" size={20} color="rgba(93, 64, 55, 0.3)" />
                     </TouchableOpacity>
                 </View>
+
+                <ProfileSeasonBadge
+                    seasonBadges={user?.seasonBadges ?? []}
+                    unlockedFrames={user?.unlockedAvatarFrames ?? []}
+                    activeFrameId={user?.avatarFrame ?? null}
+                    onFrameChanged={refreshUser}
+                />
 
                 {/* --- LOGOUT --- */}
                 <TouchableOpacity

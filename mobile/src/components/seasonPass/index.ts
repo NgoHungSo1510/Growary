@@ -5,3 +5,5 @@ export * from './PassTierTrack';
 export * from './PassEliteUnlockModal';
 export * from './PassQuestList';
 export * from './PassLeaderboardModal';
+export * from './SeasonPassEventCard';
+export * from './ProfileSeasonBadge';

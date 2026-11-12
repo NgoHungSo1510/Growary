@@ -19,6 +19,7 @@ import { COLORS } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
 import { ActiveBoss } from '../components/boss';
+import { SeasonPassEventCard } from '../components/seasonPass';
 import { getEventCache, setEventCache, buildEventCacheKey } from '../utils/eventCache';
 
 const { width } = Dimensions.get('window');
@@ -208,32 +209,7 @@ export default function EventScreen({ navigation }: any) {
                 ) : null}
 
                 {/* Concept 2: Sổ Sứ Mệnh */}
-                <TouchableOpacity
-                    style={[styles.cardContainer, { opacity: 0.8 }]}
-                    activeOpacity={0.9}
-                >
-                    <LinearGradient
-                        colors={['#f59e0b', '#b45309']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.cardGradient}
-                    >
-                        <View style={styles.contentWrap}>
-                            <View style={[styles.iconBox, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
-                                <MaterialIcons name="menu-book" size={40} color="#FFF" />
-                            </View>
-                            <View style={styles.textContainer}>
-                                <Text style={styles.cardTitle}>Sổ Sứ Mệnh</Text>
-                                <Text style={styles.cardSubtitle}>Concept 2</Text>
-                                <Text style={styles.cardDesc}>Chuỗi nhiệm vụ theo cấp tuyến tính. Tính năng đang được phát triển, đón chờ nhé!</Text>
-                            </View>
-                            <View style={[styles.actionBtn, { backgroundColor: 'rgba(0,0,0,0.2)' }]}>
-                                <MaterialIcons name="lock" size={20} color="#FFF" />
-                            </View>
-                        </View>
-                        <MaterialIcons name="library-books" size={100} color="rgba(255,255,255,0.05)" style={styles.bgIcon} />
-                    </LinearGradient>
-                </TouchableOpacity>
+                <SeasonPassEventCard onPress={() => navigation.navigate('SeasonPass')} />
 
                 {/* Concept 3: Vòng Quay Nhân Phẩm */}
                 <TouchableOpacity
