@@ -1,8 +1,5 @@
 import mongoose, { Types } from 'mongoose';
-import { UserInventory } from '../models/UserInventory';
-import { MysteryBox } from '../models/MysteryBox';
-import { User } from '../models/User';
-import SpecialItem from '../models/SpecialItem';
+import { UserInventory, MysteryBox, User, SpecialItem } from '../models';
 import { InventoryMysteryBox, OpenMysteryBoxResult } from '@shared';
 
 interface PopulatedBoxDoc {
@@ -14,11 +11,20 @@ interface PopulatedBoxDoc {
 }
 
 interface PopulatedSpecialItemDoc {
-    _id: Types.ObjectId;
+    _id: Types.ObjectId | string;
     name: string;
     description?: string;
     imageUrl?: string;
     type?: string;
+}
+
+function isPopulatedSpecialItem(item: unknown): item is PopulatedSpecialItemDoc {
+    return (
+        typeof item === 'object' &&
+        item !== null &&
+        'name' in item &&
+        typeof (item as { name: unknown }).name === 'string'
+    );
 }
 
 function normalizeRarity(rarity?: string): 'normal' | 'rare' | 'epic' | 'legend' {
@@ -120,9 +126,11 @@ export async function openMysteryBox(userId: string, boxId: string): Promise<Ope
                 if (reward.specialItem && typeof reward.specialItem === 'object' && 'name' in (reward.specialItem as any)) {
                     const spDoc = reward.specialItem as unknown as PopulatedSpecialItemDoc;
                     specialName = spDoc.name || 'Vật phẩm';
-                    rawSpecialId = spDoc._id;
+                    rawSpecialId = typeof spDoc._id === 'string' ? new Types.ObjectId(spDoc._id) : spDoc._id;
                 } else {
-                    rawSpecialId = reward.specialItem as Types.ObjectId;
+                    rawSpecialId = typeof reward.specialItem === 'string'
+                        ? new Types.ObjectId(reward.specialItem)
+                        : (reward.specialItem as Types.ObjectId);
                     try {
                         const found = await SpecialItem.findById(rawSpecialId);
                         if (found?.name) specialName = found.name;

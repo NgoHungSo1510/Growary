@@ -27,6 +27,7 @@ export interface User {
     totalPointsEarned: number;
     totalCoinsSpent?: number;
     gachaTickets?: number;
+    gachaTier?: number;
     vipTier?: number;
     claimedVipTiers?: number[];
     monthlySpending?: number;
@@ -34,6 +35,10 @@ export interface User {
     lastCashbackProcessed?: string;
     currentStreak: number;
     longestStreak: number;
+    streakRestoresThisMonth?: number;
+    lastStreakRestoreMonth?: string;
+    streakGracePeriod?: boolean;
+    missedStreakDate?: string | Date | null;
     settings: UserSettings;
     pendingPenalties?: PendingPenalty[];
     createdAt?: string | Date;

@@ -160,7 +160,7 @@ export const QuizLobbyView: React.FC<QuizLobbyViewProps> = ({
                     onPress={onOpenLeaderboard}
                     style={styles.secondaryButton}
                 >
-                    <MaterialIcons name="emoji-events" size={22} color={COLORS.quizPrimary} />
+                    <MaterialIcons name="emoji-events" size={22} color={COLORS.clayAccent2} />
                     <Text style={styles.secondaryButtonText}>Bảng Vàng</Text>
                 </TouchableOpacity>
             </View>
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     },
     emptySubtitle: {
         fontSize: 14,
-        color: '#6B7280',
+        color: 'rgba(93, 64, 55, 0.7)',
         textAlign: 'center',
         lineHeight: 20,
     },
@@ -257,11 +257,13 @@ const styles = StyleSheet.create({
         lineHeight: 18,
     },
     card: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: COLORS.clayCard,
         borderRadius: 18,
         padding: 16,
         marginBottom: 20,
-        ...SHADOWS.clay,
+        borderWidth: 1.5,
+        borderColor: 'rgba(93, 64, 55, 0.12)',
+        ...SHADOWS.clayLight,
     },
     attemptRow: {
         flexDirection: 'row',
@@ -274,7 +276,7 @@ const styles = StyleSheet.create({
         color: COLORS.clayText,
     },
     attemptBadge: {
-        backgroundColor: '#EFF6FF',
+        backgroundColor: 'rgba(93, 64, 55, 0.08)',
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 14,
@@ -318,14 +320,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: COLORS.clayCard,
         paddingVertical: 14,
         borderRadius: 18,
         borderWidth: 1.5,
-        borderColor: COLORS.quizPrimary,
+        borderColor: 'rgba(93, 64, 55, 0.2)',
+        ...SHADOWS.clayLight,
     },
     secondaryButtonText: {
-        color: COLORS.quizPrimary,
+        color: COLORS.clayText,
         fontSize: 15,
         fontWeight: '800',
     },

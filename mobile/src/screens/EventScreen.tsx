@@ -18,6 +18,8 @@ import ClayHeader from '../components/ClayHeader';
 import { COLORS } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { apiService } from '../services/api';
+import { ActiveBoss } from '../components/boss';
+import { getEventCache, setEventCache, buildEventCacheKey } from '../utils/eventCache';
 
 const { width } = Dimensions.get('window');
 
@@ -32,28 +34,42 @@ const MYSTERY_TITLES = [
 export default function EventScreen({ navigation }: any) {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
-    const [activeBosses, setActiveBosses] = useState<any[]>([]);
+    const [activeBosses, setActiveBosses] = useState<ActiveBoss[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const mysteryTitleRef = React.useRef(MYSTERY_TITLES[Math.floor(Math.random() * MYSTERY_TITLES.length)]).current;
 
     useFocusEffect(
         useCallback(() => {
-            const checkBoss = async () => {
-                try {
-                    const res = await apiService.get('/events/boss/active');
-                    if (res.activeBosses) {
-                        setActiveBosses(res.activeBosses);
-                    } else {
-                        setActiveBosses([]);
-                    }
-                } catch {
-                    setActiveBosses([]);
-                } finally {
+            let isMounted = true;
+            const cacheKey = buildEventCacheKey('active_bosses_list', user?._id);
+
+            const loadBosses = async () => {
+                const cached = await getEventCache<ActiveBoss[]>(cacheKey);
+                if (cached.data && isMounted) {
+                    setActiveBosses(cached.data);
                     setIsLoading(false);
                 }
+
+                try {
+                    const res = await apiService.get('/events/boss/active');
+                    if (!isMounted) return;
+                    const list: ActiveBoss[] = res.activeBosses || [];
+                    setActiveBosses(list);
+                    await setEventCache(cacheKey, list);
+                } catch {
+                    // Giữ nguyên cached.data khi mất mạng, không xóa trắng danh sách
+                } finally {
+                    if (isMounted) {
+                        setIsLoading(false);
+                    }
+                }
             };
-            checkBoss();
-        }, [])
+
+            loadBosses();
+            return () => {
+                isMounted = false;
+            };
+        }, [user?._id])
     );
 
     return (

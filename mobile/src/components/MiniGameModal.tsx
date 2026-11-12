@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Dimensions, Animated, Easing } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { MiniGameType } from '../../../shared/types/boss';
+import { MemoryMatchGame } from './boss';
 
 const { width, height } = Dimensions.get('window');
 
 interface MiniGameModalProps {
     visible: boolean;
-    type: 'tap' | 'quiz' | 'reflex';
+    type: Exclude<MiniGameType, 'random'>;
     quizQuestion?: { questionIndex: number; question: string; options: string[] };
     onComplete: (result: 'critical' | 'normal', extraData?: { questionIndex?: number; answerIndex?: number }) => void;
     onSkip: () => void;
@@ -17,6 +19,16 @@ export default function MiniGameModal({ visible, type, quizQuestion, onComplete,
     const [tapCount, setTapCount] = useState(0);
     const [reflexTargets, setReflexTargets] = useState<{ x: number, y: number, id: number }[]>([]);
     const [reflexHit, setReflexHit] = useState(0);
+
+    const onCompleteRef = useRef(onComplete);
+    useEffect(() => {
+        onCompleteRef.current = onComplete;
+    }, [onComplete]);
+
+    const tapCountRef = useRef(tapCount);
+    useEffect(() => { tapCountRef.current = tapCount; }, [tapCount]);
+    const reflexHitRef = useRef(reflexHit);
+    useEffect(() => { reflexHitRef.current = reflexHit; }, [reflexHit]);
 
     const progressAnim = useRef(new Animated.Value(1)).current;
     
@@ -30,6 +42,9 @@ export default function MiniGameModal({ visible, type, quizQuestion, onComplete,
             initialTime = 8;
             setReflexHit(0);
             generateReflexTargets();
+        }
+        if (type === 'memory') {
+            initialTime = 15;
         }
         
         setTimeLeft(initialTime);
@@ -59,12 +74,13 @@ export default function MiniGameModal({ visible, type, quizQuestion, onComplete,
 
     const handleTimeUp = () => {
         if (type === 'tap') {
-            onComplete(tapCount >= 20 ? 'critical' : 'normal');
+            onCompleteRef.current(tapCountRef.current >= 20 ? 'critical' : 'normal');
         } else if (type === 'quiz') {
-            // Random wrong answer or default normal since no answer picked
-            onComplete('normal');
+            onCompleteRef.current('normal');
         } else if (type === 'reflex') {
-            onComplete(reflexHit >= 3 ? 'critical' : 'normal');
+            onCompleteRef.current(reflexHitRef.current >= 3 ? 'critical' : 'normal');
+        } else if (type === 'memory') {
+            onCompleteRef.current('normal');
         }
     };
 
@@ -184,6 +200,12 @@ export default function MiniGameModal({ visible, type, quizQuestion, onComplete,
                     {type === 'tap' && renderTapGame()}
                     {type === 'quiz' && renderQuizGame()}
                     {type === 'reflex' && renderReflexGame()}
+                    {type === 'memory' && (
+                        <MemoryMatchGame
+                            timeLeft={timeLeft}
+                            onAllMatched={(isCritical) => onComplete(isCritical ? 'critical' : 'normal')}
+                        />
+                    )}
 
                     <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
                         <Text style={styles.skipText}>Bỏ qua (Sát thương cơ bản)</Text>

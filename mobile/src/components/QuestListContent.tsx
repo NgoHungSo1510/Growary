@@ -12,7 +12,7 @@ const GREEN_SUCCESS = '#4ADE80';
 interface QuestListContentProps {
     tasks: DailyTask[];
     planId: string;
-    onPlanUpdated: (plan: any, grantedRewards?: any) => void;
+    onPlanUpdated: (plan: any, grantedRewards?: any, offlineTaskIndex?: number) => void;
 }
 
 const getCategoryIcon = (category?: string): keyof typeof MaterialIcons.glyphMap => {
@@ -288,14 +288,18 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
         setLoadingIndex(index);
         try {
             const taskToComplete = activeTasks[index];
-            // Upload to Cloudinary
-            const { url } = await apiService.uploadProofImage(base64Image);
-
-            // Mark as complete with proof URL
             const realIndex = tasks.findIndex(t => t._id === taskToComplete?._id);
             if (realIndex === -1) return;
-            const { plan, grantedRewards } = await apiService.completeTask(planId, realIndex, true, url);
-            onPlanUpdated(plan, grantedRewards);
+
+            const res = await apiService.completeTaskWithProofOfflineSafe(planId, realIndex, base64Image);
+            if (res.offlineQueued) {
+                onPlanUpdated(null, undefined, realIndex);
+                Alert.alert('Chế độ ngoại tuyến', 'Đã lưu tiến độ hoàn thành. Hệ thống sẽ tự động đồng bộ khi có kết nối mạng!');
+                return;
+            }
+
+            const { plan, grantedRewards } = res;
+            if (plan) onPlanUpdated(plan, grantedRewards);
 
             // Show celebration using the ACTUAL granted rewards from backend (which includes penalties)
             const actualXp = grantedRewards?.questXp !== undefined ? grantedRewards.questXp : (grantedRewards?.xp !== undefined ? grantedRewards.xp : taskToComplete.pointsReward);

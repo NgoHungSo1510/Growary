@@ -1,36 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminApi } from '../services/api';
+import { User } from '@shared';
 
-interface UserData {
+type UserRow = User & {
     _id: string;
-    username: string;
-    email: string;
-    role: string;
-    coins: number;
-    xp: number;
-    level: number;
-    currentPoints: number;
-    totalPointsEarned: number;
-    currentStreak: number;
-    longestStreak: number;
-    gachaTickets?: number;
-    totalCoinsSpent?: number;
     createdAt: string;
     updatedAt?: string;
-    avatar?: string;
-    settings: {
-        pushNotifications: boolean;
-        timezone: string;
-    };
-}
+};
 
 export default function UserManagement() {
-    const [users, setUsers] = useState<UserData[]>([]);
+    const [users, setUsers] = useState<UserRow[]>([]);
     const [search, setSearch] = useState('');
-    const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+    const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
     const [editMode, setEditMode] = useState(false);
-    const [editForm, setEditForm] = useState<Partial<UserData>>({});
-    
+    const [editForm, setEditForm] = useState<Partial<UserRow>>({});
+    const [newPassword, setNewPassword] = useState('');
+
     const [pointAdjust, setPointAdjust] = useState(0);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -62,7 +47,7 @@ export default function UserManagement() {
         return () => clearTimeout(timer);
     }, [search, fetchUsers]);
 
-    const levelTitle = (lvl: number) => lvl >= 10 ? 'Master' : lvl >= 5 ? 'Adventurer' : 'Beginner';
+    const levelTitle = (lvl: number) => (lvl >= 10 ? 'Master' : lvl >= 5 ? 'Adventurer' : 'Beginner');
 
     const handleAdjustPoints = async () => {
         if (!selectedUser || pointAdjust === 0) return;
@@ -80,7 +65,12 @@ export default function UserManagement() {
         if (!selectedUser) return;
         setSaving(true);
         try {
-            await adminApi.updateUser(selectedUser._id, editForm);
+            const payload: any = { ...editForm };
+            if (newPassword.trim().length >= 6) {
+                payload.password = newPassword.trim();
+            }
+            await adminApi.updateUser(selectedUser._id, payload);
+            setNewPassword('');
             setEditMode(false);
             setSelectedUser(null);
             fetchUsers(search || undefined);
@@ -91,7 +81,7 @@ export default function UserManagement() {
         }
     };
 
-    const openModal = (u: UserData, edit: boolean = false) => {
+    const openModal = (u: UserRow, edit: boolean = false) => {
         setSelectedUser(u);
         setEditMode(edit);
         setEditForm({
@@ -99,11 +89,13 @@ export default function UserManagement() {
             xp: u.xp,
             level: u.level,
             gachaTickets: u.gachaTickets || 0,
+            gachaTier: u.gachaTier || 1,
             totalCoinsSpent: u.totalCoinsSpent || 0,
             currentStreak: u.currentStreak,
             longestStreak: u.longestStreak,
-            totalPointsEarned: u.totalPointsEarned
+            totalPointsEarned: u.totalPointsEarned,
         });
+        setNewPassword('');
         setPointAdjust(0);
     };
 
@@ -154,6 +146,7 @@ export default function UserManagement() {
                                     <th>Level</th>
                                     <th>🪙 Coins</th>
                                     <th>🎟️ Vé Gacha</th>
+                                    <th>🎡 Tầng</th>
                                     <th>Tổng chi</th>
                                     <th>Streak</th>
                                     <th>Ngày tạo</th>
@@ -188,6 +181,9 @@ export default function UserManagement() {
                                         </td>
                                         <td style={{ fontWeight: 700, color: '#f59e0b' }}>{u.coins.toLocaleString()}</td>
                                         <td style={{ fontWeight: 700, color: '#10b981' }}>{u.gachaTickets || 0}</td>
+                                        <td>
+                                            <span className="badge badge--primary" style={{ fontSize: 11 }}>Tầng {u.gachaTier || 1}</span>
+                                        </td>
                                         <td style={{ color: 'var(--text-muted)' }}>{u.totalCoinsSpent?.toLocaleString() || 0}</td>
                                         <td>
                                             <span style={{ fontWeight: 600 }}>🔥 {u.currentStreak}</span>
@@ -211,13 +207,12 @@ export default function UserManagement() {
 
             {selectedUser && (
                 <div className="modal-backdrop" onClick={() => setSelectedUser(null)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: editMode ? 600 : 640 }}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: editMode ? 620 : 640 }}>
                         <div className="modal__header">
                             <span className="modal__title">{editMode ? '✏️ Chỉnh sửa thông số' : '👤 Chi tiết người chơi'}</span>
                             <button className="modal__close" onClick={() => setSelectedUser(null)}>×</button>
                         </div>
                         <div className="modal__body">
-                            
                             {!editMode ? (
                                 <>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
@@ -231,11 +226,11 @@ export default function UserManagement() {
                                         <div><span style={{ color: 'var(--text-muted)' }}>Tên:</span> <strong>{selectedUser.username}</strong></div>
                                         <div><span style={{ color: 'var(--text-muted)' }}>Email:</span> <strong>{selectedUser.email}</strong></div>
                                         <div><span style={{ color: 'var(--text-muted)' }}>Level:</span> <strong>Lv.{selectedUser.level} {levelTitle(selectedUser.level)}</strong></div>
+                                        <div><span style={{ color: 'var(--text-muted)' }}>Tầng Vòng Quay:</span> <strong style={{ color: 'var(--accent)' }}>Tầng {selectedUser.gachaTier || 1}</strong></div>
                                         <div><span style={{ color: 'var(--text-muted)' }}>Tổng chi tiêu:</span> <strong style={{ color: '#f59e0b' }}>{selectedUser.totalCoinsSpent?.toLocaleString() || 0} Coins</strong></div>
                                         <div><span style={{ color: 'var(--text-muted)' }}>Tổng điểm đạt:</span> <strong>{selectedUser.totalPointsEarned.toLocaleString()}</strong></div>
                                         <div><span style={{ color: 'var(--text-muted)' }}>Streak dài nhất:</span> <strong>{selectedUser.longestStreak} ngày</strong></div>
                                         <div><span style={{ color: 'var(--text-muted)' }}>Ngày tạo:</span> <strong>{new Date(selectedUser.createdAt).toLocaleDateString('vi-VN')}</strong></div>
-                                        <div><span style={{ color: 'var(--text-muted)' }}>Lần truy cập cuối:</span> <strong>{selectedUser.updatedAt ? new Date(selectedUser.updatedAt).toLocaleDateString('vi-VN') : '—'}</strong></div>
                                     </div>
 
                                     <div style={{ borderTop: '1px solid var(--card-border)', paddingTop: 16 }}>
@@ -260,16 +255,20 @@ export default function UserManagement() {
                                             <input type="number" className="form-control" value={editForm.gachaTickets} onChange={e => setEditForm({...editForm, gachaTickets: Number(e.target.value)})} />
                                         </div>
                                         <div className="form-group">
+                                            <label>🎡 Tầng Vòng Quay (1-10)</label>
+                                            <input type="number" min={1} max={10} className="form-control" value={editForm.gachaTier || 1} onChange={e => setEditForm({...editForm, gachaTier: Math.min(10, Math.max(1, Number(e.target.value)))})} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label>📈 Cấp độ (Level)</label>
+                                            <input type="number" className="form-control" value={editForm.level} onChange={e => setEditForm({...editForm, level: Number(e.target.value)})} />
+                                        </div>
+                                        <div className="form-group">
                                             <label>⭐ XP hiện tại</label>
                                             <input type="number" className="form-control" value={editForm.xp} onChange={e => setEditForm({...editForm, xp: Number(e.target.value)})} />
                                         </div>
                                         <div className="form-group">
                                             <label>⭐ Tổng XP đã kiếm</label>
                                             <input type="number" className="form-control" value={editForm.totalPointsEarned} onChange={e => setEditForm({...editForm, totalPointsEarned: Number(e.target.value)})} />
-                                        </div>
-                                        <div className="form-group">
-                                            <label>📈 Cấp độ (Level)</label>
-                                            <input type="number" className="form-control" value={editForm.level} onChange={e => setEditForm({...editForm, level: Number(e.target.value)})} />
                                         </div>
                                         <div className="form-group">
                                             <label>💰 Tổng Coins đã tiêu</label>
@@ -283,10 +282,19 @@ export default function UserManagement() {
                                             <label>🔥 Streak dài nhất</label>
                                             <input type="number" className="form-control" value={editForm.longestStreak} onChange={e => setEditForm({...editForm, longestStreak: Number(e.target.value)})} />
                                         </div>
+                                        <div className="form-group">
+                                            <label>🔑 Đặt lại mật khẩu mới</label>
+                                            <input
+                                                type="password"
+                                                placeholder="Để trống nếu không đổi..."
+                                                className="form-control"
+                                                value={newPassword}
+                                                onChange={e => setNewPassword(e.target.value)}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             )}
-
                         </div>
                         {editMode && (
                             <div className="modal__footer">

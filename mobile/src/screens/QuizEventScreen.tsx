@@ -93,7 +93,7 @@ export default function QuizEventScreen() {
 
     return (
         <SafeAreaView style={styles.safeArea}>
-            <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+            <StatusBar barStyle="dark-content" backgroundColor={COLORS.warmBg} />
 
             {/* Custom Screen Header */}
             <View style={styles.topBar}>
@@ -114,7 +114,7 @@ export default function QuizEventScreen() {
                     onPress={handleOpenLeaderboard}
                     style={styles.iconButton}
                 >
-                    <MaterialIcons name="leaderboard" size={24} color={COLORS.quizPrimary} />
+                    <MaterialIcons name="leaderboard" size={22} color={COLORS.clayAccent2} />
                 </TouchableOpacity>
             </View>
 
@@ -191,7 +191,7 @@ export default function QuizEventScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: COLORS.warmBg,
     },
     topBar: {
         flexDirection: 'row',
@@ -199,9 +199,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E2E8F0',
+        backgroundColor: COLORS.warmBg,
     },
     topBarTitle: {
         fontSize: 18,
@@ -216,7 +214,9 @@ const styles = StyleSheet.create({
         height: 40,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 20,
+        borderRadius: 14,
+        backgroundColor: COLORS.clayCard,
+        ...SHADOWS.clayLight,
     },
     scrollContent: {
         flexGrow: 1,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
         marginTop: 16,
         fontSize: 15,
         fontWeight: '600',
-        color: '#6B7280',
+        color: 'rgba(93, 64, 55, 0.7)',
     },
     countdownContainer: {
         alignItems: 'center',
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     },
     countdownSubtitle: {
         fontSize: 15,
-        color: '#6B7280',
+        color: 'rgba(93, 64, 55, 0.7)',
         textAlign: 'center',
         lineHeight: 22,
     },

@@ -51,6 +51,8 @@ export interface InventoryItem {
     lastUpdated: string | Date;
     rewardForm?: 'full' | 'fragment' | string;
     rarity?: string;
+    type?: string;
+    requiredFragments?: number;
     specialItem?: {
         _id?: string;
         type?: string;

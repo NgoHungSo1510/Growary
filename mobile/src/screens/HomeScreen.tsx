@@ -1,14 +1,5 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    RefreshControl,
-    TextInput,
-    Modal,
-    TouchableOpacity,
-} from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, TextInput, Modal, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { apiService } from '../services/api';
@@ -20,6 +11,10 @@ import AdventureLog from '../components/AdventureLog';
 import RewardCelebrationModal from '../components/RewardCelebrationModal';
 import PenaltyModal from '../components/PenaltyModal';
 import FloatingQuizButton from '../components/FloatingQuizButton';
+import { StreakGraceBanner } from '../components/StreakGraceBanner';
+import { TaskSummaryWidget } from '../components/TaskSummaryWidget';
+import { flushOfflineTaskQueue } from '../utils/offlineQueue';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestNotificationPermissions, scheduleAllQuestReminders } from '../services/notifications';
 import { COLORS } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,7 +32,6 @@ export default function HomeScreen() {
     const [editorText, setEditorText] = useState('');
 
     // Reward Celebration Modal State
-    // Reward Celebration Modal State
     const [grantedRewards, setGrantedRewards] = useState<any | null>(null);
 
     // Penalty Modal State
@@ -45,21 +39,40 @@ export default function HomeScreen() {
 
     const fetchData = async () => {
         try {
+            // Đồng bộ tác vụ ngoại tuyến nếu có kết nối mạng trở lại
+            try {
+                await flushOfflineTaskQueue(async (item) => {
+                    let proofUrl = item.proofImageUrl;
+                    if (!proofUrl && item.proofImageBase64) {
+                        const uploadRes = await apiService.uploadProofImage(item.proofImageBase64);
+                        proofUrl = uploadRes?.url;
+                    }
+                    return apiService.completeTask(item.planId, item.taskIndex, item.isCompleted, proofUrl);
+                });
+            } catch (flushErr) {
+                console.warn('Lỗi khi flush offline task queue:', flushErr);
+            }
+
             const today = new Date().toISOString().split('T')[0];
             const [planRes, journalRes, levelRes] = await Promise.all([
-                apiService.getTodayPlan(),
+                apiService.getTodayPlan().catch(async () => {
+                    const cached = await AsyncStorage.getItem('@growary:cached_today_plan');
+                    return { plan: cached ? (JSON.parse(cached) as DailyPlan) : null };
+                }),
                 apiService.getJournalByDate(today).catch(() => ({ journal: null })),
                 apiService.getLevels().catch(() => ({ levels: [] })),
             ]);
-            setPlan(planRes.plan);
-            if (levelRes.levels) setLevels(levelRes.levels);
 
-            // Schedule quest reminders
-            if (planRes.plan?.tasks) {
-                scheduleAllQuestReminders(planRes.plan.tasks);
+            if (planRes?.plan) {
+                setPlan(planRes.plan);
+                AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(planRes.plan)).catch(() => { });
+                if (planRes.plan.tasks) {
+                    scheduleAllQuestReminders(planRes.plan.tasks);
+                }
             }
+            if (levelRes?.levels) setLevels(levelRes.levels);
 
-            if (journalRes.journal) {
+            if (journalRes?.journal) {
                 setTodayJournal(journalRes.journal);
                 setManualContent(journalRes.journal.manualContent || '');
             }
@@ -83,17 +96,30 @@ export default function HomeScreen() {
         }, [])
     );
 
-    const handlePlanUpdated = (updatedPlan: DailyPlan, newRewards?: any) => {
-        setPlan(updatedPlan);
+    const handlePlanUpdated = (updatedPlan: DailyPlan | null, newRewards?: any, offlineTaskIndex?: number) => {
+        if (updatedPlan) {
+            setPlan(updatedPlan);
+            AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(updatedPlan)).catch(() => { });
+        } else if (offlineTaskIndex !== undefined) {
+            setPlan((prev) => {
+                if (!prev) return prev;
+                const newTasks = [...prev.tasks];
+                if (newTasks[offlineTaskIndex]) {
+                    newTasks[offlineTaskIndex] = {
+                        ...newTasks[offlineTaskIndex],
+                        isCompleted: true,
+                        completedAt: new Date(),
+                    };
+                }
+                const optimisticPlan: DailyPlan = { ...prev, tasks: newTasks };
+                AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(optimisticPlan)).catch(() => { });
+                return optimisticPlan;
+            });
+        }
+
         if (newRewards) {
-            const hasLevelUps = newRewards.levelUps && newRewards.levelUps.length > 0;
-            const hasItems = newRewards.items && newRewards.items.length > 0;
-            const hasGacha = newRewards.gachaTickets > 0;
-            const isTierUnlock = newRewards.isTierUnlock;
-            
-            if (hasLevelUps || hasItems || hasGacha || isTierUnlock) {
-                setGrantedRewards(newRewards);
-            }
+            const hasRewards = (newRewards.levelUps?.length > 0) || (newRewards.items?.length > 0) || (newRewards.gachaTickets > 0) || Boolean(newRewards.isTierUnlock);
+            if (hasRewards) setGrantedRewards(newRewards);
         }
         refreshUser();
     };
@@ -137,16 +163,18 @@ export default function HomeScreen() {
     return (
         <View style={styles.container}>
             <ClayHeader user={user} />
+            <StreakGraceBanner user={user} />
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
                 }
             >
-                {/* ClayHeader is now self-contained for calculating XP and Tracking level-ups */}
-
-
-                {/* Stats Row */}
+                <TaskSummaryWidget
+                    tasks={plan?.tasks || []}
+                    currentStreak={user?.currentStreak || 0}
+                    streakGracePeriod={user?.streakGracePeriod}
+                />                {/* Stats Row */}
                 <View style={styles.statsRow}>
                     <View style={[styles.statBox, styles.streakBox]}>
                         <Text style={[styles.statValue, { color: COLORS.clayAccent1 }]}>
@@ -189,9 +217,6 @@ export default function HomeScreen() {
                         </Text>
                     </View>
                 )}
-
-
-
                 {/* Bottom spacer */}
                 <View style={{ height: 100 }} />
             </ScrollView>

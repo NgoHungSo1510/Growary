@@ -266,6 +266,7 @@ export const BossFormModal: React.FC<BossFormModalProps> = ({
                                     <option value="tap">Bấm liên tục (Tap)</option>
                                     <option value="reflex">Phản xạ (Reflex)</option>
                                     <option value="quiz">Giải đố (Quiz)</option>
+                                    <option value="memory">Lật thẻ trí nhớ (Memory)</option>
                                 </select>
                             </div>
 

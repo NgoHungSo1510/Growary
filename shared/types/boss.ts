@@ -1,7 +1,7 @@
 // Shared Boss & Battle Types
 
 export type BossStatus = 'pool' | 'active' | 'completed' | 'upcoming';
-export type MiniGameType = 'random' | 'tap' | 'reflex' | 'quiz';
+export type MiniGameType = 'random' | 'tap' | 'reflex' | 'quiz' | 'memory';
 
 export interface MiniGameQuestion {
     question: string;
@@ -37,4 +37,42 @@ export interface BossEvent {
     miniGameQuestions?: MiniGameQuestion[];
     createdAt?: string | Date;
     updatedAt?: string | Date;
+}
+
+export interface CollectionCharacterItem {
+    _id: string;
+    title: string;
+    description?: string;
+    secretDescription?: string;
+    avatarImageUrl?: string;
+    status: BossStatus | string;
+    isUnlocked: boolean;
+    loreTitle?: string;
+    loreContent?: string;
+    isLimited?: boolean;
+    colorBg?: string;
+    colorIcon?: string;
+    weekActivatedAt?: string | Date;
+    updatedAt?: string | Date;
+}
+
+export interface BossCollectionWithProgress {
+    collection: {
+        _id: string;
+        title: string;
+        description?: string;
+        iconEmoji: string;
+        themeColor: string;
+        bonusTickets: number;
+        month?: number;
+        year?: number;
+    };
+    bosses: CollectionCharacterItem[];
+    userProgress: {
+        unlockedCount: number;
+        totalCount: number;
+        isCompleted: boolean;
+        bonusTicketsClaimed: boolean;
+        completedAt?: string | Date;
+    };
 }

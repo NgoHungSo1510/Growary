@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,57 +8,102 @@ import {
     ScrollView,
     StatusBar,
     Alert,
-    Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { COLORS, SHADOWS } from '../theme';
+import { BossCollectionWithProgress, CollectionCharacterItem } from '../types';
+import { CharacterLorebookModal } from '../components/boss';
+import { getEventCache, setEventCache, buildEventCacheKey } from '../utils/eventCache';
+
+type SelectedCharacter = CollectionCharacterItem & {
+    collectionTitle?: string;
+    themeColor?: string;
+};
 
 export default function BossCollectionScreen() {
     const navigation = useNavigation<any>();
     const route = useRoute<any>();
-    const { refreshUser } = useAuth();
-    
-    const [collections, setCollections] = useState<any[]>([]);
-    const [selectedChar, setSelectedChar] = useState<any | null>(null);
+    const { user, refreshUser } = useAuth();
+
+    const [collections, setCollections] = useState<BossCollectionWithProgress[]>([]);
+    const [selectedChar, setSelectedChar] = useState<SelectedCharacter | null>(null);
     const [isClaiming, setIsClaiming] = useState(false);
 
-    useEffect(() => {
-        apiService.getMyBossCollections()
-            .then(data => setCollections(data.collections))
-            .catch(console.error);
-    }, []);
+    const cacheKey = buildEventCacheKey('my_boss_collections', user?._id);
+
+    const loadCollections = useCallback(async () => {
+        const cached = await getEventCache<BossCollectionWithProgress[]>(cacheKey);
+        if (cached.data) {
+            setCollections(cached.data);
+        }
+
+        try {
+            const data = await apiService.getMyBossCollections();
+            if (data?.collections) {
+                setCollections(data.collections);
+                await setEventCache(cacheKey, data.collections);
+            }
+        } catch {
+            // Giữ nguyên cached data khi offline
+        }
+    }, [cacheKey]);
+
+    useFocusEffect(
+        useCallback(() => {
+            loadCollections();
+        }, [loadCollections])
+    );
 
     const scrollViewRef = useRef<ScrollView>(null);
 
-    // Auto scroll logic (simplified, assuming items are roughly same height, or just highlight)
     useEffect(() => {
         if (route?.params?.collectionId && collections.length > 0) {
-            // Find index to scroll to
-            const index = collections.findIndex(c => c.collection._id === route.params.collectionId);
+            const index = collections.findIndex((c) => c.collection._id === route.params.collectionId);
             if (index >= 0) {
                 setTimeout(() => {
-                    scrollViewRef.current?.scrollTo({ y: index * 200, animated: true }); // approximate height
+                    scrollViewRef.current?.scrollTo({ y: index * 200, animated: true });
                 }, 500);
             }
         }
     }, [route?.params, collections]);
 
+    const handleClaim = async (collectionId: string, bonusTickets: number) => {
+        if (isClaiming) return;
+        setIsClaiming(true);
+        try {
+            const res = await apiService.claimCollectionReward(collectionId);
+            Alert.alert('Chúc mừng!', `Bạn đã nhận được ${res.ticketsGranted || bonusTickets} vé Gacha!`);
+            setCollections((prev) =>
+                prev.map((c) =>
+                    c.collection._id === collectionId
+                        ? { ...c, userProgress: { ...c.userProgress, bonusTicketsClaimed: true } }
+                        : c
+                )
+            );
+            refreshUser();
+        } catch (error: any) {
+            Alert.alert('Lỗi', error.response?.data?.error || 'Không thể nhận thưởng');
+        } finally {
+            setIsClaiming(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" />
-            
+
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <MaterialIcons name="arrow-back" size={24} color={COLORS.clayText} />
                 </TouchableOpacity>
-                <Text style={styles.screenTitle}>Bộ Sưu Tập Boss</Text>
+                <Text style={styles.screenTitle}>Bộ Sưu Tập Nhân Vật</Text>
                 <View style={{ width: 40 }} />
             </View>
 
-            <ScrollView 
+            <ScrollView
                 ref={scrollViewRef}
                 style={{ flex: 1 }}
                 contentContainerStyle={styles.scrollContent}
@@ -66,29 +111,54 @@ export default function BossCollectionScreen() {
             >
                 {collections.length > 0 ? (
                     <View style={styles.collectionsContainer}>
-                        {collections.map((item, index) => {
+                        {collections.map((item) => {
                             const { collection, bosses, userProgress } = item;
                             const isCompleted = userProgress.isCompleted;
                             const canClaim = isCompleted && !userProgress.bonusTicketsClaimed;
                             const isHighlighted = route?.params?.collectionId === collection._id;
+                            const themeColor = collection.themeColor || '#8B5CF6';
+
+                            // Đưa nhân vật đã mở khóa lên đầu danh sách
+                            const sortedBosses = [...bosses].sort(
+                                (a, b) => Number(b.isUnlocked) - Number(a.isUnlocked)
+                            );
 
                             return (
-                                <View key={collection._id} style={[styles.collectionCard, isHighlighted && { borderColor: collection.themeColor, borderWidth: 2 }]}>
+                                <View
+                                    key={collection._id}
+                                    style={[
+                                        styles.collectionCard,
+                                        {
+                                            backgroundColor: `${themeColor}10`,
+                                            borderColor: isHighlighted ? themeColor : `${themeColor}40`,
+                                            borderWidth: isHighlighted ? 2.5 : 1.5,
+                                        },
+                                    ]}
+                                >
                                     <View style={styles.collectionHeader}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
                                             <Text style={styles.collectionIcon}>{collection.iconEmoji}</Text>
-                                            <Text style={styles.collectionTitle}>{collection.title}</Text>
+                                            <Text style={styles.collectionTitle} numberOfLines={1}>
+                                                {collection.title}
+                                            </Text>
                                         </View>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                            <Text style={[styles.collectionProgress, isCompleted && { color: '#16A34A', fontWeight: 'bold' }]}>
-                                                {userProgress.unlockedCount}/{userProgress.totalCount}
-                                            </Text>
+                                            <View style={[styles.progressPill, { backgroundColor: `${themeColor}22` }]}>
+                                                <Text style={[styles.collectionProgress, { color: themeColor }]}>
+                                                    {userProgress.unlockedCount}/{userProgress.totalCount}
+                                                </Text>
+                                            </View>
                                             {canClaim && <View style={styles.claimBadge} />}
                                         </View>
                                     </View>
 
-                                    <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator={false} contentContainerStyle={styles.charsScroll}>
-                                        {bosses.map((boss: any) => {
+                                    <ScrollView
+                                        horizontal
+                                        nestedScrollEnabled
+                                        showsHorizontalScrollIndicator={false}
+                                        contentContainerStyle={styles.charsScroll}
+                                    >
+                                        {sortedBosses.map((boss) => {
                                             const isUnlocked = boss.isUnlocked;
                                             return (
                                                 <TouchableOpacity
@@ -96,18 +166,55 @@ export default function BossCollectionScreen() {
                                                     style={styles.charSlot}
                                                     activeOpacity={0.7}
                                                     disabled={!isUnlocked}
-                                                    onPress={() => setSelectedChar({ ...boss, themeColor: collection.themeColor })}
+                                                    onPress={() =>
+                                                        setSelectedChar({
+                                                            ...boss,
+                                                            collectionTitle: collection.title,
+                                                            themeColor,
+                                                        })
+                                                    }
                                                 >
-                                                    <View style={[styles.charImageWrapper, { borderColor: isUnlocked ? collection.themeColor : 'rgba(93, 64, 55, 0.2)' }]}>
-                                                        {isUnlocked ? (
-                                                            <Image source={{ uri: boss.avatarImageUrl }} style={styles.charImage} />
+                                                    <View
+                                                        style={[
+                                                            styles.charImageWrapper,
+                                                            {
+                                                                borderColor: isUnlocked
+                                                                    ? themeColor
+                                                                    : 'rgba(93, 64, 55, 0.2)',
+                                                            },
+                                                        ]}
+                                                    >
+                                                        {isUnlocked && boss.avatarImageUrl ? (
+                                                            <Image
+                                                                source={{ uri: boss.avatarImageUrl }}
+                                                                style={styles.charImage}
+                                                            />
+                                                        ) : isUnlocked ? (
+                                                            <View
+                                                                style={[
+                                                                    styles.charUnlockedPlaceholder,
+                                                                    { backgroundColor: boss.colorBg || themeColor },
+                                                                ]}
+                                                            >
+                                                                <MaterialIcons
+                                                                    name={(boss.colorIcon as any) || 'pets'}
+                                                                    size={26}
+                                                                    color="#FFF"
+                                                                />
+                                                            </View>
                                                         ) : (
                                                             <View style={styles.charLocked}>
-                                                                <Text style={{ fontSize: 24, opacity: 0.5 }}>?</Text>
+                                                                <MaterialIcons name="lock" size={20} color="rgba(93, 64, 55, 0.4)" />
                                                             </View>
                                                         )}
                                                     </View>
-                                                    <Text style={[styles.charName, !isUnlocked && { color: COLORS.clayText }]} numberOfLines={1}>
+                                                    <Text
+                                                        style={[
+                                                            styles.charName,
+                                                            !isUnlocked && { color: 'rgba(93, 64, 55, 0.5)' },
+                                                        ]}
+                                                        numberOfLines={1}
+                                                    >
                                                         {isUnlocked ? boss.title : 'Bí ẩn'}
                                                     </Text>
                                                 </TouchableOpacity>
@@ -117,23 +224,12 @@ export default function BossCollectionScreen() {
 
                                     {canClaim && (
                                         <TouchableOpacity
-                                            style={[styles.claimButton, { backgroundColor: collection.themeColor }]}
-                                            onPress={async () => {
-                                                if (isClaiming) return;
-                                                setIsClaiming(true);
-                                                try {
-                                                    const res = await apiService.claimCollectionReward(collection._id);
-                                                    Alert.alert('Chúc mừng!', `Bạn đã nhận được ${res.ticketsGranted} vé Gacha!`);
-                                                    setCollections(prev => prev.map(c => c.collection._id === collection._id ? { ...c, userProgress: { ...c.userProgress, bonusTicketsClaimed: true } } : c));
-                                                    refreshUser();
-                                                } catch (error: any) {
-                                                    Alert.alert('Lỗi', error.response?.data?.error || 'Không thể nhận thưởng');
-                                                } finally {
-                                                    setIsClaiming(false);
-                                                }
-                                            }}
+                                            style={[styles.claimButton, { backgroundColor: themeColor }]}
+                                            onPress={() => handleClaim(collection._id, collection.bonusTickets)}
                                         >
-                                            <Text style={styles.claimButtonText}>Nhận Thưởng +{collection.bonusTickets}🎟️</Text>
+                                            <Text style={styles.claimButtonText}>
+                                                Nhận Thưởng +{collection.bonusTickets}🎟️
+                                            </Text>
                                         </TouchableOpacity>
                                     )}
                                 </View>
@@ -147,25 +243,12 @@ export default function BossCollectionScreen() {
                 )}
             </ScrollView>
 
-            {/* Char Modal */}
-            <Modal
+            {/* Character Lorebook Modal */}
+            <CharacterLorebookModal
                 visible={!!selectedChar}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setSelectedChar(null)}
-            >
-                <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSelectedChar(null)}>
-                    <View style={[styles.modalContent, { borderColor: selectedChar?.themeColor || '#ccc' }]}>
-                        <Image source={{ uri: selectedChar?.avatarImageUrl }} style={styles.modalCharImage} />
-                        <View style={[styles.modalCharNameBadge, { backgroundColor: selectedChar?.themeColor || '#ccc' }]}>
-                            <Text style={styles.modalCharNameText}>{selectedChar?.title}</Text>
-                        </View>
-                        <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setSelectedChar(null)}>
-                            <MaterialIcons name="close" size={24} color={COLORS.clayText} />
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
+                character={selectedChar}
+                onClose={() => setSelectedChar(null)}
+            />
         </View>
     );
 }
@@ -180,8 +263,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: 60,
-        paddingBottom: 20,
+        paddingTop: 56,
+        paddingBottom: 16,
         backgroundColor: COLORS.warmBg,
     },
     backBtn: {
@@ -200,15 +283,14 @@ const styles = StyleSheet.create({
         letterSpacing: -0.5,
     },
     scrollContent: {
-        padding: 24,
-        paddingBottom: 80
+        paddingHorizontal: 20,
+        paddingBottom: 40,
     },
     collectionsContainer: {
-        gap: 16,
+        gap: 20,
     },
     collectionCard: {
-        backgroundColor: '#FFF',
-        borderRadius: 20,
+        borderRadius: 22,
         padding: 16,
         ...SHADOWS.clayLight,
     },
@@ -216,7 +298,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 16,
+        marginBottom: 14,
     },
     collectionIcon: {
         fontSize: 24,
@@ -226,10 +308,14 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: COLORS.clayText,
     },
+    progressPill: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
     collectionProgress: {
-        fontSize: 14,
-        color: COLORS.clayText,
-        fontWeight: '600',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
     claimBadge: {
         width: 10,
@@ -239,30 +325,40 @@ const styles = StyleSheet.create({
     },
     charsScroll: {
         gap: 12,
-        paddingBottom: 4,
+        paddingVertical: 4,
     },
     charSlot: {
+        width: 72,
         alignItems: 'center',
-        width: 70,
     },
     charImageWrapper: {
-        width: 60,
-        height: 60,
+        width: 64,
+        height: 64,
         borderRadius: 16,
         borderWidth: 2,
-        marginBottom: 8,
         overflow: 'hidden',
-        backgroundColor: '#f8fafc',
+        backgroundColor: COLORS.warmBg,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 6,
     },
     charImage: {
         width: '100%',
         height: '100%',
         resizeMode: 'cover',
     },
-    charLocked: {
-        flex: 1,
-        justifyContent: 'center',
+    charUnlockedPlaceholder: {
+        width: '100%',
+        height: '100%',
         alignItems: 'center',
+        justifyContent: 'center',
+    },
+    charLocked: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(93, 64, 55, 0.08)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     charName: {
         fontSize: 11,
@@ -271,58 +367,15 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     claimButton: {
-        marginTop: 16,
+        marginTop: 14,
         paddingVertical: 10,
-        borderRadius: 12,
+        borderRadius: 14,
         alignItems: 'center',
+        ...SHADOWS.clayLight,
     },
     claimButtonText: {
         color: '#FFF',
+        fontSize: 13,
         fontWeight: 'bold',
-        fontSize: 14,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalContent: {
-        width: 280,
-        backgroundColor: '#FFF',
-        borderRadius: 24,
-        padding: 8,
-        alignItems: 'center',
-        borderWidth: 4,
-    },
-    modalCharImage: {
-        width: '100%',
-        height: 280,
-        borderRadius: 16,
-        resizeMode: 'cover',
-    },
-    modalCharNameBadge: {
-        position: 'absolute',
-        bottom: -16,
-        paddingHorizontal: 24,
-        paddingVertical: 8,
-        borderRadius: 20,
-        ...SHADOWS.clay,
-    },
-    modalCharNameText: {
-        color: '#FFF',
-        fontWeight: 'bold',
-        fontSize: 18,
-    },
-    modalCloseBtn: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.8)',
-        justifyContent: 'center',
-        alignItems: 'center',
     },
 });

@@ -1,8 +1,9 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import * as SecureStore from '../utils/storage';
 import Constants from 'expo-constants';
-
 import { Platform } from 'react-native';
+import { DailyPlan, GrantedRewards } from '../types';
+import { enqueueOfflineTaskAction } from '../utils/offlineQueue';
 
 // Dynamic API URL from Constants or environment variable with Render fallback
 const getApiUrl = (): string => {
@@ -155,6 +156,61 @@ class ApiService {
     async uploadProofImage(base64Image: string) {
         const response = await this.api.post('/upload/proof', { image: base64Image });
         return response.data;
+    }
+
+    /**
+     * Hoàn thành nhiệm vụ kèm ảnh chứng minh một cách an toàn ngoại tuyến.
+     * Khi mất kết nối hoặc server gián đoạn (502/503/504/timeout), tự động xếp vào offlineQueue.
+     */
+    async completeTaskWithProofOfflineSafe(
+        planId: string,
+        taskIndex: number,
+        base64Image?: string
+    ): Promise<{
+        plan?: DailyPlan;
+        grantedRewards?: GrantedRewards;
+        offlineQueued: boolean;
+        taskIndex: number;
+    }> {
+        try {
+            let proofUrl: string | undefined;
+            if (base64Image) {
+                const uploadRes = await this.uploadProofImage(base64Image);
+                proofUrl = uploadRes?.url;
+            }
+            const res = await this.completeTask(planId, taskIndex, true, proofUrl);
+            return {
+                plan: res.plan,
+                grantedRewards: res.grantedRewards,
+                offlineQueued: false,
+                taskIndex,
+            };
+        } catch (error: unknown) {
+            const isAxios = axios.isAxiosError(error);
+            const status = isAxios ? error.response?.status : undefined;
+            const isNetworkOrServerDown =
+                !isAxios ||
+                !error.response ||
+                status === 502 ||
+                status === 503 ||
+                status === 504 ||
+                error.code === 'ECONNABORTED' ||
+                Boolean(error.message && error.message.includes('Network Error'));
+
+            if (isNetworkOrServerDown) {
+                await enqueueOfflineTaskAction({
+                    planId,
+                    taskIndex,
+                    isCompleted: true,
+                    proofImageBase64: base64Image,
+                });
+                return {
+                    offlineQueued: true,
+                    taskIndex,
+                };
+            }
+            throw error;
+        }
     }
 
     // --- INVENTORY & FRAGMENTS ---

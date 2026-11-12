@@ -118,7 +118,7 @@ export default function BossManagementPage() {
                                     {ev.collectionId && <span className="badge badge--warning" style={{ fontSize: 10, padding: '2px 4px' }}>Bộ sưu tập</span>}
                                     {ev.loreTitle && <span className="badge badge--primary" style={{ fontSize: 10, padding: '2px 4px' }}>Cốt truyện</span>}
                                     <span className="badge badge--info" style={{ fontSize: 10, padding: '2px 4px', background: '#3b82f6', color: '#fff' }}>
-                                        Cơ chế: {ev.miniGameType === 'tap' ? 'Tap' : ev.miniGameType === 'reflex' ? 'Reflex' : ev.miniGameType === 'quiz' ? 'Quiz' : 'Random'}
+                                        Cơ chế: {ev.miniGameType === 'tap' ? 'Tap' : ev.miniGameType === 'reflex' ? 'Reflex' : ev.miniGameType === 'quiz' ? 'Quiz' : ev.miniGameType === 'memory' ? 'Memory' : 'Random'}
                                     </span>
                                 </div>
                                 <div style={{ alignSelf: 'flex-start' }}>{statusBadge}</div>

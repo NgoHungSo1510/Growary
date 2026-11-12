@@ -14,6 +14,8 @@ export const updateUserSchema = z.object({
     level: z.number().min(1).optional(),
     vipTier: z.number().min(0).max(11).optional(),
     gachaTickets: z.number().min(0).optional(),
+    gachaTier: z.number().int().min(1).max(10).optional(),
+    password: z.string().trim().min(6, 'Password must be at least 6 characters').max(100).optional(),
     totalCoinsSpent: z.number().min(0).optional(),
     currentStreak: z.number().min(0).optional(),
     longestStreak: z.number().min(0).optional(),

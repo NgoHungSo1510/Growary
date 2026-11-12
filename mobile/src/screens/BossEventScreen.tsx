@@ -29,7 +29,15 @@ import {
     BossAttackSection,
     BossContributionStats,
     BossRecord,
+    BossWeekCollectionSection,
 } from '../components/boss';
+import { BossCollectionWithProgress, MiniGameType } from '../../../shared/types/boss';
+import {
+    getEventCache,
+    setEventCache,
+    clearEventCache,
+    buildEventCacheKey,
+} from '../utils/eventCache';
 
 const getWeekNumber = (d: Date): number => {
     d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -63,12 +71,22 @@ export default function BossEventScreen({ route }: any) {
     const [records, setRecords] = useState<BossRecord[]>([]);
     const [attackBossId, setAttackBossId] = useState<string | null>(null);
     const [activeStoryBoss, setActiveStoryBoss] = useState<ActiveBoss | null>(null);
-    const [collections, setCollections] = useState<any[]>([]);
+    const [collections, setCollections] = useState<BossCollectionWithProgress[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    const activeCollectionId = React.useMemo(() => {
+        const rawColId = bosses[0]?.collectionId as string | { _id?: string } | undefined;
+        return typeof rawColId === 'object' && rawColId !== null ? rawColId._id : rawColId;
+    }, [bosses]);
+
+    const currentWeekCollection = React.useMemo(() => {
+        if (!activeCollectionId) return null;
+        return collections.find((c) => String(c.collection?._id) === String(activeCollectionId)) || null;
+    }, [collections, activeCollectionId]);
 
     const [attackPercentage, setAttackPercentage] = useState<0.25 | 0.5 | 0.75 | 1.0>(1.0);
     const [isMiniGameVisible, setIsMiniGameVisible] = useState(false);
-    const [miniGameType, setMiniGameType] = useState<'tap' | 'quiz' | 'reflex'>('tap');
+    const [miniGameType, setMiniGameType] = useState<Exclude<MiniGameType, 'random'>>('tap');
     const [quizData, setQuizData] = useState<{ questionIndex: number; question: string; options: string[] } | null>(null);
     const [isAttackResultVisible, setIsAttackResultVisible] = useState(false);
     const [lastAttackResult, setLastAttackResult] = useState<{ damage: number; refund: number; isCritical: boolean } | null>(null);
@@ -77,53 +95,76 @@ export default function BossEventScreen({ route }: any) {
 
     const floatAnim = useRef(new Animated.Value(0)).current;
 
-    const fetchData = async () => {
-        try {
-            const res = await apiService.get('/events/boss/active');
-            if (res.activeBosses && res.activeBosses.length > 0) {
-                let activeBosses = res.activeBosses;
-                let userRecords = res.userRecords || [];
-
-                if (targetBossId) {
-                    const idx = activeBosses.findIndex((b: any) => b._id === targetBossId);
-                    if (idx !== -1) {
-                        activeBosses = [activeBosses[idx]];
-                        userRecords = [userRecords[idx]];
-                    }
+    const applyPayload = useCallback(
+        (payload: { activeBosses: ActiveBoss[]; userRecords: BossRecord[] }) => {
+            let activeBosses = payload.activeBosses || [];
+            let userRecords = payload.userRecords || [];
+            if (targetBossId) {
+                const idx = activeBosses.findIndex((b: any) => b._id === targetBossId);
+                if (idx !== -1) {
+                    activeBosses = [activeBosses[idx]];
+                    userRecords = [userRecords[idx]];
                 }
+            }
+            setBosses(activeBosses);
+            setRecords(userRecords);
+            return { activeBosses, userRecords };
+        },
+        [targetBossId]
+    );
 
-                setBosses(activeBosses);
-                setRecords(userRecords);
+    const fetchData = useCallback(
+        async (showLoadingIfEmpty = false) => {
+            const payloadKey = buildEventCacheKey('active_bosses_payload', user?._id);
+            const colKey = buildEventCacheKey('boss_collections', user?._id);
+            if (showLoadingIfEmpty && bosses.length === 0) {
+                setIsLoading(true);
+            }
+            try {
+                const res = await apiService.get('/events/boss/active');
+                if (res.activeBosses && res.activeBosses.length > 0) {
+                    const filtered = applyPayload({
+                        activeBosses: res.activeBosses,
+                        userRecords: res.userRecords || [],
+                    });
+                    await setEventCache(payloadKey, {
+                        activeBosses: res.activeBosses,
+                        userRecords: res.userRecords || [],
+                    });
 
-                for (let i = 0; i < activeBosses.length; i++) {
-                    const b = activeBosses[i];
-                    const r = userRecords[i];
-                    if (r?.hasUnlockedStory && b.currentHp <= 0) {
-                        const key = `story_seen_${b._id}`;
-                        const seen = await AsyncStorage.getItem(key);
-                        if (!seen) {
-                            setActiveStoryBoss(b);
-                            setIsStoryModalVisible(true);
-                            await AsyncStorage.setItem(key, 'true');
-                            break;
+                    for (let i = 0; i < filtered.activeBosses.length; i++) {
+                        const b = filtered.activeBosses[i];
+                        const r = filtered.userRecords[i];
+                        if (r?.hasUnlockedStory && b.currentHp <= 0) {
+                            const key = `story_seen_${b._id}`;
+                            const seen = await AsyncStorage.getItem(key);
+                            if (!seen) {
+                                setActiveStoryBoss(b);
+                                setIsStoryModalVisible(true);
+                                await AsyncStorage.setItem(key, 'true');
+                                break;
+                            }
                         }
                     }
+                } else {
+                    setBosses([]);
+                    setRecords([]);
+                    await setEventCache(payloadKey, { activeBosses: [], userRecords: [] });
                 }
-            } else {
-                setBosses([]);
-                setRecords([]);
-            }
 
-            const colRes = await apiService.get('/events/boss/collections');
-            if (colRes.collections) {
-                setCollections(colRes.collections);
+                const colRes = await apiService.get('/events/boss/collections');
+                if (colRes.collections) {
+                    setCollections(colRes.collections);
+                    await setEventCache(colKey, colRes.collections);
+                }
+            } catch (error) {
+                console.error('Fetch boss error:', error);
+            } finally {
+                setIsLoading(false);
             }
-        } catch (error) {
-            console.error('Fetch boss error:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+        },
+        [user?._id, bosses.length, applyPayload]
+    );
 
     useEffect(() => {
         Animated.loop(
@@ -146,8 +187,26 @@ export default function BossEventScreen({ route }: any) {
 
     useFocusEffect(
         useCallback(() => {
-            fetchData();
-        }, [])
+            let isMounted = true;
+            const initFromCache = async () => {
+                const payloadKey = buildEventCacheKey('active_bosses_payload', user?._id);
+                const colKey = buildEventCacheKey('boss_collections', user?._id);
+                const [cachedPayload, cachedCol] = await Promise.all([
+                    getEventCache<{ activeBosses: ActiveBoss[]; userRecords: BossRecord[] }>(payloadKey),
+                    getEventCache<any[]>(colKey),
+                ]);
+                if (isMounted && cachedPayload.data) {
+                    applyPayload(cachedPayload.data);
+                    if (cachedCol.data) setCollections(cachedCol.data);
+                    setIsLoading(false);
+                }
+                fetchData(false);
+            };
+            initFromCache();
+            return () => {
+                isMounted = false;
+            };
+        }, [user?._id, applyPayload, fetchData])
     );
 
     const handleAttackPress = async (targetBoss: ActiveBoss, targetRecord: BossRecord) => {
@@ -155,11 +214,13 @@ export default function BossEventScreen({ route }: any) {
         setAttackBossId(targetBoss._id);
 
         const hasQuiz = targetBoss.miniGameQuestions && targetBoss.miniGameQuestions.length > 0;
-        const options = hasQuiz ? ['tap', 'quiz', 'reflex'] : ['tap', 'reflex'];
+        const options: Exclude<MiniGameType, 'random'>[] = hasQuiz
+            ? ['tap', 'quiz', 'reflex', 'memory']
+            : ['tap', 'reflex', 'memory'];
 
-        let selectedType = options[Math.floor(Math.random() * options.length)] as 'tap' | 'quiz' | 'reflex';
+        let selectedType = options[Math.floor(Math.random() * options.length)];
         if (targetBoss.miniGameType && targetBoss.miniGameType !== 'random') {
-            selectedType = targetBoss.miniGameType as 'tap' | 'quiz' | 'reflex';
+            selectedType = targetBoss.miniGameType as Exclude<MiniGameType, 'random'>;
             if (selectedType === 'quiz' && !hasQuiz) selectedType = 'tap';
         }
 
@@ -167,7 +228,7 @@ export default function BossEventScreen({ route }: any) {
 
         if (selectedType === 'quiz') {
             try {
-                const qRes = await apiService.get('/events/boss/quiz');
+                const qRes = await apiService.get(`/events/boss/quiz?bossId=${targetBoss._id}`);
                 setQuizData(qRes);
             } catch (err) {
                 setMiniGameType('tap');
@@ -198,7 +259,8 @@ export default function BossEventScreen({ route }: any) {
                 isCritical: res.isCritical,
             });
             setIsAttackResultVisible(true);
-            await fetchData();
+            await clearEventCache();
+            await fetchData(false);
         } catch (error: any) {
             Alert.alert('Lỗi', error.response?.data?.message || 'Không thể tấn công. Thử lại.');
         }
@@ -307,34 +369,11 @@ export default function BossEventScreen({ route }: any) {
                     );
                 })}
 
-                {/* Collections Section */}
-                {collections.length > 0 && (
-                    <View style={{ marginBottom: 30 }}>
-                        <Text style={styles.colSectionTitle}>Bộ Sưu Tập Sự Kiện</Text>
-                        <FlatList
-                            data={collections}
-                            keyExtractor={(item, index) => item.collection?._id ?? String(index)}
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ paddingRight: 24, gap: 16 }}
-                            renderItem={({ item }) => (
-                                <View style={styles.collectionCard}>
-                                    <Text style={{ fontSize: 32 }}>{item.collection?.iconEmoji}</Text>
-                                    <Text style={styles.colTitle} numberOfLines={2}>{item.collection?.title}</Text>
-                                    <Text style={styles.colDesc}>
-                                        {item.userProgress?.unlockedCount || 0} / {item.userProgress?.totalCount || 0} Đã Mở Khóa
-                                    </Text>
-                                    {item.userProgress?.isCompleted && (
-                                        <View style={styles.completedBadge}>
-                                            <MaterialIcons name="check-circle" size={16} color="#10b981" />
-                                            <Text style={styles.completedText}>Hoàn Thành</Text>
-                                        </View>
-                                    )}
-                                </View>
-                            )}
-                        />
-                    </View>
-                )}
+                {/* Week Collection Section */}
+                <BossWeekCollectionSection
+                    collectionItem={currentWeekCollection}
+                    onPressCollection={(colId) => navigation.navigate('BossCollection', { collectionId: colId })}
+                />
 
                 <View style={{ height: 100 }} />
             </ScrollView>
@@ -426,42 +465,5 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: 'rgba(93,64,55,0.7)',
         marginTop: 2,
-    },
-    colSectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        marginBottom: 12,
-    },
-    collectionCard: {
-        width: 140,
-        backgroundColor: COLORS.clayCard,
-        borderRadius: 18,
-        padding: 14,
-        alignItems: 'center',
-    },
-    colTitle: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        textAlign: 'center',
-        marginTop: 8,
-    },
-    colDesc: {
-        fontSize: 11,
-        color: 'rgba(93,64,55,0.6)',
-        marginTop: 4,
-        textAlign: 'center',
-    },
-    completedBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        marginTop: 8,
-    },
-    completedText: {
-        fontSize: 11,
-        fontWeight: 'bold',
-        color: '#10b981',
     },
 });

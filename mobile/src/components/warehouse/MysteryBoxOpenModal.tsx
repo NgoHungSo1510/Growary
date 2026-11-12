@@ -37,6 +37,15 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
     const [remainingQty, setRemainingQty] = useState<number>(box?.quantity || 1);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+    React.useEffect(() => {
+        if (visible && box) {
+            setRemainingQty(box.quantity);
+            setStep('idle');
+            setResult(null);
+            setErrorMsg(null);
+        }
+    }, [visible, box]);
+
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const shakeAnim = useRef(new Animated.Value(0)).current;
 

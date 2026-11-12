@@ -32,8 +32,8 @@ export async function scheduleQuestReminder(task: DailyTask): Promise<string | n
     const scheduledDate = new Date();
     scheduledDate.setHours(hours, minutes, 0, 0);
 
-    // Reminder 15 minutes before
-    scheduledDate.setMinutes(scheduledDate.getMinutes() - 15);
+    // Reminder 30 minutes before
+    scheduledDate.setMinutes(scheduledDate.getMinutes() - 30);
 
     if (scheduledDate.getTime() < Date.now()) {
         return null; // Time has passed
@@ -42,12 +42,15 @@ export async function scheduleQuestReminder(task: DailyTask): Promise<string | n
     const id = await Notifications.scheduleNotificationAsync({
         content: {
             title: 'Sắp tới giờ nhiệm vụ! ⏰',
-            body: `Nhiệm vụ "${task.title}" (lúc ${task.scheduledTime}). Hoàn thành sớm để tránh bị phạt nhé!`,
+            body: `Nhiệm vụ "${task.title}" sẽ bắt đầu sau 30 phút (lúc ${task.scheduledTime}). Chuẩn bị hoàn thành đúng giờ để nhận 100% thưởng nhé!`,
             sound: true,
             data: { taskId: task._id },
         },
-        trigger: scheduledDate, // Some versions accept Date directly, but let's cast or construct properly
-    } as any);
+        trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: scheduledDate,
+        },
+    });
     return id;
 }
 
