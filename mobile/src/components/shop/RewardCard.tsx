@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Reward, VipStatus } from '../../types';
+import { Reward, ShopEvent, VipStatus } from '../../types';
 import { COLORS } from '../../theme';
+import { getEffectiveRewardPrice, isRewardInFlashSale } from '../../utils/shopPricing';
 
 const { width } = Dimensions.get('window');
 export const FEATURED_CARD_W = width * 0.72;
@@ -23,53 +24,41 @@ interface RewardCardProps {
     vipStatus: VipStatus | null;
     onPress: (reward: Reward) => void;
     variant?: 'featured' | 'grid';
+    shopEvent?: ShopEvent | null;
     saleDiscountPercent?: number;
 }
 
-export const RewardCard: React.FC<RewardCardProps> = ({
+export const RewardCard: React.FC<RewardCardProps> = React.memo(({
     reward,
-    vipStatus,
     onPress,
     variant = 'grid',
+    shopEvent = null,
     saleDiscountPercent = 0,
 }) => {
     const { icon, color } = getRewardVisual(reward.title);
-
-    const getDiscountedPrice = (price?: number) => {
-        if (price === undefined || price === null) return 0;
-        let finalPrice = price;
-        if (saleDiscountPercent > 0) {
-            finalPrice = Math.floor(finalPrice * (1 - saleDiscountPercent / 100));
-        }
-        const vipDiscountPercent = vipStatus?.currentTier?.discountPercent || 0;
-        if (vipDiscountPercent > 0) {
-            finalPrice = Math.floor(finalPrice * (1 - vipDiscountPercent / 100));
-        }
-        return finalPrice;
-    };
-
-    const hasDiscount =
-        (vipStatus?.currentTier?.discountPercent || 0) > 0 || saleDiscountPercent > 0;
+    const inFlashSale = shopEvent ? isRewardInFlashSale(reward._id, shopEvent) : saleDiscountPercent > 0;
+    const activeSalePercent = inFlashSale
+        ? (shopEvent ? shopEvent.discountPercent : saleDiscountPercent)
+        : 0;
+    const finalPrice = shopEvent
+        ? getEffectiveRewardPrice(reward.pointCost, reward._id, shopEvent)
+        : (activeSalePercent > 0
+            ? Math.max(1, Math.ceil(reward.pointCost * (1 - activeSalePercent / 100)))
+            : reward.pointCost);
+    const hasDiscount = activeSalePercent > 0 && finalPrice < reward.pointCost;
 
     if (variant === 'featured') {
         return (
-            <TouchableOpacity
-                style={styles.featuredSlide}
-                activeOpacity={0.9}
-                onPress={() => onPress(reward)}
-            >
+            <TouchableOpacity style={styles.featuredSlide} activeOpacity={0.9} onPress={() => onPress(reward)}>
                 <View style={styles.rareBadge}>
                     <Text style={styles.rareText}>RARE</Text>
                 </View>
 
-                <LinearGradient
-                    colors={['rgba(255,255,255,0.4)', 'transparent']}
-                    style={styles.featuredImageArea}
-                >
+                <LinearGradient colors={['rgba(255,255,255,0.4)', 'transparent']} style={styles.featuredImageArea}>
                     {reward.imageUrl ? (
-                        <Image source={{ uri: reward.imageUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                        <Image source={{ uri: reward.imageUrl }} style={styles.fullImage} resizeMode="cover" />
                     ) : (
-                        <MaterialIcons name={icon} size={64} color={color} style={{ opacity: 0.9 }} />
+                        <MaterialIcons name={icon} size={64} color={color} style={styles.iconDim} />
                     )}
                 </LinearGradient>
 
@@ -81,16 +70,12 @@ export const RewardCard: React.FC<RewardCardProps> = ({
                     <View style={styles.featuredPriceRow}>
                         <View style={styles.priceTagYellow}>
                             <MaterialIcons name="monetization-on" size={12} color="#713F12" />
-                            <Text style={styles.priceTextYellow}>{getDiscountedPrice(reward.pointCost)}</Text>
+                            <Text style={styles.priceTextYellow}>{finalPrice}</Text>
                         </View>
-                        {hasDiscount ? (
-                            <Text style={{ fontSize: 10, textDecorationLine: 'line-through', color: 'rgba(255,255,255,0.6)', marginHorizontal: 4 }}>
-                                {reward.pointCost}
-                            </Text>
-                        ) : null}
-                        {saleDiscountPercent > 0 && (
-                            <View style={{ backgroundColor: '#EF4444', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 }}>
-                                <Text style={{ fontSize: 9, fontWeight: '800', color: '#FFF' }}>-{saleDiscountPercent}%</Text>
+                        {hasDiscount && <Text style={styles.featuredOldPrice}>{reward.pointCost}</Text>}
+                        {activeSalePercent > 0 && (
+                            <View style={styles.featuredSaleBadge}>
+                                <Text style={styles.saleBadgeText}>-{activeSalePercent}%</Text>
                             </View>
                         )}
                         {reward.stock !== undefined && reward.stock !== null && (
@@ -103,30 +88,22 @@ export const RewardCard: React.FC<RewardCardProps> = ({
     }
 
     return (
-        <TouchableOpacity
-            style={styles.gridItem}
-            activeOpacity={0.85}
-            onPress={() => onPress(reward)}
-        >
+        <TouchableOpacity style={styles.gridItem} activeOpacity={0.85} onPress={() => onPress(reward)}>
             <View style={styles.iconInsetBox}>
-                {saleDiscountPercent > 0 && (
-                    <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: '#EF4444', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 6, zIndex: 5 }}>
-                        <Text style={{ fontSize: 9, fontWeight: '900', color: '#FFF' }}>-{saleDiscountPercent}%</Text>
+                {activeSalePercent > 0 && (
+                    <View style={styles.gridSaleBadge}>
+                        <Text style={styles.saleBadgeText}>-{activeSalePercent}%</Text>
                     </View>
                 )}
                 {reward.imageUrl ? (
-                    <Image source={{ uri: reward.imageUrl }} style={{ width: '100%', height: '100%', borderRadius: 16, resizeMode: 'cover' }} />
+                    <Image source={{ uri: reward.imageUrl }} style={styles.gridImage} />
                 ) : (
-                    <MaterialIcons name={icon} size={40} color={color} style={{ opacity: 0.9 }} />
+                    <MaterialIcons name={icon} size={40} color={color} style={styles.iconDim} />
                 )}
                 <View style={styles.miniPriceBadge}>
                     <MaterialIcons name="monetization-on" size={10} color="#713F12" />
-                    <Text style={styles.miniPriceText}>{getDiscountedPrice(reward.pointCost)}</Text>
-                    {hasDiscount && (
-                        <Text style={{ fontSize: 8, textDecorationLine: 'line-through', color: '#713F12', opacity: 0.6, marginLeft: 2 }}>
-                            {reward.pointCost}
-                        </Text>
-                    )}
+                    <Text style={styles.miniPriceText}>{finalPrice}</Text>
+                    {hasDiscount && <Text style={styles.gridOldPrice}>{reward.pointCost}</Text>}
                 </View>
             </View>
             <View style={styles.itemInfo}>
@@ -140,9 +117,12 @@ export const RewardCard: React.FC<RewardCardProps> = ({
             </View>
         </TouchableOpacity>
     );
-};
+});
 
 const styles = StyleSheet.create({
+    fullImage: { width: '100%', height: '100%' },
+    gridImage: { width: '100%', height: '100%', borderRadius: 16, resizeMode: 'cover' },
+    iconDim: { opacity: 0.9 },
     featuredSlide: {
         width: FEATURED_CARD_W,
         height: 200,
@@ -166,11 +146,7 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
         borderRadius: 8,
     },
-    rareText: {
-        fontSize: 10,
-        fontWeight: '900',
-        color: '#713F12',
-    },
+    rareText: { fontSize: 10, fontWeight: '900', color: '#713F12' },
     featuredImageArea: {
         width: '100%',
         height: 120,
@@ -178,25 +154,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: 'rgba(255,255,255,0.4)',
     },
-    featuredInfo: {
-        padding: 12,
-    },
-    featuredTitle: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-    },
-    featuredSubtitle: {
-        fontSize: 12,
-        color: 'rgba(93,64,55,0.6)',
-        marginTop: 2,
-    },
-    featuredPriceRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: 6,
-    },
+    featuredInfo: { padding: 12 },
+    featuredTitle: { fontSize: 15, fontWeight: 'bold', color: COLORS.clayText },
+    featuredSubtitle: { fontSize: 12, color: 'rgba(93,64,55,0.6)', marginTop: 2 },
+    featuredPriceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
     priceTagYellow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -206,16 +167,26 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
         borderRadius: 8,
     },
-    priceTextYellow: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#713F12',
-    },
-    stockText: {
-        fontSize: 11,
+    priceTextYellow: { fontSize: 12, fontWeight: 'bold', color: '#713F12' },
+    featuredOldPrice: {
+        fontSize: 10,
+        textDecorationLine: 'line-through',
         color: 'rgba(93,64,55,0.5)',
-        marginLeft: 'auto',
+        marginHorizontal: 2,
     },
+    featuredSaleBadge: { backgroundColor: '#EF4444', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
+    gridSaleBadge: {
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        backgroundColor: '#EF4444',
+        paddingHorizontal: 5,
+        paddingVertical: 1,
+        borderRadius: 6,
+        zIndex: 5,
+    },
+    saleBadgeText: { fontSize: 9, fontWeight: '900', color: '#FFF' },
+    stockText: { fontSize: 11, color: 'rgba(93,64,55,0.5)', marginLeft: 'auto' },
     gridItem: {
         width: (width - 48 - 12) / 2,
         backgroundColor: COLORS.clayCard,
@@ -251,37 +222,22 @@ const styles = StyleSheet.create({
         paddingVertical: 1,
         borderRadius: 6,
     },
-    miniPriceText: {
-        fontSize: 10,
-        fontWeight: 'bold',
+    miniPriceText: { fontSize: 10, fontWeight: 'bold', color: '#713F12' },
+    gridOldPrice: {
+        fontSize: 8,
+        textDecorationLine: 'line-through',
         color: '#713F12',
+        opacity: 0.6,
+        marginLeft: 2,
     },
-    itemInfo: {
-        width: '100%',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    itemTitle: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        textAlign: 'center',
-    },
-    itemSubtitle: {
-        fontSize: 11,
-        color: 'rgba(93,64,55,0.5)',
-        marginTop: 2,
-        textAlign: 'center',
-    },
+    itemInfo: { width: '100%', alignItems: 'center', marginBottom: 8 },
+    itemTitle: { fontSize: 13, fontWeight: 'bold', color: COLORS.clayText, textAlign: 'center' },
+    itemSubtitle: { fontSize: 11, color: 'rgba(93,64,55,0.5)', marginTop: 2, textAlign: 'center' },
     smallRedeemBtn: {
         backgroundColor: COLORS.clayAccent1,
         paddingHorizontal: 16,
         paddingVertical: 5,
         borderRadius: 10,
     },
-    smallRedeemText: {
-        fontSize: 11,
-        fontWeight: 'bold',
-        color: '#FFF',
-    },
+    smallRedeemText: { fontSize: 11, fontWeight: 'bold', color: '#FFF' },
 });

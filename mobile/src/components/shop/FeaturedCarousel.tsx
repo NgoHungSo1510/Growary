@@ -10,7 +10,7 @@ import {
     StyleProp,
     ViewStyle,
 } from 'react-native';
-import { Reward, VipStatus } from '../../types';
+import { Reward, ShopEvent, VipStatus } from '../../types';
 import { RewardCard } from './RewardCard';
 import { COLORS } from '../../theme';
 
@@ -23,6 +23,7 @@ const AUTO_PLAY_INTERVAL = 5000; // 5 seconds
 interface FeaturedCarouselProps {
     rewards: Reward[];
     vipStatus: VipStatus | null;
+    shopEvent?: ShopEvent | null;
     saleDiscountPercent?: number;
     onPressReward: (reward: Reward) => void;
     style?: StyleProp<ViewStyle>;
@@ -31,6 +32,7 @@ interface FeaturedCarouselProps {
 export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
     rewards,
     vipStatus,
+    shopEvent = null,
     saleDiscountPercent = 0,
     onPressReward,
     style,
@@ -130,6 +132,7 @@ export const FeaturedCarousel: React.FC<FeaturedCarouselProps> = ({
                             vipStatus={vipStatus}
                             onPress={onPressReward}
                             variant="featured"
+                            shopEvent={shopEvent}
                             saleDiscountPercent={saleDiscountPercent}
                         />
                     </View>

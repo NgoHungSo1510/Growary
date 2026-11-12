@@ -12,7 +12,6 @@ import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { apiService } from '../../services/api';
 import { OpenMysteryBoxResult } from '@shared';
-import { COLORS } from '../../theme';
 
 interface MysteryBoxOpenModalProps {
     visible: boolean;
@@ -24,6 +23,20 @@ interface MysteryBoxOpenModalProps {
     } | null;
     onClose: () => void;
     onSuccess?: (result: OpenMysteryBoxResult) => void;
+}
+
+function extractBoxErrorMessage(err: unknown): string {
+    if (typeof err === 'object' && err !== null) {
+        const withResp = err as { response?: { data?: { message?: string; error?: string } }; message?: string };
+        return withResp.response?.data?.message || withResp.response?.data?.error || withResp.message || 'Không thể mở rương';
+    }
+    return 'Không thể mở rương';
+}
+
+function renderRewardIcon(type: string): React.ReactNode {
+    if (type === 'coins') return <MaterialIcons name="monetization-on" size={24} color="#FFD700" />;
+    if (type === 'fragment') return <MaterialCommunityIcons name="puzzle" size={24} color="#FFD700" />;
+    return <MaterialIcons name="card-giftcard" size={24} color="#FFD700" />;
 }
 
 export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
@@ -55,7 +68,6 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
         setErrorMsg(null);
         setStep('opening');
 
-        // Start shake animation
         Animated.loop(
             Animated.sequence([
                 Animated.timing(shakeAnim, { toValue: 8, duration: 60, useNativeDriver: true }),
@@ -75,12 +87,10 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
             setResult(data);
             const remaining = data.userInventoryUpdated?.remainingBoxes ?? data.remainingBoxes ?? 0;
             setRemainingQty(remaining);
-            if (onSuccess) {
-                onSuccess(data);
-            }
+            if (onSuccess) onSuccess(data);
             setStep('revealed');
-        } catch (err: any) {
-            setErrorMsg(err.response?.data?.message || err.message || 'Không thể mở rương');
+        } catch (err: unknown) {
+            setErrorMsg(extractBoxErrorMessage(err));
             setStep('idle');
         }
     };
@@ -98,11 +108,7 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
         <Modal visible={visible} animationType="fade" transparent>
             <View style={styles.overlay}>
                 <View style={styles.cardContainer}>
-                    <LinearGradient
-                        colors={['#1E1B4B', '#2E1065', '#0F172A']}
-                        style={styles.cardGradient}
-                    >
-                        {/* Close button */}
+                    <LinearGradient colors={['#1E1B4B', '#2E1065', '#0F172A']} style={styles.cardGradient}>
                         <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
                             <MaterialIcons name="close" size={22} color="rgba(255, 255, 255, 0.6)" />
                         </TouchableOpacity>
@@ -110,37 +116,20 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
                         {step !== 'revealed' ? (
                             <>
                                 <Text style={styles.title}>{box.name}</Text>
-                                <Text style={styles.subtitle}>
-                                    Còn lại trong kho: {remainingQty} rương
-                                </Text>
+                                <Text style={styles.subtitle}>Còn lại trong kho: {remainingQty} rương</Text>
 
-                                {/* Animated Chest */}
                                 <Animated.View
                                     style={[
                                         styles.chestContainer,
-                                        {
-                                            transform: [
-                                                { scale: scaleAnim },
-                                                { translateX: shakeAnim },
-                                            ],
-                                        },
+                                        { transform: [{ scale: scaleAnim }, { translateX: shakeAnim }] },
                                     ]}
                                 >
-                                    <LinearGradient
-                                        colors={['#A855F7', '#6366F1']}
-                                        style={styles.chestAura}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name={step === 'opening' ? 'treasure-chest' : 'treasure-chest'}
-                                            size={72}
-                                            color="#FFD700"
-                                        />
+                                    <LinearGradient colors={['#A855F7', '#6366F1']} style={styles.chestAura}>
+                                        <MaterialCommunityIcons name="treasure-chest" size={72} color="#FFD700" />
                                     </LinearGradient>
                                 </Animated.View>
 
-                                {errorMsg && (
-                                    <Text style={styles.errorText}>{errorMsg}</Text>
-                                )}
+                                {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
 
                                 <TouchableOpacity
                                     style={[styles.btn, step === 'opening' && styles.btnDisabled]}
@@ -149,11 +138,7 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
                                     activeOpacity={0.85}
                                 >
                                     <LinearGradient
-                                        colors={
-                                            remainingQty > 0
-                                                ? ['#FFD54F', '#FFA726']
-                                                : ['#8E8E93', '#636366']
-                                        }
+                                        colors={remainingQty > 0 ? ['#FFD54F', '#FFA726'] : ['#8E8E93', '#636666']}
                                         style={styles.btnGradient}
                                     >
                                         {step === 'opening' ? (
@@ -164,7 +149,7 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
                                                     name="key-variant"
                                                     size={18}
                                                     color="#3E2723"
-                                                    style={{ marginRight: 6 }}
+                                                    style={styles.keyIcon}
                                                 />
                                                 <Text style={styles.btnText}>
                                                     {remainingQty > 0 ? 'MỞ RƯƠNG NGAY' : 'HẾT RƯƠNG'}
@@ -184,18 +169,11 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
                                     Đã nhận được phần thưởng từ {box.name}
                                 </Text>
 
-                                {/* Reward Items Display */}
                                 <View style={styles.rewardsList}>
                                     {result?.rewards && result.rewards.length > 0 ? (
                                         result.rewards.map((r, idx) => (
                                             <View key={idx} style={styles.rewardCard}>
-                                                {r.type === 'coins' ? (
-                                                    <MaterialIcons name="monetization-on" size={24} color="#FFD700" />
-                                                ) : r.type === 'fragment' ? (
-                                                    <MaterialCommunityIcons name="puzzle" size={24} color="#FFD700" />
-                                                ) : (
-                                                    <MaterialIcons name="card-giftcard" size={24} color="#FFD700" />
-                                                )}
+                                                {renderRewardIcon(r.type)}
                                                 <Text style={styles.rewardName}>{r.name}</Text>
                                                 <Text style={styles.rewardAmount}>+{r.amount}</Text>
                                             </View>
@@ -206,9 +184,7 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
                                             <Text style={styles.rewardName}>
                                                 {result?.rewardName || '50 Xu May Mắn'}
                                             </Text>
-                                            <Text style={styles.rewardAmount}>
-                                                +{result?.amount || 50}
-                                            </Text>
+                                            <Text style={styles.rewardAmount}>+{result?.amount || 50}</Text>
                                         </View>
                                     )}
                                 </View>
@@ -219,29 +195,15 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
 
                                 <View style={styles.actionRow}>
                                     {remainingQty > 0 && (
-                                        <TouchableOpacity
-                                            style={[styles.btn, { flex: 1, marginRight: 8 }]}
-                                            onPress={handleOpenBox}
-                                        >
-                                            <LinearGradient
-                                                colors={['#FFD54F', '#FFA726']}
-                                                style={styles.btnGradient}
-                                            >
+                                        <TouchableOpacity style={[styles.btn, styles.btnContinue]} onPress={handleOpenBox}>
+                                            <LinearGradient colors={['#FFD54F', '#FFA726']} style={styles.btnGradient}>
                                                 <Text style={styles.btnText}>MỞ TIẾP</Text>
                                             </LinearGradient>
                                         </TouchableOpacity>
                                     )}
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.btn,
-                                            { flex: 1, backgroundColor: 'rgba(255,255,255,0.15)' },
-                                        ]}
-                                        onPress={handleClose}
-                                    >
+                                    <TouchableOpacity style={[styles.btn, styles.btnDone]} onPress={handleClose}>
                                         <View style={styles.btnGradient}>
-                                            <Text style={[styles.btnText, { color: '#FFF' }]}>
-                                                XONG
-                                            </Text>
+                                            <Text style={[styles.btnText, styles.btnDoneText]}>XONG</Text>
                                         </View>
                                     </TouchableOpacity>
                                 </View>
@@ -271,30 +233,10 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(168, 85, 247, 0.4)',
         elevation: 10,
     },
-    cardGradient: {
-        padding: 24,
-        alignItems: 'center',
-        position: 'relative',
-    },
-    closeBtn: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        zIndex: 10,
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: '900',
-        color: '#FFFFFF',
-        textAlign: 'center',
-        marginTop: 6,
-    },
-    subtitle: {
-        fontSize: 12,
-        color: '#E2E8F0',
-        marginTop: 4,
-        marginBottom: 16,
-    },
+    cardGradient: { padding: 24, alignItems: 'center', position: 'relative' },
+    closeBtn: { position: 'absolute', top: 16, right: 16, zIndex: 10 },
+    title: { fontSize: 20, fontWeight: '900', color: '#FFFFFF', textAlign: 'center', marginTop: 6 },
+    subtitle: { fontSize: 12, color: '#E2E8F0', marginTop: 4, marginBottom: 16 },
     chestContainer: {
         width: 120,
         height: 120,
@@ -312,34 +254,15 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#FFD700',
     },
-    errorText: {
-        color: '#F87171',
-        fontSize: 12,
-        marginBottom: 12,
-        textAlign: 'center',
-    },
-    btn: {
-        width: '100%',
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginTop: 8,
-    },
-    btnDisabled: {
-        opacity: 0.6,
-    },
-    btnGradient: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-    },
-    btnText: {
-        fontSize: 14,
-        fontWeight: '900',
-        color: '#3E2723',
-        letterSpacing: 0.6,
-    },
+    errorText: { color: '#F87171', fontSize: 12, marginBottom: 12, textAlign: 'center' },
+    btn: { width: '100%', borderRadius: 16, overflow: 'hidden', marginTop: 8 },
+    btnDisabled: { opacity: 0.6 },
+    btnContinue: { flex: 1, marginRight: 8 },
+    btnDone: { flex: 1, backgroundColor: 'rgba(255,255,255,0.15)' },
+    btnDoneText: { color: '#FFF' },
+    btnGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 20 },
+    keyIcon: { marginRight: 6 },
+    btnText: { fontSize: 14, fontWeight: '900', color: '#3E2723', letterSpacing: 0.6 },
     congratsAura: {
         width: 72,
         height: 72,
@@ -349,22 +272,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: 8,
     },
-    congratsTitle: {
-        fontSize: 20,
-        fontWeight: '900',
-        color: '#FFD700',
-        letterSpacing: 1,
-    },
-    congratsSubtitle: {
-        fontSize: 12,
-        color: '#E2E8F0',
-        marginVertical: 4,
-        textAlign: 'center',
-    },
-    rewardsList: {
-        width: '100%',
-        marginVertical: 14,
-    },
+    congratsTitle: { fontSize: 20, fontWeight: '900', color: '#FFD700', letterSpacing: 1 },
+    congratsSubtitle: { fontSize: 12, color: '#E2E8F0', marginVertical: 4, textAlign: 'center' },
+    rewardsList: { width: '100%', marginVertical: 14 },
     rewardCard: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -376,27 +286,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255, 215, 0, 0.4)',
     },
-    rewardName: {
-        flex: 1,
-        marginLeft: 10,
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#FFFFFF',
-    },
-    rewardAmount: {
-        fontSize: 14,
-        fontWeight: '900',
-        color: '#FFD700',
-    },
-    remainingHint: {
-        fontSize: 11,
-        color: 'rgba(255, 255, 255, 0.6)',
-        marginBottom: 14,
-    },
-    actionRow: {
-        flexDirection: 'row',
-        width: '100%',
-    },
+    rewardName: { flex: 1, marginLeft: 10, fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+    rewardAmount: { fontSize: 14, fontWeight: '900', color: '#FFD700' },
+    remainingHint: { fontSize: 11, color: 'rgba(255, 255, 255, 0.6)', marginBottom: 14 },
+    actionRow: { flexDirection: 'row', width: '100%' },
 });
 
 export default MysteryBoxOpenModal;

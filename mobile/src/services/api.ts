@@ -227,8 +227,8 @@ class ApiService {
         return response.data;
     }
 
-    async openMysteryBox(itemType: string) {
-        const response = await this.api.post('/rewards/inventory/open-box', { itemType });
+    async openMysteryBox(boxId: string) {
+        const response = await this.api.post('/rewards/inventory/open-box', { boxId });
         return response.data;
     }
 

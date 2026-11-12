@@ -1,5 +1,6 @@
 export * from './RewardCard';
 export * from './RewardDetailModal';
+export * from './RewardPriceBreakdown';
 export * from './CouponsSelectModal';
 export * from './VoucherRedeemModal';
 export * from './SaleEventModal';

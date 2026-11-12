@@ -279,6 +279,7 @@ export default function ShopScreen() {
                     <FeaturedCarousel
                         rewards={featuredRewards}
                         vipStatus={vipStatus}
+                        shopEvent={shopEvent}
                         saleDiscountPercent={shopEvent?.discountPercent || 0}
                         onPressReward={openRewardModal}
                     />
@@ -300,6 +301,7 @@ export default function ShopScreen() {
                             vipStatus={vipStatus}
                             onPress={openRewardModal}
                             variant="grid"
+                            shopEvent={shopEvent}
                             saleDiscountPercent={shopEvent?.discountPercent || 0}
                         />
                     ))}
@@ -320,6 +322,7 @@ export default function ShopScreen() {
                 visible={!!selectedReward}
                 reward={selectedReward}
                 vipStatus={vipStatus}
+                shopEvent={shopEvent}
                 userCoins={userCoins}
                 modalScale={modalScale}
                 isPurchasing={isPurchasing}
