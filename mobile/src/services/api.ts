@@ -3,6 +3,14 @@ import * as SecureStore from '../utils/storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { DailyPlan, GrantedRewards } from '../types';
+import type {
+    EquipAvatarFramePayload,
+    PassTrackType,
+    SeasonPassActionResponse,
+    SeasonPassDTO,
+    SeasonPassLeaderboardResponse,
+    SeasonPassMyProgressResponse,
+} from '@shared';
 import { enqueueOfflineTaskAction } from '../utils/offlineQueue';
 
 // Dynamic API URL from Constants or environment variable with Render fallback
@@ -369,6 +377,64 @@ class ApiService {
 
     async openWarehouseBox(boxId: string) {
         const response = await this.api.post('/warehouse/open-box', { boxId });
+        return response.data;
+    }
+
+    // ============ SEASON PASS ============
+    async getCurrentSeasonPass(): Promise<{ season: SeasonPassDTO }> {
+        const response = await this.api.get<{ season: SeasonPassDTO }>('/season-pass/current');
+        return response.data;
+    }
+
+    async getSeasonPassProgress(): Promise<SeasonPassMyProgressResponse> {
+        const response = await this.api.get<SeasonPassMyProgressResponse>('/season-pass/my-progress');
+        return response.data;
+    }
+
+    async getSeasonPassLeaderboard(limit = 50, seasonId?: string): Promise<SeasonPassLeaderboardResponse> {
+        const response = await this.api.get<SeasonPassLeaderboardResponse>('/season-pass/leaderboard', {
+            params: { limit, ...(seasonId ? { seasonId } : {}) },
+        });
+        return response.data;
+    }
+
+    async unlockElitePass(): Promise<SeasonPassActionResponse> {
+        const response = await this.api.post<SeasonPassActionResponse>('/season-pass/unlock-elite');
+        return response.data;
+    }
+
+    async claimPassTierReward(level: number, track: PassTrackType): Promise<SeasonPassActionResponse> {
+        const response = await this.api.post<SeasonPassActionResponse>('/season-pass/claim-reward', {
+            level,
+            track,
+        });
+        return response.data;
+    }
+
+    async claimAllPassRewards(): Promise<SeasonPassActionResponse> {
+        const response = await this.api.post<SeasonPassActionResponse>('/season-pass/claim-all');
+        return response.data;
+    }
+
+    async claimPassQuest(questCode: string): Promise<SeasonPassActionResponse> {
+        const response = await this.api.post<SeasonPassActionResponse>('/season-pass/claim-quest', {
+            questCode,
+        });
+        return response.data;
+    }
+
+    async claimPassOvercap(): Promise<SeasonPassActionResponse> {
+        const response = await this.api.post<SeasonPassActionResponse>('/season-pass/claim-overcap');
+        return response.data;
+    }
+
+    async withdrawPassVault(): Promise<SeasonPassActionResponse> {
+        const response = await this.api.post<SeasonPassActionResponse>('/season-pass/withdraw-vault');
+        return response.data;
+    }
+
+    async equipPassAvatarFrame(payload: EquipAvatarFramePayload): Promise<{ avatarFrame: string | null }> {
+        const response = await this.api.post<{ avatarFrame: string | null }>('/season-pass/equip-frame', payload);
         return response.data;
     }
 }

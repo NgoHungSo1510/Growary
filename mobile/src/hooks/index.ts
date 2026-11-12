@@ -6,4 +6,5 @@ export * from './useShop';
 export * from './useGacha';
 export * from './useShopEvent';
 export * from './useQuiz';
+export * from './useSeasonPass';
 
