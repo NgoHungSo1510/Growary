@@ -118,3 +118,4 @@ function getEliteReward(level: number, eliteAvatarFrameId: string): PassReward {
     const xpAmount = level <= 25 ? 40 : level <= 45 ? 50 : level <= 65 ? 65 : 80;
     return { type: 'xp', amount: xpAmount, label: `${xpAmount} EXP` };
 }
+

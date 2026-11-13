@@ -24,6 +24,7 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
 
     const loadSeasons = async () => {
         setLoading(true);
+        setStatusMsg('');
         try {
             const res = await seasonPassAdminService.getSeasons();
             setSeasons(res.seasons);
@@ -40,6 +41,7 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
     const loadDetail = async (id: string) => {
         if (!id) return;
         setLoading(true);
+        setStatusMsg('');
         try {
             const res = await seasonPassAdminService.getSeasonDetail(id);
             setSeason(res.season);
