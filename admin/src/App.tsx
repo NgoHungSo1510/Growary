@@ -11,9 +11,7 @@ import RewardManagement from './pages/RewardManagement';
 import BossManagementPage from './pages/BossManagementPage';
 import PenaltyManagement from './pages/PenaltyManagement.tsx';
 import NotificationManagement from './pages/NotificationManagement.tsx';
-import QuizManagementPage from './pages/QuizManagementPage';
 import SpecialWarehouse from './pages/SpecialWarehouse';
-import SeasonPassManagement from './pages/SeasonPassManagement';
 import Login from './pages/Login';
 import { adminApi } from './services/api';
 import './App.css';
@@ -40,9 +38,9 @@ export default function App() {
                     <Route path="/rewards" element={<RewardManagement />} />
                     <Route path="/penalty" element={<PenaltyManagement />} />
                     <Route path="/notifications" element={<NotificationManagement />} />
-                    <Route path="/quiz" element={<QuizManagementPage />} />
+                    <Route path="/quiz" element={<Navigate to="/events?tab=quiz" replace />} />
                     <Route path="/special-warehouse" element={<SpecialWarehouse />} />
-                    <Route path="/season-pass" element={<SeasonPassManagement />} />
+                    <Route path="/season-pass" element={<Navigate to="/events?tab=battlepass" replace />} />
                     <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
             </main>

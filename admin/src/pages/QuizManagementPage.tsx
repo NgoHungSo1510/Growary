@@ -18,7 +18,7 @@ import {
 
 type Tab = 'events' | 'topics' | 'questions' | 'stats';
 
-export default function QuizManagementPage() {
+export default function QuizManagementPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [tab, setTab] = useState<Tab>('events');
 
   // ── Events state ──
@@ -164,9 +164,9 @@ export default function QuizManagementPage() {
   const requiredQuestions = activeEvent ? activeEvent.questionsPerAttempt : 0;
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <h1 className="page-title">🧠 Quản Lý Trắc Nghiệm (Tri Thức Đấu Trí)</h1>
+    <div className={embedded ? undefined : 'page-container'} style={embedded ? { padding: 0 } : undefined}>
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 24, margin: 0 }}>🧠 Quản Lý Trắc Nghiệm (Tri Thức Đấu Trí)</h2>
         {tab === 'events' && (
           <button
             className="btn btn--primary"

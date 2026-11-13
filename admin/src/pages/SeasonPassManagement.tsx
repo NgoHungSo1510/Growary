@@ -11,7 +11,7 @@ import TierRewardEditorModal from '../components/seasonPass/TierRewardEditorModa
 
 type AdminTab = 'tiers' | 'leaderboard';
 
-export default function SeasonPassManagement() {
+export default function SeasonPassManagement({ embedded = false }: { embedded?: boolean } = {}) {
     const [seasons, setSeasons] = useState<AdminSeasonSummaryDTO[]>([]);
     const [selectedSeasonId, setSelectedSeasonId] = useState<string>('');
     const [season, setSeason] = useState<SeasonPassDTO | null>(null);
@@ -84,11 +84,11 @@ export default function SeasonPassManagement() {
     const selectedSummary = seasons.find((s) => s._id === selectedSeasonId);
 
     return (
-        <div className="page">
+        <div className={embedded ? undefined : 'page'} style={embedded ? { padding: 0 } : undefined}>
             <div className="page__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
                 <div>
-                    <h1 className="page__title">📜 Quản Lý Sổ Sứ Mệnh</h1>
-                    <p className="page__subtitle">Cấu hình 80 cấp phần thưởng & theo dõi Bảng Vàng Quý</p>
+                    <h2 style={{ fontSize: 24, margin: 0 }}>📜 Quản Lý Sổ Sứ Mệnh</h2>
+                    <p className="page__subtitle" style={{ margin: '4px 0 0 0' }}>Cấu hình 80 cấp phần thưởng & theo dõi Bảng Vàng Quý</p>
                 </div>
                 <select
                     value={selectedSeasonId}
