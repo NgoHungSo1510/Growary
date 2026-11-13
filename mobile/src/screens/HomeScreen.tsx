@@ -174,7 +174,8 @@ export default function HomeScreen() {
                     tasks={plan?.tasks || []}
                     currentStreak={user?.currentStreak || 0}
                     streakGracePeriod={user?.streakGracePeriod}
-                />                {/* Stats Row */}
+                />
+                {/* Stats Row */}
                 <View style={styles.statsRow}>
                     <View style={[styles.statBox, styles.streakBox]}>
                         <Text style={[styles.statValue, { color: COLORS.clayAccent1 }]}>

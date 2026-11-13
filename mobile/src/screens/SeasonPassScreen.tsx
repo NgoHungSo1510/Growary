@@ -170,7 +170,14 @@ export default function SeasonPassScreen() {
                         onClose={() => setShowLeaderboard(false)}
                     />
                 </View>
-            ) : null}
+            ) : (
+                <View style={styles.centered}>
+                    <Text style={styles.loadingText}>Không thể tải dữ liệu Sổ Sứ Mệnh</Text>
+                    <TouchableOpacity style={styles.retryBtn} onPress={() => void pass.refresh()}>
+                        <Text style={styles.retryText}>🔄 Thử lại</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
         </View>
     );
 }
@@ -186,6 +193,10 @@ const styles = StyleSheet.create({
     screenTitle: { fontSize: FONT_SIZES.title, fontWeight: '800', color: COLORS.clayText },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
     loadingText: { fontSize: FONT_SIZES.body, fontWeight: '700', color: COLORS.clayText },
+    retryBtn: {
+        marginTop: 8, backgroundColor: COLORS.clayText, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 14,
+    },
+    retryText: { color: '#FFFFFF', fontSize: FONT_SIZES.body, fontWeight: '800' },
     body: { flex: 1, paddingHorizontal: SPACING.lg },
     tabRow: { flexDirection: 'row', gap: 8, marginBottom: SPACING.md },
     tabBtn: {

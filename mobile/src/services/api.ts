@@ -13,11 +13,32 @@ import type {
 } from '@shared';
 import { enqueueOfflineTaskAction } from '../utils/offlineQueue';
 
-// Dynamic API URL from Constants or environment variable with Render fallback
+// Dynamic API URL: env override -> local web/dev -> extra config -> Render fallback
 const getApiUrl = (): string => {
+    if (process.env.EXPO_PUBLIC_API_URL) {
+        return process.env.EXPO_PUBLIC_API_URL;
+    }
+    if (
+        typeof window !== 'undefined' &&
+        window.location &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ) {
+        return 'http://localhost:5000/api';
+    }
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        const debuggerHost = Constants.expoConfig?.hostUri;
+        if (debuggerHost) {
+            const host = debuggerHost.split(':')[0];
+            if (host) {
+                return `http://${host}:5000/api`;
+            }
+        }
+        return Platform.OS === 'android'
+            ? 'http://10.0.2.2:5000/api'
+            : 'http://localhost:5000/api';
+    }
     return (
         Constants.expoConfig?.extra?.apiUrl ??
-        process.env.EXPO_PUBLIC_API_URL ??
         'https://growary-backend-vb86.onrender.com/api'
     );
 };
