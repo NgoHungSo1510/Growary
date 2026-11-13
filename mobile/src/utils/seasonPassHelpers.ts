@@ -83,6 +83,38 @@ export function getRewardVisual(reward: PassReward | null): RewardVisualMeta {
  */
 export function getAvatarFrameStyle(frameId?: string | null): AvatarFrameStyleMeta | null {
     if (!frameId) return null;
+
+    // Pattern: frame_season_<N>_<tier>
+    const match = frameId.match(/^frame_season_(\d+)(?:_(free|elite|prestige))?$/);
+    if (match) {
+        const seasonNum = match[1];
+        const tier = match[2] || 'elite';
+
+        if (tier === 'free') {
+            return {
+                borderColor: '#10B981',
+                label: `Khung Mầm Xanh Mùa ${seasonNum}`,
+                badgeIcon: '🌿',
+            };
+        }
+        if (tier === 'prestige') {
+            return {
+                borderColor: '#F97316',
+                label: `Khung Thánh Giả Mùa ${seasonNum}`,
+                badgeIcon: '🌟',
+            };
+        }
+        // Elite (default for frame_season_X or frame_season_X_elite)
+        const eliteColors = ['#F59E0B', '#8B5CF6', '#3B82F6', '#EC4899'];
+        const eliteIcons = ['👑', '🔮', '⚔️', '💎'];
+        const idx = (parseInt(seasonNum, 10) - 1) % eliteColors.length;
+        return {
+            borderColor: eliteColors[idx],
+            label: `Khung Tinh Anh Mùa ${seasonNum}`,
+            badgeIcon: eliteIcons[idx],
+        };
+    }
+
     if (frameId.includes('season_1')) {
         return { borderColor: '#F59E0B', label: 'Khung Tinh Anh Mùa 1', badgeIcon: '👑' };
     }
