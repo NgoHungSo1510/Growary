@@ -51,7 +51,18 @@ export default function LoginScreen() {
         } catch (error: any) {
             console.log('=== TEST LỖI ĐĂNG NHẬP ===');
             console.log('Chi tiết lỗi:', error.response?.data || error.message || error);
-            Alert.alert('Đăng nhập thất bại', error.response?.data?.error || 'Có lỗi xảy ra');
+            const rawError = error.response?.data?.error;
+            let displayMsg = 'Có lỗi xảy ra, vui lòng thử lại';
+            if (rawError === 'Invalid credentials') {
+                displayMsg = 'Tài khoản hoặc mật khẩu không chính xác';
+            } else if (rawError) {
+                displayMsg = rawError;
+            } else if (!error.response || error.message === 'Network Error') {
+                displayMsg = 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và đảm bảo Backend đang chạy.';
+            } else if (error.message) {
+                displayMsg = error.message;
+            }
+            Alert.alert('Đăng nhập thất bại', displayMsg);
         } finally {
             setIsLoading(false);
         }
