@@ -22,7 +22,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobile"
+      "package": "com.anonymous.mobile",
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/growary-logo.jpg"
