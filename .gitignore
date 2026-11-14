@@ -49,3 +49,6 @@ typescript-errors.txt
 tsc-errors.txt
 build_output.log
 error.log
+
+# Auto backups
+Data_Backup/auto_snapshots/
