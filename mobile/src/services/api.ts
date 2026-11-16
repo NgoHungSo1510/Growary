@@ -13,37 +13,58 @@ import type {
 } from '@shared';
 import { enqueueOfflineTaskAction } from '../utils/offlineQueue';
 
-// Dynamic API URL: env override -> local web/dev -> extra config -> Render fallback
-const getApiUrl = (): string => {
-    if (process.env.EXPO_PUBLIC_API_URL) {
-        return process.env.EXPO_PUBLIC_API_URL;
-    }
-    if (
-        typeof window !== 'undefined' &&
-        window.location &&
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ) {
-        return 'http://localhost:5000/api';
-    }
-    if (typeof __DEV__ !== 'undefined' && __DEV__) {
-        const debuggerHost = Constants.expoConfig?.hostUri;
-        if (debuggerHost) {
-            const host = debuggerHost.split(':')[0];
-            if (host) {
-                return `http://${host}:5000/api`;
-            }
+const RENDER_API_URL = 'https://growary-backend-vb86.onrender.com/api';
+
+// Build prioritized candidate API URLs (local LAN / localhost / emulator -> Render fallback)
+const buildCandidateApiUrls = (): string[] => {
+    const urls: string[] = [];
+    const addUnique = (url?: string): void => {
+        if (url && !urls.includes(url)) urls.push(url);
+    };
+
+    const envUrl = process.env.EXPO_PUBLIC_API_URL;
+    const extraUrl =
+        typeof Constants.expoConfig?.extra?.apiUrl === 'string'
+            ? Constants.expoConfig.extra.apiUrl
+            : undefined;
+
+    if (Platform.OS === 'web') {
+        if (
+            typeof window !== 'undefined' &&
+            window.location &&
+            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ) {
+            addUnique('http://localhost:5000/api');
         }
-        return Platform.OS === 'android'
-            ? 'http://10.0.2.2:5000/api'
-            : 'http://localhost:5000/api';
+        addUnique(envUrl);
+        addUnique(extraUrl);
+        addUnique(RENDER_API_URL);
+        return urls;
     }
-    return (
-        Constants.expoConfig?.extra?.apiUrl ??
-        'https://growary-backend-vb86.onrender.com/api'
-    );
+
+    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+        addUnique(envUrl);
+    }
+    const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
+    if (debuggerHost && debuggerHost !== 'localhost' && debuggerHost !== '127.0.0.1') {
+        addUnique(`http://${debuggerHost}:5000/api`);
+    }
+    if (Platform.OS === 'android') {
+        addUnique('http://192.168.1.162:5000/api');
+        addUnique('http://10.0.2.2:5000/api');
+        addUnique('http://localhost:5000/api');
+    } else {
+        addUnique('http://localhost:5000/api');
+        addUnique('http://192.168.1.162:5000/api');
+    }
+    addUnique(extraUrl);
+    addUnique(RENDER_API_URL);
+    return urls;
 };
 
-const API_URL = getApiUrl();
+const CANDIDATE_API_URLS = buildCandidateApiUrls();
+const API_URL = CANDIDATE_API_URLS[0] ?? RENDER_API_URL;
+const fallbackIndexMap = new WeakMap<object, number>();
 
 class ApiService {
     private api: AxiosInstance;
@@ -51,7 +72,7 @@ class ApiService {
     constructor() {
         this.api = axios.create({
             baseURL: API_URL,
-            timeout: 10000,
+            timeout: 8000,
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -69,10 +90,24 @@ class ApiService {
             (error) => Promise.reject(error)
         );
 
-        // Handle response errors
+        // Handle response errors with automatic multi-endpoint failover on network failure
         this.api.interceptors.response.use(
             (response) => response,
-            (error: AxiosError) => {
+            async (error: AxiosError) => {
+                const config = error.config;
+                if (!error.response && config) {
+                    const currentBase = config.baseURL || this.api.defaults.baseURL || API_URL;
+                    const trackedIdx = fallbackIndexMap.get(config);
+                    const currentIdx = trackedIdx !== undefined ? trackedIdx : CANDIDATE_API_URLS.indexOf(currentBase);
+                    const nextIdx = currentIdx + 1;
+                    if (nextIdx >= 0 && nextIdx < CANDIDATE_API_URLS.length) {
+                        const nextBase = CANDIDATE_API_URLS[nextIdx];
+                        fallbackIndexMap.set(config, nextIdx);
+                        config.baseURL = nextBase;
+                        this.api.defaults.baseURL = nextBase;
+                        return this.api.request(config);
+                    }
+                }
                 if (error.response?.status === 401 && error.config?.url?.includes('/auth/me')) {
                     // Token expired - clear and redirect to login only when profile endpoint explicitly says 401
                     SecureStore.deleteItemAsync('authToken');

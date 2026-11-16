@@ -1,3 +1,5 @@
+const RENDER_API_URL = 'https://growary-backend-vb86.onrender.com/api';
+
 const getApiUrl = (): string => {
     if (import.meta.env.VITE_API_URL) {
         return import.meta.env.VITE_API_URL;
@@ -5,10 +7,10 @@ const getApiUrl = (): string => {
     if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
         return 'http://localhost:5000/api';
     }
-    return 'https://growary-backend-vb86.onrender.com/api';
+    return RENDER_API_URL;
 };
 
-const API_URL = getApiUrl();
+let activeApiUrl = getApiUrl();
 
 export class HttpClient {
     private token: string | null;
@@ -41,7 +43,17 @@ export class HttpClient {
             ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
         };
 
-        const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+        let res: Response;
+        try {
+            res = await fetch(`${activeApiUrl}${path}`, { ...options, headers });
+        } catch (err) {
+            if (activeApiUrl !== RENDER_API_URL) {
+                activeApiUrl = RENDER_API_URL;
+                res = await fetch(`${activeApiUrl}${path}`, { ...options, headers });
+            } else {
+                throw err;
+            }
+        }
 
         if (res.status === 401) {
             this.removeToken();
