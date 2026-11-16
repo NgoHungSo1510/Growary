@@ -1,7 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import * as SecureStore from '../utils/storage';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 import { DailyPlan, GrantedRewards } from '../types';
 import type {
     EquipAvatarFramePayload,
@@ -15,56 +14,20 @@ import { enqueueOfflineTaskAction } from '../utils/offlineQueue';
 
 const RENDER_API_URL = 'https://growary-backend-vb86.onrender.com/api';
 
-// Build prioritized candidate API URLs (local LAN / localhost / emulator -> Render fallback)
-const buildCandidateApiUrls = (): string[] => {
-    const urls: string[] = [];
-    const addUnique = (url?: string): void => {
-        if (url && !urls.includes(url)) urls.push(url);
-    };
-
-    const envUrl = process.env.EXPO_PUBLIC_API_URL;
+// Dynamic API URL pointing to Render Online backend (with optional env override)
+const getApiUrl = (): string => {
     const extraUrl =
         typeof Constants.expoConfig?.extra?.apiUrl === 'string'
             ? Constants.expoConfig.extra.apiUrl
             : undefined;
-
-    if (Platform.OS === 'web') {
-        if (
-            typeof window !== 'undefined' &&
-            window.location &&
-            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ) {
-            addUnique('http://localhost:5000/api');
-        }
-        addUnique(envUrl);
-        addUnique(extraUrl);
-        addUnique(RENDER_API_URL);
-        return urls;
-    }
-
-    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
-        addUnique(envUrl);
-    }
-    const debuggerHost = Constants.expoConfig?.hostUri?.split(':')[0];
-    if (debuggerHost && debuggerHost !== 'localhost' && debuggerHost !== '127.0.0.1') {
-        addUnique(`http://${debuggerHost}:5000/api`);
-    }
-    if (Platform.OS === 'android') {
-        addUnique('http://192.168.1.162:5000/api');
-        addUnique('http://10.0.2.2:5000/api');
-        addUnique('http://localhost:5000/api');
-    } else {
-        addUnique('http://localhost:5000/api');
-        addUnique('http://192.168.1.162:5000/api');
-    }
-    addUnique(extraUrl);
-    addUnique(RENDER_API_URL);
-    return urls;
+    return (
+        process.env.EXPO_PUBLIC_API_URL ??
+        extraUrl ??
+        RENDER_API_URL
+    );
 };
 
-const CANDIDATE_API_URLS = buildCandidateApiUrls();
-const API_URL = CANDIDATE_API_URLS[0] ?? RENDER_API_URL;
-const fallbackIndexMap = new WeakMap<object, number>();
+const API_URL = getApiUrl();
 
 class ApiService {
     private api: AxiosInstance;
@@ -72,7 +35,7 @@ class ApiService {
     constructor() {
         this.api = axios.create({
             baseURL: API_URL,
-            timeout: 8000,
+            timeout: 20000,
             headers: {
                 'Content-Type': 'application/json',
             },
@@ -90,24 +53,10 @@ class ApiService {
             (error) => Promise.reject(error)
         );
 
-        // Handle response errors with automatic multi-endpoint failover on network failure
+        // Handle response errors
         this.api.interceptors.response.use(
             (response) => response,
-            async (error: AxiosError) => {
-                const config = error.config;
-                if (!error.response && config) {
-                    const currentBase = config.baseURL || this.api.defaults.baseURL || API_URL;
-                    const trackedIdx = fallbackIndexMap.get(config);
-                    const currentIdx = trackedIdx !== undefined ? trackedIdx : CANDIDATE_API_URLS.indexOf(currentBase);
-                    const nextIdx = currentIdx + 1;
-                    if (nextIdx >= 0 && nextIdx < CANDIDATE_API_URLS.length) {
-                        const nextBase = CANDIDATE_API_URLS[nextIdx];
-                        fallbackIndexMap.set(config, nextIdx);
-                        config.baseURL = nextBase;
-                        this.api.defaults.baseURL = nextBase;
-                        return this.api.request(config);
-                    }
-                }
+            (error: AxiosError) => {
                 if (error.response?.status === 401 && error.config?.url?.includes('/auth/me')) {
                     // Token expired - clear and redirect to login only when profile endpoint explicitly says 401
                     SecureStore.deleteItemAsync('authToken');
