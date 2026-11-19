@@ -172,3 +172,4 @@ export const SeasonConfigBar: React.FC<SeasonConfigBarProps> = ({ season, saving
         </div>
     );
 };
+

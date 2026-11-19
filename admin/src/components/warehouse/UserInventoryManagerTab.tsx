@@ -308,3 +308,4 @@ export function UserInventoryManagerTab({ items, boxes }: UserInventoryManagerTa
         </div>
     );
 }
+
