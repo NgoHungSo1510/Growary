@@ -27,6 +27,8 @@ export const SpecialItemModal: React.FC<SpecialItemModalProps> = ({
         imageUrl: '',
     });
 
+    const [uploading, setUploading] = useState(false);
+
     useEffect(() => {
         if (initialData) {
             setItemForm({
@@ -41,6 +43,25 @@ export const SpecialItemModal: React.FC<SpecialItemModalProps> = ({
             });
         }
     }, [initialData, isOpen]);
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const base64 = reader.result as string;
+            setUploading(true);
+            try {
+                const res = await adminApi.uploadImage(base64);
+                setItemForm(prev => ({ ...prev, imageUrl: res.url }));
+            } catch (err: any) {
+                alert('Lỗi upload ảnh: ' + (err.message || 'Không thể upload'));
+            } finally {
+                setUploading(false);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
 
     if (!isOpen) return null;
 
@@ -84,13 +105,28 @@ export const SpecialItemModal: React.FC<SpecialItemModalProps> = ({
                         />
                     </div>
                     <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Link Ảnh (URL)</label>
-                        <input
-                            placeholder="https://..."
-                            value={itemForm.imageUrl}
-                            onChange={e => setItemForm({ ...itemForm, imageUrl: e.target.value })}
-                            style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }}
-                        />
+                        <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Ảnh Vật Phẩm</label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <input
+                                placeholder="Link https:// hoặc chọn từ PC..."
+                                value={itemForm.imageUrl}
+                                onChange={e => setItemForm({ ...itemForm, imageUrl: e.target.value })}
+                                style={{ flex: 1, padding: 8, borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }}
+                            />
+                            <label style={{
+                                padding: '8px 12px', borderRadius: 4, background: '#3B82F6', color: '#FFF',
+                                fontSize: 12, fontWeight: 'bold', cursor: uploading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap'
+                            }}>
+                                {uploading ? '⏳...' : '📁 Từ PC'}
+                                <input type="file" accept="image/*" disabled={uploading} onChange={handleFileUpload} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+                        {itemForm.imageUrl && (
+                            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <img src={itemForm.imageUrl} alt="preview" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6, border: '1px solid #475569' }} />
+                                <span style={{ fontSize: 11, color: '#10B981' }}>✓ Xem trước ảnh</span>
+                            </div>
+                        )}
                     </div>
                     <div>
                         <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Loại định danh (Dùng cho code)</label>

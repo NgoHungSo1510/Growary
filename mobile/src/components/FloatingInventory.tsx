@@ -40,6 +40,7 @@ export default function FloatingInventory() {
         name: string;
         rarity?: string;
         quantity: number;
+        imageUrl?: string;
     } | null>(null);
 
     // Filtered voucher subsets
@@ -102,6 +103,7 @@ export default function FloatingInventory() {
             name: item.displayName || 'Hộp Quà Bí Ẩn',
             rarity: item.rarity,
             quantity: item.quantity,
+            imageUrl: item.imageUrl,
         });
     };
 

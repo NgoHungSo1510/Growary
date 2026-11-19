@@ -159,7 +159,6 @@ const MainNavigator = () => (
             <RootStack.Screen name="SeasonPass" component={SeasonPassScreen} />
         </RootStack.Navigator>
         <GlobalNotification />
-        <FloatingQuizButton />
         <FloatingInventory />
     </>
 );

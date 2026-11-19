@@ -13,7 +13,7 @@ import QuestListContent from '../components/QuestListContent';
 import AdventureLog from '../components/AdventureLog';
 import RewardCelebrationModal from '../components/RewardCelebrationModal';
 import PenaltyModal from '../components/PenaltyModal';
-import FloatingQuizButton from '../components/FloatingQuizButton';
+import { FloatingEventStack } from '../components/event/FloatingEventStack';
 import { StreakGraceBanner } from '../components/StreakGraceBanner';
 import { TaskSummaryWidget } from '../components/TaskSummaryWidget';
 import { OfflineSyncBanner } from '../components/task/OfflineSyncBanner';
@@ -276,7 +276,7 @@ export default function HomeScreen() {
                 {manualContent.length > 0 && <View style={styles.fabDot} />}
             </TouchableOpacity>
 
-            <FloatingQuizButton />
+            <FloatingEventStack />
 
             <RewardCelebrationModal
                 visible={!!grantedRewards}
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     saveBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, backgroundColor: COLORS.clayAccent2 },
     saveBtnText: { color: '#FFF', fontWeight: '600' },
     fab: {
-        position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28,
+        position: 'absolute', left: 20, width: 56, height: 56, borderRadius: 28,
         backgroundColor: COLORS.clayAccent2, alignItems: 'center', justifyContent: 'center',
         shadowColor: COLORS.clayAccent2, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8, zIndex: 100,
     },

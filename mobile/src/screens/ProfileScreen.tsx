@@ -36,6 +36,7 @@ export default function ProfileScreen({ route }: any) {
     const [isUploading, setIsUploading] = useState(false);
     const [showNotifModal, setShowNotifModal] = useState(false);
     const [vipResponse, setVipResponse] = useState<VipStatusResponse | null>(null);
+    const [bossStats, setBossStats] = useState<{ unlocked: number; total: number } | null>(null);
     const level = user?.level || 1;
     const levelTitle =
         level >= 10 ? 'Master' : level >= 5 ? 'Adventurer' : 'Beginner';
@@ -44,6 +45,16 @@ export default function ProfileScreen({ route }: any) {
         apiService.getVipStatus()
             .then(data => setVipResponse(data))
             .catch(console.error);
+
+        apiService.getMyBossCollections()
+            .then((data: any) => {
+                if (data?.collections && Array.isArray(data.collections)) {
+                    const unlocked = data.collections.reduce((sum: number, c: any) => sum + (c.userProgress?.unlockedCount || 0), 0);
+                    const total = data.collections.reduce((sum: number, c: any) => sum + (c.userProgress?.totalCount || 0), 0);
+                    setBossStats({ unlocked, total });
+                }
+            })
+            .catch(() => undefined);
     }, []);
 
     const handleLogout = () => {
@@ -167,10 +178,23 @@ export default function ProfileScreen({ route }: any) {
                             </View>
                             <View>
                                 <Text style={styles.tileTitle}>Bộ sưu tập Boss</Text>
-                                <Text style={styles.tileSubtitle}>Các bộ sưu tập nhân vật</Text>
+                                <Text style={styles.tileSubtitle}>
+                                    {bossStats
+                                        ? `Đã đoạt được: ${bossStats.unlocked} / ${bossStats.total} nhân vật`
+                                        : 'Các bộ sưu tập nhân vật'}
+                                </Text>
                             </View>
                         </View>
-                        <MaterialIcons name="chevron-right" size={24} color="rgba(93, 64, 55, 0.3)" />
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            {bossStats && (
+                                <View style={{ backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, borderWidth: 1, borderColor: '#FDE68A' }}>
+                                    <Text style={{ fontSize: 12, fontWeight: '700', color: '#B45309' }}>
+                                        🏆 {bossStats.unlocked}
+                                    </Text>
+                                </View>
+                            )}
+                            <MaterialIcons name="chevron-right" size={24} color="rgba(93, 64, 55, 0.3)" />
+                        </View>
                     </TouchableOpacity>
                     {/* Account Info */}
                     <TouchableOpacity style={styles.clayTile} activeOpacity={0.7} onPress={() => navigation.navigate('EditProfile')}>

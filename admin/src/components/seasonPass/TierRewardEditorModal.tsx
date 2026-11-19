@@ -11,7 +11,7 @@ interface Props {
     eliteAvatarFrameId: string;
     saving: boolean;
     onClose: () => void;
-    onSave: (freeReward: PassReward | null, eliteReward: PassReward | null) => Promise<void>;
+    onSave: (freeReward: PassReward | null, eliteReward: PassReward | null, xpRequired?: number) => Promise<void>;
 }
 
 const DEFAULT_REWARD: PassReward = {
@@ -120,11 +120,13 @@ function RewardTrackForm({
 export default function TierRewardEditorModal({ tier, eliteAvatarFrameId, saving, onClose, onSave }: Props) {
     const [freeState, setFreeState] = useState(() => toEditable(tier.freeReward));
     const [eliteState, setEliteState] = useState(() => toEditable(tier.eliteReward));
+    const [xpRequired, setXpRequired] = useState(() => tier.xpRequired ?? 100);
 
     const handleSubmit = async () => {
         await onSave(
             freeState.enabled ? freeState.value : null,
-            eliteState.enabled ? eliteState.value : null
+            eliteState.enabled ? eliteState.value : null,
+            xpRequired
         );
     };
 
@@ -139,6 +141,22 @@ export default function TierRewardEditorModal({ tier, eliteAvatarFrameId, saving
                 <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>
                     Chỉnh sửa phần thưởng — Cấp {tier.level}
                 </h3>
+                <div style={{ marginBottom: 14, padding: 12, background: 'var(--bg)', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                        EXP yêu cầu để đạt Cấp {tier.level} (xpRequired):
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <input
+                            type="number"
+                            min={10}
+                            max={10000}
+                            value={xpRequired}
+                            onChange={(e) => setXpRequired(Math.max(10, Number(e.target.value) || 100))}
+                            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #cbd5e1', width: 140 }}
+                        />
+                        <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Pass XP (Mặc định: 100)</span>
+                    </div>
+                </div>
                 <RewardTrackForm
                     title="Nhánh Tập Sự (Free)"
                     state={freeState}

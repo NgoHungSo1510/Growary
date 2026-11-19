@@ -74,9 +74,11 @@ export function useGacha() {
         };
     }, []);
 
-    const fetchGachaData = useCallback(async () => {
+    const fetchGachaData = useCallback(async (options?: { silent?: boolean }) => {
         try {
-            setLoading(true);
+            if (!options?.silent && items.length === 0) {
+                setLoading(true);
+            }
             const [itemsRes, eventRes, leaderboardRes] = await Promise.allSettled([
                 apiService.getGachaItems(),
                 apiService.getGachaWeeklyEvent(),
@@ -100,7 +102,7 @@ export function useGacha() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [items.length]);
 
     useEffect(() => {
         fetchGachaData();
@@ -111,8 +113,13 @@ export function useGacha() {
         try {
             setSpinning(true);
             const result = await apiService.spinGacha();
-            if (result && result.newStats && refreshUser) {
-                await refreshUser();
+            if (result && result.newStats) {
+                if (result.newStats.gachaTier && result.newStats.gachaTier !== currentTier) {
+                    setCurrentTier(result.newStats.gachaTier);
+                }
+                if (refreshUser) {
+                    void refreshUser();
+                }
             }
             // Refresh leaderboard to reflect newly earned points
             apiService.getGachaLeaderboard().then((res) => {

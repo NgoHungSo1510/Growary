@@ -104,9 +104,9 @@ export const InventoryItemCard: React.FC<InventoryItemCardProps> = ({
 
                 {/* Icon or Image */}
                 <View style={[styles.iconWrap, { backgroundColor: bgTint }]}>
-                    {sp?.imageUrl ? (
+                    {(inv.imageUrl || sp?.imageUrl) ? (
                         <Image
-                            source={{ uri: sp.imageUrl as string }}
+                            source={{ uri: (inv.imageUrl || sp?.imageUrl) as string }}
                             style={styles.image}
                             resizeMode="contain"
                         />

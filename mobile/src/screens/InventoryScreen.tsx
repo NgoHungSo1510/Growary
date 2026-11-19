@@ -32,6 +32,7 @@ export default function InventoryScreen() {
         name: string;
         rarity?: string;
         quantity: number;
+        imageUrl?: string;
     } | null>(null);
 
     const boxScale = useRef(new Animated.Value(1)).current;
@@ -62,6 +63,7 @@ export default function InventoryScreen() {
                 name: item.displayName,
                 quantity: item.quantity,
                 rarity: item.rarity,
+                imageUrl: item.imageUrl,
             });
             return;
         }
@@ -79,6 +81,7 @@ export default function InventoryScreen() {
             name: selectedItem.displayName,
             quantity: selectedItem.quantity,
             rarity: selectedItem.rarity,
+            imageUrl: selectedItem.imageUrl,
         };
         closeSheet();
         setSelectedMysteryBox(boxToOpen);

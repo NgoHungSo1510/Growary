@@ -29,6 +29,8 @@ export const MysteryBoxModal: React.FC<MysteryBoxModalProps> = ({
         rewards: [] as { specialItem: string; rewardForm: 'full' | 'fragment'; amount: number; probability: number }[],
     });
 
+    const [uploading, setUploading] = useState(false);
+
     useEffect(() => {
         if (initialData) {
             setBoxForm({
@@ -48,6 +50,25 @@ export const MysteryBoxModal: React.FC<MysteryBoxModalProps> = ({
             });
         }
     }, [initialData, isOpen]);
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+            const base64 = reader.result as string;
+            setUploading(true);
+            try {
+                const res = await adminApi.uploadImage(base64);
+                setBoxForm(prev => ({ ...prev, imageUrl: res.url }));
+            } catch (err: any) {
+                alert('Lỗi upload ảnh: ' + (err.message || 'Không thể upload'));
+            } finally {
+                setUploading(false);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
 
     if (!isOpen) return null;
 
@@ -131,13 +152,28 @@ export const MysteryBoxModal: React.FC<MysteryBoxModalProps> = ({
                     </div>
 
                     <div>
-                        <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Link Ảnh Box (URL)</label>
-                        <input
-                            placeholder="https://..."
-                            value={boxForm.imageUrl}
-                            onChange={e => setBoxForm({ ...boxForm, imageUrl: e.target.value })}
-                            style={{ padding: 8, width: '100%', borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }}
-                        />
+                        <label style={{ display: 'block', fontSize: 12, color: '#94A3B8', marginBottom: 4 }}>Ảnh Hộp Quà</label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <input
+                                placeholder="Link https:// hoặc tải lên từ PC..."
+                                value={boxForm.imageUrl}
+                                onChange={e => setBoxForm({ ...boxForm, imageUrl: e.target.value })}
+                                style={{ flex: 1, padding: 8, borderRadius: 4, border: '1px solid #334155', background: '#0F172A', color: '#FFF' }}
+                            />
+                            <label style={{
+                                padding: '8px 12px', borderRadius: 4, background: '#38BDF8', color: '#0F172A',
+                                fontSize: 12, fontWeight: 'bold', cursor: uploading ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap'
+                            }}>
+                                {uploading ? '⏳...' : '📁 Từ PC'}
+                                <input type="file" accept="image/*" disabled={uploading} onChange={handleFileUpload} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+                        {boxForm.imageUrl && (
+                            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <img src={boxForm.imageUrl} alt="box-preview" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid #475569' }} />
+                                <span style={{ fontSize: 11, color: '#38BDF8' }}>✓ Xem trước ảnh</span>
+                            </div>
+                        )}
                     </div>
 
                     <hr style={{ borderColor: '#334155', margin: '12px 0' }} />

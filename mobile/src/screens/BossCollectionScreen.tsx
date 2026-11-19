@@ -111,6 +111,29 @@ export default function BossCollectionScreen() {
             >
                 {collections.length > 0 ? (
                     <View style={styles.collectionsContainer}>
+                        <View style={{
+                            backgroundColor: '#FFFFFF',
+                            borderRadius: 16,
+                            padding: 14,
+                            marginBottom: 8,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            borderWidth: 1,
+                            borderColor: '#E2E8F0',
+                        }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <Text style={{ fontSize: 20 }}>🎖️</Text>
+                                <Text style={{ fontSize: 14, fontWeight: '600', color: COLORS.clayText }}>
+                                    Tổng nhân vật đã đoạt được:
+                                </Text>
+                            </View>
+                            <View style={{ backgroundColor: '#ECFDF5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#A7F3D0' }}>
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: '#059669' }}>
+                                    {collections.reduce((sum, c) => sum + (c.userProgress?.unlockedCount || 0), 0)} / {collections.reduce((sum, c) => sum + (c.userProgress?.totalCount || 0), 0)}
+                                </Text>
+                            </View>
+                        </View>
                         {collections.map((item) => {
                             const { collection, bosses, userProgress } = item;
                             const isCompleted = userProgress.isCompleted;

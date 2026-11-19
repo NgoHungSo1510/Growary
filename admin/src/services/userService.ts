@@ -69,4 +69,17 @@ export const userService = {
     }) {
         return httpClient.post<{ message: string; inventory: any }>('/admin/inventory/grant', data);
     },
+
+    async revokeInventoryItem(data: {
+        userId: string;
+        itemType: string;
+        specialItem?: string;
+        mysteryBox?: string;
+        itemId?: string;
+        rewardForm?: string;
+        quantity: number;
+        reason?: string;
+    }) {
+        return httpClient.post<{ message: string; inventory: any }>('/admin/inventory/revoke', data);
+    },
 };

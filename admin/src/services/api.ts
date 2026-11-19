@@ -192,6 +192,9 @@ class AdminApi {
     async grantInventoryItem(data: { userId: string; itemType: string; specialItem?: string; mysteryBox?: string; rewardForm?: string; quantity: number; reason: string }) {
         return userService.grantInventoryItem(data);
     }
+    async revokeInventoryItem(data: { userId: string; itemType: string; specialItem?: string; mysteryBox?: string; itemId?: string; rewardForm?: string; quantity: number; reason?: string }) {
+        return userService.revokeInventoryItem(data);
+    }
     async getSpecialItems() {
         return rewardService.getSpecialItems();
     }

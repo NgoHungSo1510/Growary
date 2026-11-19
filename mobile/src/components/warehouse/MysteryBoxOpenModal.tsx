@@ -7,6 +7,7 @@ import {
     TouchableOpacity,
     Animated,
     ActivityIndicator,
+    Image,
 } from 'react-native';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +21,7 @@ interface MysteryBoxOpenModalProps {
         name: string;
         rarity?: string;
         quantity: number;
+        imageUrl?: string;
     } | null;
     onClose: () => void;
     onSuccess?: (result: OpenMysteryBoxResult) => void;
@@ -125,7 +127,11 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
                                     ]}
                                 >
                                     <LinearGradient colors={['#A855F7', '#6366F1']} style={styles.chestAura}>
-                                        <MaterialCommunityIcons name="treasure-chest" size={72} color="#FFD700" />
+                                        {box.imageUrl ? (
+                                            <Image source={{ uri: box.imageUrl }} style={{ width: 72, height: 72, borderRadius: 12 }} resizeMode="contain" />
+                                        ) : (
+                                            <MaterialCommunityIcons name="treasure-chest" size={72} color="#FFD700" />
+                                        )}
                                     </LinearGradient>
                                 </Animated.View>
 

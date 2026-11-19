@@ -14,16 +14,24 @@ interface BossAttackSectionProps {
     record: BossRecord | null;
     attackPercentage: 0.25 | 0.5 | 0.75 | 1.0;
     currentAttackPower: number;
+    isBossDefeated?: boolean;
+    remainingBoss?: { _id: string; title: string; isDefeated?: boolean } | null;
     onSelectPercentage: (pct: 0.25 | 0.5 | 0.75 | 1.0) => void;
     onAttackPress: () => void;
+    onUnlockRemainingBoss?: () => void;
+    onViewStory?: () => void;
 }
 
 export const BossAttackSection: React.FC<BossAttackSectionProps> = ({
     record,
     attackPercentage,
     currentAttackPower,
+    isBossDefeated = false,
+    remainingBoss,
     onSelectPercentage,
     onAttackPress,
+    onUnlockRemainingBoss,
+    onViewStory,
 }) => {
     const hasPoints = record && record.attackPoints > 0;
 
@@ -39,28 +47,55 @@ export const BossAttackSection: React.FC<BossAttackSectionProps> = ({
 
             <Text style={styles.attackDesc}>Hoàn thành nhiệm vụ hàng ngày để tích lũy Điểm Công.</Text>
 
-            <View style={styles.percentageRow}>
-                {([0.25, 0.5, 0.75, 1.0] as const).map((pct) => (
-                    <TouchableOpacity
-                        key={pct}
-                        style={[styles.pctBtn, attackPercentage === pct && styles.pctBtnActive]}
-                        onPress={() => onSelectPercentage(pct)}
-                    >
-                        <Text style={[styles.pctBtnText, attackPercentage === pct && styles.pctBtnTextActive]}>
-                            {pct === 1.0 ? 'MAX' : `${pct * 100}%`}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
+            {!isBossDefeated ? (
+                <>
+                    <View style={styles.percentageRow}>
+                        {([0.25, 0.5, 0.75, 1.0] as const).map((pct) => (
+                            <TouchableOpacity
+                                key={pct}
+                                style={[styles.pctBtn, attackPercentage === pct && styles.pctBtnActive]}
+                                onPress={() => onSelectPercentage(pct)}
+                            >
+                                <Text style={[styles.pctBtnText, attackPercentage === pct && styles.pctBtnTextActive]}>
+                                    {pct === 1.0 ? 'MAX' : `${pct * 100}%`}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
 
-            <TouchableOpacity
-                style={[styles.attackButton, !hasPoints && styles.attackButtonDisabled]}
-                onPress={onAttackPress}
-                disabled={!hasPoints}
-            >
-                <Text style={styles.attackButtonText}>PHÁ KHÓA</Text>
-                <Text style={styles.attackButtonSubtext}>Dùng {currentAttackPower} Điểm</Text>
-            </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.attackButton, !hasPoints && styles.attackButtonDisabled]}
+                        onPress={onAttackPress}
+                        disabled={!hasPoints}
+                    >
+                        <Text style={styles.attackButtonText}>PHÁ KHÓA</Text>
+                        <Text style={styles.attackButtonSubtext}>Dùng {currentAttackPower} Điểm</Text>
+                    </TouchableOpacity>
+                </>
+            ) : (
+                <View style={styles.completedSection}>
+                    <View style={styles.completedBadge}>
+                        <Text style={styles.completedButtonText}>✅ ĐÃ HOÀN THÀNH</Text>
+                        <Text style={styles.completedSubtext}>Nhân vật này đã được chinh phục trong tuần</Text>
+                    </View>
+
+                    {onViewStory && (
+                        <TouchableOpacity style={styles.storyButton} onPress={onViewStory}>
+                            <MaterialIcons name="menu-book" size={18} color="#4F46E5" />
+                            <Text style={styles.storyButtonText}>Xem câu chuyện nhân vật</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {remainingBoss && onUnlockRemainingBoss && (
+                        <TouchableOpacity style={styles.unlockRemainingButton} onPress={onUnlockRemainingBoss}>
+                            <MaterialIcons name="lock-open" size={20} color="#FFFFFF" />
+                            <Text style={styles.unlockRemainingText}>
+                                🔓 Mở khóa nhân vật còn lại ({remainingBoss.title})
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            )}
         </View>
     );
 };
@@ -173,6 +208,63 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: 'rgba(255,255,255,0.8)',
         marginTop: 2,
+    },
+    completedSection: {
+        gap: 12,
+    },
+    completedBadge: {
+        backgroundColor: '#10B981',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 16,
+        alignItems: 'center',
+    },
+    completedButtonText: {
+        fontSize: 16,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        letterSpacing: 0.5,
+    },
+    completedSubtext: {
+        fontSize: 11,
+        color: 'rgba(255,255,255,0.9)',
+        marginTop: 2,
+    },
+    storyButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+        paddingVertical: 12,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(79, 70, 229, 0.3)',
+    },
+    storyButtonText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#4F46E5',
+    },
+    unlockRemainingButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: '#6366F1',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 16,
+        shadowColor: '#6366F1',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    unlockRemainingText: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
     },
     statsWrapper: {
         marginBottom: 24,

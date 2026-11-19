@@ -31,7 +31,7 @@ import {
     BossRecord,
     BossWeekCollectionSection,
 } from '../components/boss';
-import { BossCollectionWithProgress, MiniGameType } from '../../../shared/types/boss';
+import { BossCollectionWithProgress, MiniGameType, PlayableMiniGameKey } from '../../../shared/types/boss';
 import {
     getEventCache,
     setEventCache,
@@ -69,6 +69,8 @@ export default function BossEventScreen({ route }: any) {
 
     const [bosses, setBosses] = useState<ActiveBoss[]>([]);
     const [records, setRecords] = useState<BossRecord[]>([]);
+    const [selectedBossId, setSelectedBossId] = useState<string | null>(targetBossId || null);
+    const [enabledMiniGames, setEnabledMiniGames] = useState<PlayableMiniGameKey[]>(['tap', 'reflex', 'quiz', 'memory']);
     const [attackBossId, setAttackBossId] = useState<string | null>(null);
     const [activeStoryBoss, setActiveStoryBoss] = useState<ActiveBoss | null>(null);
     const [collections, setCollections] = useState<BossCollectionWithProgress[]>([]);
@@ -96,21 +98,20 @@ export default function BossEventScreen({ route }: any) {
     const floatAnim = useRef(new Animated.Value(0)).current;
 
     const applyPayload = useCallback(
-        (payload: { activeBosses: ActiveBoss[]; userRecords: BossRecord[] }) => {
-            let activeBosses = payload.activeBosses || [];
-            let userRecords = payload.userRecords || [];
-            if (targetBossId) {
-                const idx = activeBosses.findIndex((b: any) => b._id === targetBossId);
-                if (idx !== -1) {
-                    activeBosses = [activeBosses[idx]];
-                    userRecords = [userRecords[idx]];
-                }
+        (payload: { activeBosses: ActiveBoss[]; userRecords: BossRecord[]; enabledMiniGames?: PlayableMiniGameKey[] }) => {
+            const activeBosses = payload.activeBosses || [];
+            const userRecords = payload.userRecords || [];
+            if (payload.enabledMiniGames && payload.enabledMiniGames.length > 0) {
+                setEnabledMiniGames(payload.enabledMiniGames);
             }
             setBosses(activeBosses);
             setRecords(userRecords);
+            if (targetBossId && !selectedBossId) {
+                setSelectedBossId(targetBossId);
+            }
             return { activeBosses, userRecords };
         },
-        [targetBossId]
+        [targetBossId, selectedBossId]
     );
 
     const fetchData = useCallback(
@@ -214,16 +215,11 @@ export default function BossEventScreen({ route }: any) {
         setAttackBossId(targetBoss._id);
 
         const hasQuiz = targetBoss.miniGameQuestions && targetBoss.miniGameQuestions.length > 0;
-        const options: Exclude<MiniGameType, 'random'>[] = hasQuiz
-            ? ['tap', 'quiz', 'reflex', 'memory']
-            : ['tap', 'reflex', 'memory'];
-
-        let selectedType = options[Math.floor(Math.random() * options.length)];
-        if (targetBoss.miniGameType && targetBoss.miniGameType !== 'random') {
-            selectedType = targetBoss.miniGameType as Exclude<MiniGameType, 'random'>;
-            if (selectedType === 'quiz' && !hasQuiz) selectedType = 'tap';
+        let pool = enabledMiniGames.filter((g) => g !== 'quiz' || hasQuiz) as Exclude<MiniGameType, 'random'>[];
+        if (pool.length === 0) {
+            pool = ['tap'];
         }
-
+        const selectedType = pool[Math.floor(Math.random() * pool.length)];
         setMiniGameType(selectedType);
 
         if (selectedType === 'quiz') {
@@ -324,50 +320,47 @@ export default function BossEventScreen({ route }: any) {
             </View>
 
             <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {bosses.map((boss, index) => {
-                    const record = records[index];
-                    const isBossDefeated = boss.currentHp <= 0;
-                    const currentAttackPower = record ? Math.floor(record.attackPoints * attackPercentage) : 0;
+                {bosses
+                    .filter((b) => !selectedBossId || b._id === selectedBossId)
+                    .map((boss) => {
+                        const index = bosses.findIndex((b) => b._id === boss._id);
+                        const record = records[index];
+                        const isBossDefeated = boss.currentHp <= 0;
+                        const currentAttackPower = record ? Math.floor(record.attackPoints * attackPercentage) : 0;
+                        const remainingBoss = bosses.find((b) => b._id !== boss._id) || null;
 
-                    return (
-                        <View key={boss._id} style={{ marginBottom: 40 }}>
-                            <BossBannerCard
-                                boss={boss}
-                                floatAnim={floatAnim}
-                                isBossDefeated={isBossDefeated}
-                                mysteryTitle={mysteryTitleRef}
-                            />
+                        return (
+                            <View key={boss._id} style={{ marginBottom: 40 }}>
+                                <BossBannerCard
+                                    boss={boss}
+                                    floatAnim={floatAnim}
+                                    isBossDefeated={isBossDefeated}
+                                    mysteryTitle={mysteryTitleRef}
+                                />
 
-                            {isBossDefeated ? (
-                                <TouchableOpacity
-                                    style={styles.unlockedBox}
-                                    onPress={() => {
-                                        setActiveStoryBoss(boss);
-                                        setIsStoryModalVisible(true);
-                                    }}
-                                    activeOpacity={0.8}
-                                >
-                                    <MaterialIcons name="auto-stories" size={32} color="#8b5cf6" />
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.unlockedTitle}>Nhân vật đã được mở khóa!</Text>
-                                        <Text style={styles.unlockedDesc}>Nhấn vào đây để xem tiểu sử và câu chuyện.</Text>
-                                    </View>
-                                    <MaterialIcons name="chevron-right" size={24} color="#8b5cf6" />
-                                </TouchableOpacity>
-                            ) : (
                                 <BossAttackSection
                                     record={record}
                                     attackPercentage={attackPercentage}
                                     currentAttackPower={currentAttackPower}
+                                    isBossDefeated={isBossDefeated}
+                                    remainingBoss={remainingBoss}
                                     onSelectPercentage={setAttackPercentage}
                                     onAttackPress={() => handleAttackPress(boss, record)}
+                                    onUnlockRemainingBoss={() => {
+                                        if (remainingBoss) {
+                                            setSelectedBossId(remainingBoss._id);
+                                        }
+                                    }}
+                                    onViewStory={() => {
+                                        setActiveStoryBoss(boss);
+                                        setIsStoryModalVisible(true);
+                                    }}
                                 />
-                            )}
 
-                            <BossContributionStats record={record} />
-                        </View>
-                    );
-                })}
+                                <BossContributionStats record={record} />
+                            </View>
+                        );
+                    })}
 
                 {/* Week Collection Section */}
                 <BossWeekCollectionSection

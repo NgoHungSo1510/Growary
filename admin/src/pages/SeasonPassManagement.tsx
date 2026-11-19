@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
 import type {
     AdminSeasonSummaryDTO,
+    PassQuestDefinition,
     PassReward,
+    SeasonPassConfigPatch,
     SeasonPassDTO,
     SeasonPassLeaderboardEntry,
     SeasonPassTier,
 } from '@shared';
 import { seasonPassAdminService } from '../services/seasonPassAdminService';
 import TierRewardEditorModal from '../components/seasonPass/TierRewardEditorModal';
+import { SeasonConfigBar } from '../components/seasonPass/SeasonConfigBar';
+import SeasonPassQuestsTab from '../components/seasonPass/SeasonPassQuestsTab';
 
-type AdminTab = 'tiers' | 'leaderboard';
+type AdminTab = 'tiers' | 'quests' | 'leaderboard';
 
 export default function SeasonPassManagement({ embedded = false }: { embedded?: boolean } = {}) {
     const [seasons, setSeasons] = useState<AdminSeasonSummaryDTO[]>([]);
@@ -61,14 +65,32 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
         if (selectedSeasonId) void loadDetail(selectedSeasonId);
     }, [selectedSeasonId]);
 
-    const handleSaveTier = async (freeReward: PassReward | null, eliteReward: PassReward | null) => {
+    const handleSaveConfig = async (patch: SeasonPassConfigPatch) => {
+        if (!season) return;
+        setSaving(true);
+        try {
+            const res = await seasonPassAdminService.updateSeasonConfig(season._id, patch);
+            setSeason(res.season);
+            setStatusMsg(res.message);
+        } catch (err) {
+            setStatusMsg(err instanceof Error ? err.message : 'Không thể cập nhật cấu hình mùa');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleSaveTier = async (
+        freeReward: PassReward | null,
+        eliteReward: PassReward | null,
+        xpRequired?: number
+    ) => {
         if (!season || !editingTier) return;
         setSaving(true);
         try {
             const res = await seasonPassAdminService.updateTierReward(
                 season._id,
                 editingTier.level,
-                { freeReward, eliteReward }
+                { freeReward, eliteReward, xpRequired }
             );
             setSeason({
                 ...season,
@@ -83,6 +105,48 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
         }
     };
 
+    const handleSaveQuest = async (quest: PassQuestDefinition, isNew: boolean) => {
+        if (!season) return;
+        setSaving(true);
+        try {
+            if (isNew) {
+                const res = await seasonPassAdminService.createQuest(season._id, quest);
+                setSeason({ ...season, quests: [...season.quests, res.quest] });
+                setStatusMsg(res.message);
+            } else {
+                const res = await seasonPassAdminService.updateQuest(season._id, quest.questCode, quest);
+                setSeason({
+                    ...season,
+                    quests: season.quests.map((q) => (q.questCode === quest.questCode ? res.quest : q)),
+                });
+                setStatusMsg(res.message);
+            }
+        } catch (err) {
+            setStatusMsg(err instanceof Error ? err.message : 'Không thể lưu nhiệm vụ');
+            throw err;
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDeleteQuest = async (questCode: string) => {
+        if (!season) return;
+        if (!window.confirm(`Bạn có chắc muốn xóa nhiệm vụ [${questCode}] không?`)) return;
+        setSaving(true);
+        try {
+            const res = await seasonPassAdminService.deleteQuest(season._id, questCode);
+            setSeason({
+                ...season,
+                quests: season.quests.filter((q) => q.questCode !== questCode),
+            });
+            setStatusMsg(res.message);
+        } catch (err) {
+            setStatusMsg(err instanceof Error ? err.message : 'Không thể xóa nhiệm vụ');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const selectedSummary = seasons.find((s) => s._id === selectedSeasonId);
 
     return (
@@ -90,7 +154,7 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
             <div className="page__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
                 <div>
                     <h2 style={{ fontSize: 24, margin: 0 }}>📜 Quản Lý Sổ Sứ Mệnh</h2>
-                    <p className="page__subtitle" style={{ margin: '4px 0 0 0' }}>Cấu hình 80 cấp phần thưởng & theo dõi Bảng Vàng Quý</p>
+                    <p className="page__subtitle" style={{ margin: '4px 0 0 0' }}>Cấu hình 80 cấp phần thưởng, nhiệm vụ & Bảng Vàng Quý</p>
                 </div>
                 <select
                     value={selectedSeasonId}
@@ -111,7 +175,7 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
                 </div>
             )}
 
-            <div className="stats-grid">
+            <div className="stats-grid" style={{ marginBottom: 16 }}>
                 <div className="stat-card">
                     <div className="stat-card__icon">📅</div>
                     <div>
@@ -127,15 +191,23 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
                     </div>
                 </div>
                 <div className="stat-card">
-                    <div className="stat-card__icon">🏅</div>
+                    <div className="stat-card__icon">⚔️</div>
                     <div>
-                        <div style={{ fontSize: 12, color: '#64748b' }}>Trạng thái</div>
-                        <strong style={{ fontSize: 18 }}>{season?.isSettled ? 'Đã tất toán' : 'Đang mở'}</strong>
+                        <div style={{ fontSize: 12, color: '#64748b' }}>Nhiệm vụ</div>
+                        <strong style={{ fontSize: 18 }}>{season?.quests?.length ?? 0} nhiệm vụ</strong>
                     </div>
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+            {season && (
+                <SeasonConfigBar
+                    season={season}
+                    saving={saving}
+                    onSaveConfig={handleSaveConfig}
+                />
+            )}
+
+            <div style={{ display: 'flex', gap: 10, margin: '16px 0' }}>
                 <button
                     type="button"
                     onClick={() => setActiveTab('tiers')}
@@ -146,6 +218,17 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
                     }}
                 >
                     Bảng 80 Cấp Phần Thưởng
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setActiveTab('quests')}
+                    style={{
+                        padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 700,
+                        background: activeTab === 'quests' ? '#6366f1' : '#e2e8f0',
+                        color: activeTab === 'quests' ? '#fff' : '#334155',
+                    }}
+                >
+                    ⚔️ Nhiệm Vụ ({season?.quests?.length ?? 0})
                 </button>
                 <button
                     type="button"
@@ -169,6 +252,7 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
                             <thead>
                                 <tr style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left' }}>
                                     <th style={{ padding: 10 }}>Cấp</th>
+                                    <th style={{ padding: 10 }}>EXP Lên Cấp</th>
                                     <th style={{ padding: 10 }}>Nhánh Tập Sự (Free)</th>
                                     <th style={{ padding: 10 }}>Nhánh Tinh Anh (Elite)</th>
                                     <th style={{ padding: 10, width: 110 }}>Thao tác</th>
@@ -178,6 +262,9 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
                                 {(season?.tiers ?? []).map((tier) => (
                                     <tr key={tier.level} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                         <td style={{ padding: 10, fontWeight: 700 }}>Cấp {tier.level}</td>
+                                        <td style={{ padding: 10, color: '#4f46e5', fontWeight: 600 }}>
+                                            {tier.xpRequired ?? 100} XP
+                                        </td>
                                         <td style={{ padding: 10 }}>{tier.freeReward ? `${tier.freeReward.label} (${tier.freeReward.type})` : '—'}</td>
                                         <td style={{ padding: 10 }}>{tier.eliteReward ? `${tier.eliteReward.label} (${tier.eliteReward.type})` : '—'}</td>
                                         <td style={{ padding: 10 }}>
@@ -198,6 +285,14 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
                                 ))}
                             </tbody>
                         </table>
+                    ) : activeTab === 'quests' ? (
+                        <SeasonPassQuestsTab
+                            quests={season?.quests ?? []}
+                            isSettled={Boolean(season?.isSettled)}
+                            saving={saving}
+                            onSaveQuest={handleSaveQuest}
+                            onDeleteQuest={handleDeleteQuest}
+                        />
                     ) : (
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
@@ -237,4 +332,3 @@ export default function SeasonPassManagement({ embedded = false }: { embedded?: 
         </div>
     );
 }
-

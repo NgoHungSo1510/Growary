@@ -122,10 +122,12 @@ export default function GachaEventScreen({ navigation }: any) {
         }
     };
 
-    const handleSpinComplete = async (wonItem: GachaItem, tierUpgraded?: boolean) => {
-        await refreshUser();
-        fetchGachaData();
-        refreshLeaderboard();
+    const handleSpinComplete = (wonItem: GachaItem, tierUpgraded?: boolean) => {
+        void refreshUser();
+        void refreshLeaderboard();
+        if (tierUpgraded) {
+            void fetchGachaData({ silent: true });
+        }
 
         // Celebration payload
         const payload: any = { coins: 0, gachaTickets: 0, xp: 0, items: [], levelUps: [] };

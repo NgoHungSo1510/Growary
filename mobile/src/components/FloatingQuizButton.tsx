@@ -5,21 +5,19 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { quizService } from '../services/quizService';
 import { useNavigation } from '@react-navigation/native';
 
-// Countdown HH:MM:SS từ Date
+import { formatEventRemainingTime } from '../utils/eventCountdown';
+
+// Countdown formatted string từ Date
 function useCountdown(endTime: string | null) {
   const [text, setText] = useState('');
   useEffect(() => {
     if (!endTime) return;
     const tick = () => {
-      const diff = new Date(endTime).getTime() - Date.now();
-      if (diff <= 0) { setText('00:00:00'); return; }
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      const s = Math.floor((diff % 60000) / 1000);
-      setText(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+      const res = formatEventRemainingTime(endTime);
+      setText(res.badgeText);
     };
     tick();
-    const id = setInterval(tick, 1000);
+    const id = setInterval(tick, 10000);
     return () => clearInterval(id);
   }, [endTime]);
   return text;

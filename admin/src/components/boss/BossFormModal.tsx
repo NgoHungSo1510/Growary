@@ -135,16 +135,6 @@ export const BossFormModal: React.FC<BossFormModalProps> = ({
                                 </div>
                             </div>
 
-                            <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <input
-                                    type="checkbox"
-                                    id="isLimited"
-                                    checked={editEvent?.isLimited ?? false}
-                                    onChange={e => setEditEvent({ ...editEvent, isLimited: e.target.checked })}
-                                />
-                                <label htmlFor="isLimited" style={{ margin: 0 }}>Nhân vật sự kiện giới hạn (Chỉ xuất hiện 1 lần)</label>
-                            </div>
-
                             <div className="form-group">
                                 <label>Thuộc Bộ sưu tập</label>
                                 <select
@@ -255,25 +245,13 @@ export const BossFormModal: React.FC<BossFormModalProps> = ({
                         <div>
                             <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 16, color: 'var(--accent)' }}>3. Cơ Chế Minigame</h3>
 
-                            <div className="form-group">
-                                <label>Loại Cơ Chế (Đánh Khóa)</label>
-                                <select
-                                    value={editEvent?.miniGameType || 'random'}
-                                    onChange={e => setEditEvent({ ...editEvent, miniGameType: e.target.value })}
-                                    style={{ padding: 8, borderRadius: 8, border: '1px solid var(--border)' }}
-                                >
-                                    <option value="random">Ngẫu nhiên</option>
-                                    <option value="tap">Bấm liên tục (Tap)</option>
-                                    <option value="reflex">Phản xạ (Reflex)</option>
-                                    <option value="quiz">Giải đố (Quiz)</option>
-                                    <option value="memory">Lật thẻ trí nhớ (Memory)</option>
-                                </select>
+                            <div className="boss-minigame-notice-box" style={{ padding: 12, borderRadius: 8, background: 'rgba(99, 102, 241, 0.08)', border: '1px solid var(--accent)', marginBottom: 16 }}>
+                                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                                    🎲 <strong>Cơ chế minigame:</strong> Mặc định ngẫu nhiên tự động trong số các trò chơi đang bật trên hệ thống (Tap, Reflex, Quiz, Memory). Bạn có thể soạn thêm câu hỏi Quick Quiz bên dưới cho nhân vật này.
+                                </p>
                             </div>
 
-                            <h4 style={{ fontSize: 14, marginTop: 24, marginBottom: 8 }}>Câu Hỏi Mini-Game (Quick Quiz)</h4>
-                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 16 }}>
-                                Chỉ dùng nếu cơ chế là Random hoặc Quiz.
-                            </p>
+                            <h4 style={{ fontSize: 14, marginTop: 16, marginBottom: 8 }}>Câu Hỏi Mini-Game (Quick Quiz)</h4>
 
                             {(editEvent?.miniGameQuestions || []).map((q: any, idx: number) => (
                                 <div key={idx} style={{ background: 'var(--bg)', padding: 16, borderRadius: 8, marginBottom: 16, border: '1px solid var(--border)' }}>

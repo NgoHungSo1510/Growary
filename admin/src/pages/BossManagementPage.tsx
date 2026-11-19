@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { adminApi } from '../services/api';
 import BossCollectionManagement from '../components/BossCollectionManagement';
 import BossFormModal from '../components/boss/BossFormModal';
+import { MiniGameConfigModal } from '../components/boss/MiniGameConfigModal';
 
 export default function BossManagementPage() {
     const [events, setEvents] = useState<any[]>([]);
@@ -9,6 +10,7 @@ export default function BossManagementPage() {
     const [collections, setCollections] = useState<any[]>([]);
     const [mysteryBoxes, setMysteryBoxes] = useState<any[]>([]);
     const [showCreate, setShowCreate] = useState(false);
+    const [showMinigamesModal, setShowMinigamesModal] = useState(false);
     const [editEvent, setEditEvent] = useState<any | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [showAllWeeks, setShowAllWeeks] = useState(false);
@@ -114,11 +116,13 @@ export default function BossManagementPage() {
                             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                                 <div className="card__title" style={{ fontSize: 18, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: 1.4, margin: 0 }}>{ev.title}</div>
                                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                    {ev.isLimited && <span className="badge badge--danger" style={{ fontSize: 10, padding: '2px 4px' }}>Limited</span>}
+                                    <span className="badge badge--info" style={{ fontSize: 10, padding: '2px 4px' }}>
+                                        {ev.defeatedCount ? `Đã hạ ${ev.defeatedCount} lần` : 'Chưa từng bị hạ'}
+                                    </span>
                                     {ev.collectionId && <span className="badge badge--warning" style={{ fontSize: 10, padding: '2px 4px' }}>Bộ sưu tập</span>}
                                     {ev.loreTitle && <span className="badge badge--primary" style={{ fontSize: 10, padding: '2px 4px' }}>Cốt truyện</span>}
                                     <span className="badge badge--info" style={{ fontSize: 10, padding: '2px 4px', background: '#3b82f6', color: '#fff' }}>
-                                        Cơ chế: {ev.miniGameType === 'tap' ? 'Tap' : ev.miniGameType === 'reflex' ? 'Reflex' : ev.miniGameType === 'quiz' ? 'Quiz' : ev.miniGameType === 'memory' ? 'Memory' : 'Random'}
+                                        Cơ chế: Random
                                     </span>
                                 </div>
                                 <div style={{ alignSelf: 'flex-start' }}>{statusBadge}</div>
@@ -200,6 +204,9 @@ export default function BossManagementPage() {
                     }}>
                         🔄 Xoay vòng thủ công
                     </button>
+                    <button className="btn btn--secondary" onClick={() => setShowMinigamesModal(true)}>
+                        🎮 Quản lý các game hiện có
+                    </button>
                     <button className="btn btn--primary" onClick={() => { setEditEvent({ status: 'pool', rewardItems: [], isLimited: false, miniGameQuestions: [] }); setShowCreate(true); }}>
                         + Tạo Nhân Vật Mới
                     </button>
@@ -277,6 +284,12 @@ export default function BossManagementPage() {
                 isLoading={isLoading}
                 onClose={() => setShowCreate(false)}
                 onSave={handleSave}
+            />
+
+            {/* Minigame Config Modal (R7) */}
+            <MiniGameConfigModal
+                isOpen={showMinigamesModal}
+                onClose={() => setShowMinigamesModal(false)}
             />
         </div>
     );
