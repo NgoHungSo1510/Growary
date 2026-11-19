@@ -56,9 +56,9 @@ class ApiService {
         // Handle response errors
         this.api.interceptors.response.use(
             (response) => response,
-            (error: AxiosError) => {
-                if (error.response?.status === 401 && error.config?.url?.includes('/auth/me')) {
-                    // Token expired - clear and redirect to login only when profile endpoint explicitly says 401
+            (error: AxiosError<{ code?: string }>) => {
+                const errCode = error.response?.data?.code;
+                if (error.response?.status === 401 && errCode === 'TOKEN_INVALID') {
                     SecureStore.deleteItemAsync('authToken');
                 }
                 return Promise.reject(error);
@@ -100,6 +100,14 @@ class ApiService {
 
     async getProfile() {
         const response = await this.api.get('/auth/me');
+        return response.data;
+    }
+
+    async sessionHeartbeat() {
+        const response = await this.api.post('/auth/session/heartbeat', {});
+        if (response.data.token) {
+            await SecureStore.setItemAsync('authToken', response.data.token);
+        }
         return response.data;
     }
 

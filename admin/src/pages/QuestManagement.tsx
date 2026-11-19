@@ -1,42 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { adminApi } from '../services/api';
+import { approvalService } from '../services/approvalService';
 import { TaskTemplateModal, ApproveTaskModal, CATEGORIES } from '../components/quest';
+import { AutoApproveConfigBar, AutoApprovedReviewTab } from '../components/approval';
+import type { TaskTemplate, PendingApprovalTask } from '../types';
 
-interface TaskTemplate {
-    _id: string;
-    title: string;
-    description?: string;
-    pointsReward: number;
-    coinReward: number;
-    category: string;
-    estimatedMinutes?: number;
-    isMandatory: boolean;
-    isActive: boolean;
-    isSystemTask: boolean;
-    frequency: string;
-    createdAt: string;
-}
+type Tab = 'templates' | 'approval' | 'auto_approved';
 
-interface PendingTask {
-    planId: string;
-    taskId: string;
-    title: string;
-    pointsReward: number;
-    coinReward: number;
-    aiSuggestedPoints?: number;
-    category?: string;
-    description?: string;
-    userName: string;
-    userEmail: string;
-    date: string;
-}
-
-type Tab = 'templates' | 'approval';
+const formatRemainingHours = (autoApproveAt?: string): string => {
+    if (!autoApproveAt) return '⏳ Tự duyệt sau ~6h';
+    const diffMs = new Date(autoApproveAt).getTime() - Date.now();
+    if (diffMs <= 0) return '🤖 Đủ 6h — Sắp tự duyệt';
+    const h = Math.floor(diffMs / 3600000);
+    const m = Math.floor((diffMs % 3600000) / 60000);
+    return `⏳ Tự duyệt sau ${h}h ${m}p`;
+};
 
 export default function QuestManagement() {
-    const [tab, setTab] = useState<Tab>('templates');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialTab = (searchParams.get('tab') as Tab) || 'templates';
+    const [tab, setTab] = useState<Tab>(
+        ['templates', 'approval', 'auto_approved'].includes(initialTab) ? initialTab : 'templates'
+    );
     const [templates, setTemplates] = useState<TaskTemplate[]>([]);
-    const [pending, setPending] = useState<PendingTask[]>([]);
+    const [pending, setPending] = useState<PendingApprovalTask[]>([]);
+    const [autoReviewCount, setAutoReviewCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editTask, setEditTask] = useState<TaskTemplate | null>(null);
@@ -45,13 +34,25 @@ export default function QuestManagement() {
     const [showApproveModal, setShowApproveModal] = useState(false);
     const [approveTaskData, setApproveTaskData] = useState<{ planId: string; taskId: string; title: string; pointsReward: number; coinReward: number } | null>(null);
 
+    useEffect(() => {
+        const paramTab = searchParams.get('tab') as Tab | null;
+        if (paramTab && ['templates', 'approval', 'auto_approved'].includes(paramTab) && paramTab !== tab) {
+            setTab(paramTab);
+        }
+    }, [searchParams, tab]);
+
+    const handleSwitchTab = (nextTab: Tab) => {
+        setTab(nextTab);
+        setSearchParams({ tab: nextTab });
+    };
+
     const fetchTemplates = useCallback(async () => {
         try {
             setLoading(true);
             const data = await adminApi.getSystemTasks();
             setTemplates(data.tasks);
-        } catch (e: any) {
-            setError(e.message);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : 'Lỗi tải dữ liệu');
         } finally {
             setLoading(false);
         }
@@ -59,10 +60,14 @@ export default function QuestManagement() {
 
     const fetchPending = useCallback(async () => {
         try {
-            const data = await adminApi.getPendingTasks();
-            setPending(data.tasks);
-        } catch (e: any) {
-            setError(e.message);
+            const [pendingRes, autoRes] = await Promise.all([
+                adminApi.getPendingTasks(),
+                approvalService.getAutoApprovedItems('pending_review').catch(() => ({ items: [] })),
+            ]);
+            setPending(pendingRes.tasks);
+            setAutoReviewCount(autoRes.items.filter((i) => i.kind === 'task').length);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : 'Lỗi tải danh sách chờ duyệt');
         }
     }, []);
 
@@ -128,11 +133,14 @@ export default function QuestManagement() {
             )}
 
             <div className="tabs">
-                <button className={`tabs__tab${tab === 'templates' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('templates')}>
+                <button className={`tabs__tab${tab === 'templates' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('templates')}>
                     📋 Thư viện nhiệm vụ ({templates.length})
                 </button>
-                <button className={`tabs__tab${tab === 'approval' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('approval')}>
+                <button className={`tabs__tab${tab === 'approval' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('approval')}>
                     ⏳ Chờ duyệt {pending.length > 0 && <span className="sidebar__badge" style={{ marginLeft: 6 }}>{pending.length}</span>}
+                </button>
+                <button className={`tabs__tab${tab === 'auto_approved' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('auto_approved')}>
+                    🤖 Tự duyệt — Chờ xem lại {autoReviewCount > 0 && <span className="sidebar__badge" style={{ marginLeft: 6 }}>{autoReviewCount}</span>}
                 </button>
             </div>
 
@@ -256,7 +264,12 @@ export default function QuestManagement() {
                                             <td style={{ color: 'var(--accent)', fontWeight: 600 }}>
                                                 {t.aiSuggestedPoints ? `${t.aiSuggestedPoints} XP` : '—'}
                                             </td>
-                                            <td>{new Date(t.date).toLocaleDateString('vi-VN')}</td>
+                                            <td>
+                                                <div>{new Date(t.date).toLocaleDateString('vi-VN')}</div>
+                                                <span className="auto-countdown-pill">
+                                                    {formatRemainingHours(t.autoApproveAt)}
+                                                </span>
+                                            </td>
                                             <td>
                                                 <div className="table-actions">
                                                     <button className="btn btn--success btn--sm" onClick={() => {
@@ -283,6 +296,14 @@ export default function QuestManagement() {
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* TAB: Auto-Approved Review Queue */}
+            {tab === 'auto_approved' && (
+                <>
+                    <AutoApproveConfigBar />
+                    <AutoApprovedReviewTab filterKind="task" onReviewed={fetchPending} />
+                </>
             )}
 
             {/* Create / Edit Modal */}

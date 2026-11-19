@@ -8,6 +8,7 @@ interface ConfirmModalProps {
   cancelText?: string;
   variant?: 'danger' | 'primary' | 'warning';
   isLoading?: boolean;
+  children?: React.ReactNode;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -20,6 +21,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = 'Hủy',
   variant = 'primary',
   isLoading = false,
+  children,
   onConfirm,
   onClose,
 }) => {
@@ -66,9 +68,10 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         <h3 style={{ margin: '0 0 var(--spacing-sm) 0', color: 'var(--text-primary)', fontSize: '18px', fontWeight: 600 }}>
           {title}
         </h3>
-        <p style={{ margin: '0 0 var(--spacing-lg) 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 var(--spacing-md) 0', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.5 }}>
           {message}
         </p>
+        {children && <div style={{ marginBottom: 'var(--spacing-lg)' }}>{children}</div>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
           <button
             type="button"

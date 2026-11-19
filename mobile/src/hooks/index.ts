@@ -7,4 +7,5 @@ export * from './useGacha';
 export * from './useShopEvent';
 export * from './useQuiz';
 export * from './useSeasonPass';
+export * from './useOfflineSync';
 

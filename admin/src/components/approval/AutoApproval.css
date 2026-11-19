@@ -1,0 +1,104 @@
+.auto-approve-config {
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.auto-approve-config__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--spacing-md, 16px);
+    align-items: end;
+}
+
+.auto-approve-config__field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.auto-approve-config__input {
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: var(--border-radius-md, 8px);
+    border: 1px solid var(--card-border);
+    background: var(--content-bg);
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.auto-approve-config__toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm, 8px);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+.auto-approve-config__notice {
+    margin-top: var(--spacing-sm, 8px);
+    font-size: 12px;
+    color: #059669;
+    font-weight: 600;
+}
+
+.auto-review-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm, 8px);
+    flex-wrap: wrap;
+}
+
+.auto-review-filter-group {
+    display: flex;
+    gap: var(--spacing-xs, 6px);
+}
+
+.auto-review-note-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--border-radius-md, 8px);
+    border: 1px solid var(--card-border);
+    background: var(--content-bg);
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.auto-countdown-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: var(--border-radius-full, 9999px);
+    background: rgba(245, 158, 11, 0.14);
+    color: #b45309;
+    margin-top: 4px;
+}
+
+.auto-countdown-pill--manual {
+    background: rgba(239, 68, 68, 0.14);
+    color: #b91c1c;
+}
+
+.dashboard-auto-alert {
+    padding: 14px 18px;
+    border-radius: var(--border-radius-lg, 12px);
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: var(--spacing-md, 16px);
+}
+
+.dashboard-auto-alert__text {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+

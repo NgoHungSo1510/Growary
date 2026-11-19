@@ -1,13 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { adminApi } from '../services/api';
+import { httpClient } from '../services/client';
+import './Login.css';
 
 export default function Login({ onLogin }: { onLogin: () => void }) {
-    const [email, setEmail] = useState('admin@growary.vn');
+    const [email, setEmail] = useState(() => httpClient.getRememberedEmail());
     const [password, setPassword] = useState('admin123');
     const [error, setError] = useState('');
+    const [idleNotice, setIdleNotice] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    useEffect(() => {
+        const reason = httpClient.consumeSessionExpiredReason();
+        if (reason === 'idle_48h') {
+            setIdleNotice('Phiên quản trị đã tạm khóa sau 48 giờ không hoạt động. Vui lòng nhập lại mật khẩu.');
+        }
+    }, []);
+
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
@@ -18,58 +28,57 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                 adminApi.logout();
                 return;
             }
+            httpClient.setRememberedEmail(email);
+            httpClient.markActivity();
             onLogin();
-        } catch (err: any) {
-            setError(err.message || 'Đăng nhập thất bại');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Đăng nhập thất bại';
+            setError(message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        }}>
-            <form onSubmit={handleSubmit} style={{
-                background: 'white',
-                borderRadius: 16,
-                padding: 40,
-                width: 380,
-                boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-            }}>
-                <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                    <div style={{ fontSize: 40, marginBottom: 8 }}>🌱</div>
-                    <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: 0 }}>Growary Admin</h1>
-                    <p style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Đăng nhập để quản lý hệ thống</p>
+        <div className="admin-login-page">
+            <form onSubmit={handleSubmit} className="admin-login-form">
+                <div className="admin-login-header">
+                    <div className="admin-login-logo">🌱</div>
+                    <h1 className="admin-login-title">Growary Admin</h1>
+                    <p className="admin-login-subtitle">Đăng nhập để quản lý hệ thống</p>
                 </div>
 
+                {idleNotice && (
+                    <div className="admin-login-alert admin-login-alert--info">
+                        ⏰ {idleNotice}
+                    </div>
+                )}
+
                 {error && (
-                    <div style={{
-                        padding: '10px 14px', background: '#fef2f2', color: '#dc2626',
-                        borderRadius: 8, fontSize: 13, fontWeight: 600, marginBottom: 16,
-                    }}>
+                    <div className="admin-login-alert admin-login-alert--error">
                         ❌ {error}
                     </div>
                 )}
 
-                <div className="form-group" style={{ marginBottom: 16 }}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>Email</label>
+                <div className="admin-login-field">
+                    <label className="admin-login-label">Email đã ghi nhớ</label>
                     <input
-                        type="email" value={email} onChange={e => setEmail(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14 }}
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        className="admin-login-input"
                         required
                     />
                 </div>
 
-                <div className="form-group" style={{ marginBottom: 24 }}>
-                    <label style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>Mật khẩu</label>
+                <div className="admin-login-field admin-login-field--last">
+                    <label className="admin-login-label">Mật khẩu</label>
                     <input
-                        type="password" value={password} onChange={e => setPassword(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 14 }}
+                        type="password"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className="admin-login-input"
+                        placeholder="Nhập mật khẩu quản trị"
                         required
                     />
                 </div>
@@ -77,12 +86,7 @@ export default function Login({ onLogin }: { onLogin: () => void }) {
                 <button
                     type="submit"
                     disabled={loading}
-                    style={{
-                        width: '100%', padding: '12px', borderRadius: 10, border: 'none',
-                        background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white',
-                        fontSize: 15, fontWeight: 700, cursor: loading ? 'wait' : 'pointer',
-                        opacity: loading ? 0.7 : 1,
-                    }}
+                    className="admin-login-submit"
                 >
                     {loading ? '⏳ Đang đăng nhập...' : '🔑 Đăng nhập'}
                 </button>

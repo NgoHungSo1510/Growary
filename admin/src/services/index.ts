@@ -9,4 +9,6 @@ export * from './shopEventService';
 export * from './warehouseConfigService';
 export * from './quizService';
 export * from './seasonPassAdminService';
+export * from './approvalService';
+export * from './notificationService';
 

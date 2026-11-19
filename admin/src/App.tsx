@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
@@ -14,10 +14,51 @@ import NotificationManagement from './pages/NotificationManagement.tsx';
 import SpecialWarehouse from './pages/SpecialWarehouse';
 import Login from './pages/Login';
 import { adminApi } from './services/api';
+import { httpClient } from './services/client';
 import './App.css';
 
 export default function App() {
-    const [isLoggedIn, setIsLoggedIn] = useState(adminApi.isLoggedIn());
+    const [isLoggedIn, setIsLoggedIn] = useState(() => adminApi.isLoggedIn());
+
+    useEffect(() => {
+        if (!isLoggedIn) return;
+
+        const handleUserInteraction = () => {
+            if (httpClient.isIdleExpired()) {
+                adminApi.logout();
+                setIsLoggedIn(false);
+                return;
+            }
+            httpClient.markActivity();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                handleUserInteraction();
+            }
+        };
+
+        window.addEventListener('click', handleUserInteraction, { passive: true });
+        window.addEventListener('keydown', handleUserInteraction, { passive: true });
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        void httpClient
+            .post<{ token?: string }>('/auth/session/heartbeat', {})
+            .then((res) => {
+                if (res?.token) {
+                    httpClient.setToken(res.token);
+                }
+            })
+            .catch(() => {
+                // Keep session when server is waking up
+            });
+
+        return () => {
+            window.removeEventListener('click', handleUserInteraction);
+            window.removeEventListener('keydown', handleUserInteraction);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [isLoggedIn]);
 
     if (!isLoggedIn) {
         return <Login onLogin={() => setIsLoggedIn(true)} />;

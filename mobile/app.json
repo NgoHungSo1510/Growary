@@ -33,7 +33,14 @@
       "@react-native-community/datetimepicker"
     ],
     "extra": {
-      "apiUrl": "https://growary-backend-vb86.onrender.com/api"
+      "apiUrl": "https://growary-backend-vb86.onrender.com/api",
+      "androidWidget": {
+        "name": "GrowaryTaskWidget",
+        "label": "Growary — Nhiệm vụ hôm nay",
+        "minWidth": "250dp",
+        "minHeight": "110dp",
+        "updatePeriodMillis": 1800000
+      }
     }
   }
 }

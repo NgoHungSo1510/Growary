@@ -1,9 +1,12 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, TextInput, Modal, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useOfflineSync } from '../hooks';
 import { DailyPlan, Journal } from '../types';
 import ClayHeader from '../components/ClayHeader';
 import QuestListContent from '../components/QuestListContent';
@@ -13,45 +16,44 @@ import PenaltyModal from '../components/PenaltyModal';
 import FloatingQuizButton from '../components/FloatingQuizButton';
 import { StreakGraceBanner } from '../components/StreakGraceBanner';
 import { TaskSummaryWidget } from '../components/TaskSummaryWidget';
-import { flushOfflineTaskQueue } from '../utils/offlineQueue';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { requestNotificationPermissions, scheduleAllQuestReminders } from '../services/notifications';
+import { OfflineSyncBanner } from '../components/task/OfflineSyncBanner';
+import {
+    ensureNotificationChannelAndPermissions,
+    scheduleAllQuestReminders,
+    cacheNotificationConfigs,
+    announceUnreadServerNotifications,
+} from '../services/notifications';
+import { syncWidgetSnapshot } from '../utils/widgetSnapshot';
 import { COLORS } from '../theme';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
     const { user, refreshUser } = useAuth();
     const insets = useSafeAreaInsets();
     const [plan, setPlan] = useState<DailyPlan | null>(null);
-    const [levels, setLevels] = useState<any[]>([]);
-    const [todayJournal, setTodayJournal] = useState<Journal | null>(null);
+    const [, setLevels] = useState<unknown[]>([]);
+    const [, setTodayJournal] = useState<Journal | null>(null);
     const [manualContent, setManualContent] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showEditor, setShowEditor] = useState(false);
     const [editorText, setEditorText] = useState('');
-
-    // Reward Celebration Modal State
-    const [grantedRewards, setGrantedRewards] = useState<any | null>(null);
-
-    // Penalty Modal State
+    const [grantedRewards, setGrantedRewards] = useState<unknown | null>(null);
     const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+
+    const { pendingCount, isSyncing, flushNow, queueAction, refreshQueueCount } = useOfflineSync(
+        (latestPlan) => {
+            setPlan(latestPlan);
+            void refreshUser();
+        }
+    );
+
+    useEffect(() => {
+        void syncWidgetSnapshot(plan, user, pendingCount);
+    }, [plan, user, pendingCount]);
 
     const fetchData = async () => {
         try {
-            // Đồng bộ tác vụ ngoại tuyến nếu có kết nối mạng trở lại
-            try {
-                await flushOfflineTaskQueue(async (item) => {
-                    let proofUrl = item.proofImageUrl;
-                    if (!proofUrl && item.proofImageBase64) {
-                        const uploadRes = await apiService.uploadProofImage(item.proofImageBase64);
-                        proofUrl = uploadRes?.url;
-                    }
-                    return apiService.completeTask(item.planId, item.taskIndex, item.isCompleted, proofUrl);
-                });
-            } catch (flushErr) {
-                console.warn('Lỗi khi flush offline task queue:', flushErr);
-            }
+            await flushNow().catch(() => undefined);
 
             const today = new Date().toISOString().split('T')[0];
             const [planRes, journalRes, levelRes] = await Promise.all([
@@ -65,19 +67,27 @@ export default function HomeScreen() {
 
             if (planRes?.plan) {
                 setPlan(planRes.plan);
-                AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(planRes.plan)).catch(() => { });
+                AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(planRes.plan)).catch(() => undefined);
+                const [cfgRes, notifRes] = await Promise.all([
+                    apiService.get<{ configs?: any[] }>('/notifications/configs').catch(() => ({ configs: undefined })),
+                    apiService.get<{ notifications?: any[] }>('/notifications', { page: 1, limit: 5 }).catch(() => ({ notifications: [] })),
+                ]);
+                if (cfgRes?.configs) {
+                    await cacheNotificationConfigs(cfgRes.configs);
+                }
+                if (notifRes?.notifications?.length) {
+                    void announceUnreadServerNotifications(notifRes.notifications);
+                }
                 if (planRes.plan.tasks) {
-                    scheduleAllQuestReminders(planRes.plan.tasks);
+                    await scheduleAllQuestReminders(planRes.plan.tasks, cfgRes?.configs);
                 }
             }
             if (levelRes?.levels) setLevels(levelRes.levels);
-
             if (journalRes?.journal) {
                 setTodayJournal(journalRes.journal);
                 setManualContent(journalRes.journal.manualContent || '');
             }
-        } catch (error) {
-            console.error('Failed to fetch data:', error);
+            await refreshQueueCount();
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
@@ -86,9 +96,8 @@ export default function HomeScreen() {
 
     useFocusEffect(
         useCallback(() => {
-            requestNotificationPermissions();
-            fetchData();
-            refreshUser().then(updatedUser => {
+            void ensureNotificationChannelAndPermissions().then(() => fetchData());
+            refreshUser().then((updatedUser) => {
                 if (updatedUser?.pendingPenalties && updatedUser.pendingPenalties.length > 0) {
                     setShowPenaltyModal(true);
                 }
@@ -99,7 +108,7 @@ export default function HomeScreen() {
     const handlePlanUpdated = (updatedPlan: DailyPlan | null, newRewards?: any, offlineTaskIndex?: number) => {
         if (updatedPlan) {
             setPlan(updatedPlan);
-            AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(updatedPlan)).catch(() => { });
+            AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(updatedPlan)).catch(() => undefined);
         } else if (offlineTaskIndex !== undefined) {
             setPlan((prev) => {
                 if (!prev) return prev;
@@ -112,16 +121,21 @@ export default function HomeScreen() {
                     };
                 }
                 const optimisticPlan: DailyPlan = { ...prev, tasks: newTasks };
-                AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(optimisticPlan)).catch(() => { });
+                AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(optimisticPlan)).catch(() => undefined);
                 return optimisticPlan;
             });
+            void refreshQueueCount();
         }
 
         if (newRewards) {
-            const hasRewards = (newRewards.levelUps?.length > 0) || (newRewards.items?.length > 0) || (newRewards.gachaTickets > 0) || Boolean(newRewards.isTierUnlock);
+            const hasRewards =
+                newRewards.levelUps?.length > 0 ||
+                newRewards.items?.length > 0 ||
+                newRewards.gachaTickets > 0 ||
+                Boolean(newRewards.isTierUnlock);
             if (hasRewards) setGrantedRewards(newRewards);
         }
-        refreshUser();
+        void refreshUser();
     };
 
     const handleOpenEditor = () => {
@@ -130,22 +144,25 @@ export default function HomeScreen() {
     };
 
     const handleSaveEditor = async () => {
-        setManualContent(editorText);
+        const nextText = editorText;
+        setManualContent(nextText);
         setShowEditor(false);
         const today = new Date().toISOString().split('T')[0];
         try {
-            const res = await apiService.updateJournal(today, {
-                manualContent: editorText,
-            });
+            const res = await apiService.updateJournal(today, { manualContent: nextText });
             if (res.journal) setTodayJournal(res.journal);
-        } catch (error) {
-            console.error('Failed to save journal:', error);
+        } catch {
+            await queueAction('SAVE_JOURNAL', {
+                date: today,
+                manualContent: nextText,
+                mood: 'neutral',
+            });
         }
     };
 
     const onRefresh = () => {
         setIsRefreshing(true);
-        fetchData();
+        void fetchData();
     };
 
     const completedCount = plan?.tasks.filter((t) => t.isCompleted).length || 0;
@@ -164,18 +181,20 @@ export default function HomeScreen() {
         <View style={styles.container}>
             <ClayHeader user={user} />
             <StreakGraceBanner user={user} />
+            <OfflineSyncBanner
+                pendingCount={pendingCount}
+                isSyncing={isSyncing}
+                onRetry={() => void flushNow()}
+            />
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                refreshControl={
-                    <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-                }
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
             >
                 <TaskSummaryWidget
                     tasks={plan?.tasks || []}
                     currentStreak={user?.currentStreak || 0}
                     streakGracePeriod={user?.streakGracePeriod}
                 />
-                {/* Stats Row */}
                 <View style={styles.statsRow}>
                     <View style={[styles.statBox, styles.streakBox]}>
                         <Text style={[styles.statValue, { color: COLORS.clayAccent1 }]}>
@@ -191,7 +210,6 @@ export default function HomeScreen() {
                     </View>
                 </View>
 
-                {/* Progress Bar */}
                 <View style={styles.progressSection}>
                     <View style={styles.progressTrack}>
                         <View style={[styles.progressFill, { width: `${progress}%` }]}>
@@ -200,17 +218,14 @@ export default function HomeScreen() {
                     </View>
                 </View>
 
-                {/* ── QUEST LIST ── */}
                 <QuestListContent
                     tasks={plan?.tasks || []}
                     planId={plan?._id || ''}
                     onPlanUpdated={handlePlanUpdated}
                 />
 
-                {/* ── ADVENTURE LOG ── */}
-                <AdventureLog tasks={(plan?.tasks || []).filter(t => t.isCompleted)} />
+                <AdventureLog tasks={(plan?.tasks || []).filter((t) => t.isCompleted)} />
 
-                {/* Backlog Notice */}
                 {plan && plan.backlogFromPreviousDay.length > 0 && (
                     <View style={styles.backlogNotice}>
                         <Text style={styles.backlogText}>
@@ -218,11 +233,9 @@ export default function HomeScreen() {
                         </Text>
                     </View>
                 )}
-                {/* Bottom spacer */}
                 <View style={{ height: 100 }} />
             </ScrollView>
 
-            {/* ── JOURNAL EDITOR MODAL ── */}
             <Modal
                 visible={showEditor}
                 animationType="slide"
@@ -243,16 +256,10 @@ export default function HomeScreen() {
                             autoFocus
                         />
                         <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={styles.cancelBtn}
-                                onPress={() => setShowEditor(false)}
-                            >
+                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowEditor(false)}>
                                 <Text style={styles.cancelBtnText}>Hủy</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.saveBtn}
-                                onPress={handleSaveEditor}
-                            >
+                            <TouchableOpacity style={styles.saveBtn} onPress={() => void handleSaveEditor()}>
                                 <Text style={styles.saveBtnText}>Lưu</Text>
                             </TouchableOpacity>
                         </View>
@@ -260,23 +267,20 @@ export default function HomeScreen() {
                 </View>
             </Modal>
 
-            {/* ── FLOATING JOURNAL FAB ── */}
             <TouchableOpacity
                 style={[styles.fab, { bottom: 90 + insets.bottom }]}
                 activeOpacity={0.8}
                 onPress={handleOpenEditor}
             >
                 <MaterialIcons name="edit-note" size={28} color="#FFF" />
-                {manualContent.length > 0 && (
-                    <View style={styles.fabDot} />
-                )}
+                {manualContent.length > 0 && <View style={styles.fabDot} />}
             </TouchableOpacity>
 
             <FloatingQuizButton />
 
             <RewardCelebrationModal
                 visible={!!grantedRewards}
-                rewards={grantedRewards}
+                rewards={grantedRewards as any}
                 onClose={() => setGrantedRewards(null)}
             />
 
@@ -285,7 +289,7 @@ export default function HomeScreen() {
                 penalties={user?.pendingPenalties || []}
                 onClose={() => {
                     setShowPenaltyModal(false);
-                    refreshUser(); // Refresh user after clearing penalties to update UI
+                    void refreshUser();
                 }}
             />
         </View>
@@ -293,184 +297,48 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.warmBg,
-    },
-    centered: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: COLORS.warmBg,
-    },
-
-    // Stats
-    statsRow: {
-        flexDirection: 'row',
-        paddingHorizontal: 24,
-        marginBottom: 12,
-        gap: 12,
-    },
+    container: { flex: 1, backgroundColor: COLORS.warmBg },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.warmBg },
+    statsRow: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 12, gap: 12 },
     statBox: {
-        flex: 1,
-        alignItems: 'center',
-        borderRadius: 16,
-        paddingVertical: 12,
-        borderWidth: 1,
-        shadowOffset: { width: 3, height: 3 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-        elevation: 4,
+        flex: 1, alignItems: 'center', borderRadius: 16, paddingVertical: 12, borderWidth: 1,
+        shadowOffset: { width: 3, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4,
     },
-    streakBox: {
-        backgroundColor: '#FFF0EE',
-        borderColor: '#FBCFC8',
-        shadowColor: COLORS.clayAccent1,
-    },
-    completedBox: {
-        backgroundColor: '#EEFBF3',
-        borderColor: '#B5E8C8',
-        shadowColor: '#22C55E',
-    },
-    statValue: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    statLabel: {
-        fontSize: 11,
-        color: COLORS.clayText,
-        opacity: 0.6,
-        marginTop: 2,
-        fontWeight: '600',
-    },
-
-    // Progress
-    progressSection: {
-        paddingHorizontal: 24,
-        marginBottom: 20,
-    },
+    streakBox: { backgroundColor: '#FFF0EE', borderColor: '#FBCFC8', shadowColor: COLORS.clayAccent1 },
+    completedBox: { backgroundColor: '#EEFBF3', borderColor: '#B5E8C8', shadowColor: '#22C55E' },
+    statValue: { fontSize: 20, fontWeight: 'bold' },
+    statLabel: { fontSize: 11, color: COLORS.clayText, opacity: 0.6, marginTop: 2, fontWeight: '600' },
+    progressSection: { paddingHorizontal: 24, marginBottom: 20 },
     progressTrack: {
-        height: 12,
-        backgroundColor: COLORS.clayInset,
-        borderRadius: 6,
-        padding: 2,
-        borderWidth: 1,
-        borderColor: 'rgba(237, 113, 113, 0.5)',
+        height: 12, backgroundColor: COLORS.clayInset, borderRadius: 6, padding: 2,
+        borderWidth: 1, borderColor: 'rgba(237, 113, 113, 0.5)',
     },
-    progressFill: {
-        height: '100%',
-        backgroundColor: COLORS.clayAccent1,
-        borderRadius: 4,
-        overflow: 'hidden',
-    },
-    progressShine: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '40%',
-        backgroundColor: 'rgba(255,255,255,0.3)',
-    },
-
-    // Backlog
+    progressFill: { height: '100%', backgroundColor: COLORS.clayAccent1, borderRadius: 4, overflow: 'hidden' },
+    progressShine: { position: 'absolute', top: 0, left: 0, right: 0, height: '40%', backgroundColor: 'rgba(255,255,255,0.3)' },
     backlogNotice: {
-        backgroundColor: 'rgba(255,255,255,0.5)',
-        padding: 12,
-        marginHorizontal: 20,
-        marginTop: 8,
-        marginBottom: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255,202,40,0.3)',
+        backgroundColor: 'rgba(255,255,255,0.5)', padding: 12, marginHorizontal: 20, marginTop: 8,
+        marginBottom: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,202,40,0.3)',
     },
-    backlogText: {
-        color: COLORS.clayText,
-        textAlign: 'center',
-        fontSize: 13,
-    },
-
-    // Modal
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        backgroundColor: COLORS.warmBg,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 24,
-        minHeight: 300,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        marginBottom: 16,
-    },
+    backlogText: { color: COLORS.clayText, textAlign: 'center', fontSize: 13 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+    modalContent: { backgroundColor: COLORS.warmBg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 300 },
+    modalTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.clayText, marginBottom: 16 },
     modalInput: {
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        borderRadius: 16,
-        padding: 14,
-        fontSize: 14,
-        color: COLORS.clayText,
-        minHeight: 150,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
-        marginBottom: 16,
+        backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16, padding: 14, fontSize: 14,
+        color: COLORS.clayText, minHeight: 150, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', marginBottom: 16,
     },
-    modalActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 12,
-    },
-    cancelBtn: {
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-        backgroundColor: 'rgba(255,255,255,0.5)',
-    },
-    cancelBtnText: {
-        color: COLORS.clayText,
-        fontWeight: '600',
-    },
-    saveBtn: {
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 12,
-        backgroundColor: COLORS.clayAccent2,
-    },
-    saveBtnText: {
-        color: '#FFF',
-        fontWeight: '600',
-    },
-
-    // Floating Journal FAB
+    modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+    cancelBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.5)' },
+    cancelBtnText: { color: COLORS.clayText, fontWeight: '600' },
+    saveBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, backgroundColor: COLORS.clayAccent2 },
+    saveBtnText: { color: '#FFF', fontWeight: '600' },
     fab: {
-        position: 'absolute',
-        right: 20,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: COLORS.clayAccent2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: COLORS.clayAccent2,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.35,
-        shadowRadius: 10,
-        elevation: 8,
-        zIndex: 100,
+        position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28,
+        backgroundColor: COLORS.clayAccent2, alignItems: 'center', justifyContent: 'center',
+        shadowColor: COLORS.clayAccent2, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8, zIndex: 100,
     },
     fabDot: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: '#4ADE80',
-        borderWidth: 2,
-        borderColor: '#FFF',
+        position: 'absolute', top: 8, right: 8, width: 10, height: 10, borderRadius: 5,
+        backgroundColor: '#4ADE80', borderWidth: 2, borderColor: '#FFF',
     },
 });

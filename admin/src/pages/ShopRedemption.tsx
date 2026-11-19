@@ -1,19 +1,45 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { adminApi } from '../services/api';
+import { approvalService } from '../services/approvalService';
 import type { Reward, Voucher } from '../types';
 import { VipConfigTab, VoucherRedeemTab, RewardFormModal, ShopEventTab } from '../components/shop';
+import { AutoApproveConfigBar, AutoApprovedReviewTab } from '../components/approval';
 
-type ShopTab = 'shelf' | 'warehouse' | 'redeem' | 'vip' | 'events';
+type ShopTab = 'shelf' | 'warehouse' | 'redeem' | 'auto_approved' | 'vip' | 'events';
 
 export default function ShopRedemption() {
-    const [tab, setTab] = useState<ShopTab>('shelf');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const initialTab = (searchParams.get('tab') as ShopTab) || 'shelf';
+    const [tab, setTab] = useState<ShopTab>(
+        ['shelf', 'warehouse', 'redeem', 'auto_approved', 'vip', 'events'].includes(initialTab)
+            ? initialTab
+            : 'shelf'
+    );
     const [rewards, setRewards] = useState<Reward[]>([]);
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
+    const [autoReviewCount, setAutoReviewCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [editReward, setEditReward] = useState<Reward | null>(null);
     const [showCreate, setShowCreate] = useState(false);
     const [error, setError] = useState('');
     const [vipTiers, setVipTiers] = useState<any[]>([]);
+
+    useEffect(() => {
+        const paramTab = searchParams.get('tab') as ShopTab | null;
+        if (
+            paramTab &&
+            ['shelf', 'warehouse', 'redeem', 'auto_approved', 'vip', 'events'].includes(paramTab) &&
+            paramTab !== tab
+        ) {
+            setTab(paramTab);
+        }
+    }, [searchParams, tab]);
+
+    const handleSwitchTab = (nextTab: ShopTab) => {
+        setTab(nextTab);
+        setSearchParams({ tab: nextTab });
+    };
 
     const fetchRewards = useCallback(async () => {
         try {
@@ -29,8 +55,12 @@ export default function ShopRedemption() {
 
     const fetchVouchers = useCallback(async () => {
         try {
-            const data = await adminApi.getAllVouchers();
-            setVouchers(data.vouchers);
+            const [voucherData, autoRes] = await Promise.all([
+                adminApi.getAllVouchers(),
+                approvalService.getAutoApprovedItems('pending_review').catch(() => ({ items: [] })),
+            ]);
+            setVouchers(voucherData.vouchers);
+            setAutoReviewCount(autoRes.items.filter((i) => i.kind === 'voucher').length);
         } catch (e: any) {
             setError(e.message);
         }
@@ -122,19 +152,22 @@ export default function ShopRedemption() {
             )}
 
             <div className="tabs">
-                <button className={`tabs__tab${tab === 'shelf' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('shelf')}>
+                <button className={`tabs__tab${tab === 'shelf' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('shelf')}>
                     🏪 Trên kệ ({shelfItems.length})
                 </button>
-                <button className={`tabs__tab${tab === 'warehouse' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('warehouse')}>
+                <button className={`tabs__tab${tab === 'warehouse' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('warehouse')}>
                     📦 Trong kho ({warehouseItems.length})
                 </button>
-                <button className={`tabs__tab${tab === 'redeem' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('redeem')}>
+                <button className={`tabs__tab${tab === 'redeem' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('redeem')}>
                     🎫 Đổi quà {pendingCount > 0 && <span className="sidebar__badge" style={{ marginLeft: 6 }}>{pendingCount}</span>}
                 </button>
-                <button className={`tabs__tab${tab === 'vip' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('vip')}>
+                <button className={`tabs__tab${tab === 'auto_approved' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('auto_approved')}>
+                    🤖 Tự duyệt — Chờ xem lại {autoReviewCount > 0 && <span className="sidebar__badge" style={{ marginLeft: 6 }}>{autoReviewCount}</span>}
+                </button>
+                <button className={`tabs__tab${tab === 'vip' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('vip')}>
                     👑 Thẻ hạng
                 </button>
-                <button className={`tabs__tab${tab === 'events' ? ' tabs__tab--active' : ''}`} onClick={() => setTab('events')}>
+                <button className={`tabs__tab${tab === 'events' ? ' tabs__tab--active' : ''}`} onClick={() => handleSwitchTab('events')}>
                     ⚡ Sự kiện Shop
                 </button>
             </div>
@@ -273,6 +306,14 @@ export default function ShopRedemption() {
             {/* TAB: Đổi quà */}
             {tab === 'redeem' && (
                 <VoucherRedeemTab vouchers={vouchers} fetchVouchers={fetchVouchers} />
+            )}
+
+            {/* TAB: Hậu kiểm tự duyệt 6h */}
+            {tab === 'auto_approved' && (
+                <>
+                    <AutoApproveConfigBar />
+                    <AutoApprovedReviewTab filterKind="voucher" onReviewed={fetchVouchers} />
+                </>
             )}
 
             {/* TAB: Thẻ hạng */}

@@ -28,11 +28,17 @@ type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'
 
 export default function LoginScreen() {
     const navigation = useNavigation<LoginScreenNavigationProp>();
-    const { login } = useAuth();
-    const [email, setEmail] = useState('');
+    const { login, rememberedEmail, sessionExpiredNotice } = useAuth();
+    const [email, setEmail] = useState(rememberedEmail || '');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    React.useEffect(() => {
+        if (rememberedEmail && !email) {
+            setEmail(rememberedEmail);
+        }
+    }, [rememberedEmail]);
 
     const handleLogin = async () => {
         if (!email || !password) {
@@ -102,7 +108,9 @@ export default function LoginScreen() {
 
                     <View style={styles.textWrapper}>
                         <Text style={styles.welcomeText}>Welcome Back!</Text>
-                        <Text style={styles.subtitleText}>Ready to complete some quests?</Text>
+                        <Text style={styles.subtitleText}>
+                            {sessionExpiredNotice || 'Ready to complete some quests?'}
+                        </Text>
                     </View>
                 </View>
 

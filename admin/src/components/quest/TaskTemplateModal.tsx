@@ -1,20 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { adminApi } from '../../services/api';
+import type { TaskTemplate } from '../../types';
 
-export interface TaskTemplate {
-    _id: string;
-    title: string;
-    description?: string;
-    pointsReward: number;
-    coinReward: number;
-    category: string;
-    estimatedMinutes?: number;
-    isMandatory: boolean;
-    isActive: boolean;
-    isSystemTask: boolean;
-    frequency: string;
-    createdAt: string;
-}
+export type { TaskTemplate };
 
 export const CATEGORIES: { value: string; label: string; icon: string }[] = [
     { value: 'health', label: 'Sức khỏe', icon: '💪' },

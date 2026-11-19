@@ -30,8 +30,12 @@ export default function Sidebar({ onLogout }: { onLogout?: () => void }) {
         try {
             if (adminApi.isLoggedIn()) {
                 const data = await adminApi.getStats();
-                setPendingTasks(data.stats.pendingTasks || 0);
-                setPendingVouchers(data.stats.pendingVouchers || 0);
+                setPendingTasks(
+                    (data.stats.pendingTasks || 0) + (data.stats.autoApprovedTasksPendingReview || 0)
+                );
+                setPendingVouchers(
+                    (data.stats.pendingVouchers || 0) + (data.stats.autoApprovedVouchersPendingReview || 0)
+                );
             }
         } catch (e) {
             // ignore

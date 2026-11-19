@@ -36,6 +36,24 @@
     gap: 16px;
 }
 
+.topbar__server-pill {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: var(--border-radius-full, 9999px);
+    border: 1px solid var(--card-border);
+}
+
+.topbar__server-pill--online {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+}
+
+.topbar__server-pill--waking {
+    background: rgba(245, 158, 11, 0.16);
+    color: #d97706;
+}
+
 .topbar__search {
     position: relative;
 }

@@ -23,6 +23,7 @@ import { apiService } from '../services/api';
 import { COLORS, FONT_SIZES, SHADOWS } from '../theme';
 import { VipMiniCard } from '../components/VipMiniCard';
 import { VipDetailSection } from '../components/profile/VipDetailSection';
+import { NotificationDiagnosticsModal } from '../components/profile/NotificationDiagnosticsModal';
 import { ProfileSeasonBadge } from '../components/seasonPass';
 import { getAvatarFrameStyle } from '../utils/seasonPassHelpers';
 import { VipStatusResponse } from '../types';
@@ -33,6 +34,7 @@ export default function ProfileScreen({ route }: any) {
     const { user, refreshUser, logout } = useAuth();
     const navigation = useNavigation<any>();
     const [isUploading, setIsUploading] = useState(false);
+    const [showNotifModal, setShowNotifModal] = useState(false);
     const [vipResponse, setVipResponse] = useState<VipStatusResponse | null>(null);
     const level = user?.level || 1;
     const levelTitle =
@@ -187,14 +189,18 @@ export default function ProfileScreen({ route }: any) {
                     </TouchableOpacity>
 
                     {/* Notifications */}
-                    <TouchableOpacity style={styles.clayTile} activeOpacity={0.7}>
+                    <TouchableOpacity
+                        style={styles.clayTile}
+                        activeOpacity={0.7}
+                        onPress={() => setShowNotifModal(true)}
+                    >
                         <View style={styles.tileLeft}>
                             <View style={[styles.iconBox, { backgroundColor: '#F3E8FF' }]}>
                                 <MaterialIcons name="notifications" size={24} color="#9333EA" />
                             </View>
                             <View>
-                                <Text style={styles.tileTitle}>Notifications</Text>
-                                <Text style={styles.tileSubtitle}>Quest alerts, Daily reminders</Text>
+                                <Text style={styles.tileTitle}>Thông báo & Offline Alarm</Text>
+                                <Text style={styles.tileSubtitle}>Kiểm tra quyền, lịch nhắc & gửi thử 5s</Text>
                             </View>
                         </View>
                         <View style={styles.toggleSwitch}>
@@ -252,245 +258,66 @@ export default function ProfileScreen({ route }: any) {
 
                 <View style={{ height: 80 }} />
             </ScrollView>
+
+            <NotificationDiagnosticsModal
+                visible={showNotifModal}
+                onClose={() => setShowNotifModal(false)}
+            />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.warmBg,
-    },
-    scrollContent: {
-        padding: 24,
-        paddingTop: 60,
-        paddingBottom: 40
-    },
-
-    // Blobs
-    blob: {
-        position: 'absolute',
-        borderRadius: 999,
-    },
-    blobTop: {
-        top: -height * 0.1,
-        left: -width * 0.2,
-        width: width * 0.6,
-        height: width * 0.6,
-        backgroundColor: 'rgba(251, 155, 143, 0.2)',
-    },
-    blobBottom: {
-        bottom: height * 0.1,
-        right: -width * 0.1,
-        width: width * 0.5,
-        height: width * 0.5,
-        backgroundColor: 'rgba(254, 215, 170, 0.2)',
-    },
-
-    // Header
-    header: {
-        alignItems: 'center',
-        marginBottom: 30,
-    },
-    screenTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        marginBottom: 20,
-        letterSpacing: -0.5,
-    },
-    avatarContainer: {
-        width: 128,
-        height: 128,
-        position: 'relative',
-        marginBottom: 16,
-    },
+    container: { flex: 1, backgroundColor: COLORS.warmBg },
+    scrollContent: { padding: 24, paddingTop: 60, paddingBottom: 40 },
+    blob: { position: 'absolute', borderRadius: 999 },
+    blobTop: { top: -height * 0.1, left: -width * 0.2, width: width * 0.6, height: width * 0.6, backgroundColor: 'rgba(251, 155, 143, 0.2)' },
+    blobBottom: { bottom: height * 0.1, right: -width * 0.1, width: width * 0.5, height: width * 0.5, backgroundColor: 'rgba(254, 215, 170, 0.2)' },
+    header: { alignItems: 'center', marginBottom: 30 },
+    screenTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.clayText, marginBottom: 20, letterSpacing: -0.5 },
+    avatarContainer: { width: 128, height: 128, position: 'relative', marginBottom: 16 },
     avatarFrame: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 64,
-        backgroundColor: COLORS.warmBg,
-        padding: 6,
-        borderWidth: 6,
-        borderColor: 'rgba(255,255,255,0.4)',
-        shadowColor: '#D29664',
-        shadowOffset: { width: 10, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-        elevation: 10,
+        width: '100%', height: '100%', borderRadius: 64, backgroundColor: COLORS.warmBg,
+        padding: 6, borderWidth: 6, borderColor: 'rgba(255,255,255,0.4)',
+        shadowColor: '#D29664', shadowOffset: { width: 10, height: 10 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 10,
     },
-    avatarGradient: {
-        flex: 1,
-        borderRadius: 60,
-        overflow: 'hidden',
-        padding: 2,
-    },
-    avatarImage: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 60,
-        borderWidth: 4,
-        borderColor: 'rgba(255,255,255,0.2)',
-    },
-    uploadingOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 60,
-    },
+    avatarGradient: { flex: 1, borderRadius: 60, overflow: 'hidden', padding: 2 },
+    avatarImage: { width: '100%', height: '100%', borderRadius: 60, borderWidth: 4, borderColor: 'rgba(255,255,255,0.2)' },
+    uploadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', borderRadius: 60 },
     cameraBtn: {
-        position: 'absolute',
-        bottom: 0,
-        right: 0,
-        backgroundColor: '#FFFDF5',
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-        elevation: 5,
+        position: 'absolute', bottom: 0, right: 0, backgroundColor: '#FFFDF5', width: 40, height: 40, borderRadius: 20,
+        alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 5,
     },
-    userInfo: {
-        alignItems: 'center',
-        marginBottom: 12,
-    },
-    userName: {
-        fontSize: 24,
-        fontWeight: '900',
-        color: COLORS.clayText,
-        marginBottom: 4,
-    },
-    userLevel: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: COLORS.clayText,
-        opacity: 0.6,
-    },
-    changePhotoBtn: {
-        backgroundColor: 'rgba(255,255,255,0.4)',
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.4)',
-    },
-    changePhotoText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: 'rgba(93, 64, 55, 0.8)',
-    },
-
-    // Settings List
-    settingsList: {
-        gap: 16,
-        marginBottom: 30,
-    },
+    userInfo: { alignItems: 'center', marginBottom: 12 },
+    userName: { fontSize: 24, fontWeight: '900', color: COLORS.clayText, marginBottom: 4 },
+    userLevel: { fontSize: 14, fontWeight: '500', color: COLORS.clayText, opacity: 0.6 },
+    changePhotoBtn: { backgroundColor: 'rgba(255,255,255,0.4)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+    changePhotoText: { fontSize: 12, fontWeight: 'bold', color: 'rgba(93, 64, 55, 0.8)' },
+    settingsList: { gap: 16, marginBottom: 30 },
     clayTile: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#FFFDF5',
-        padding: 16,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
-        shadowColor: '#D29664',
-        shadowOffset: { width: 6, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-        elevation: 5,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFDF5',
+        padding: 16, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
+        shadowColor: '#D29664', shadowOffset: { width: 6, height: 6 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
     },
-    tileLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 16,
-        flex: 1,
-    },
+    tileLeft: { flexDirection: 'row', alignItems: 'center', gap: 16, flex: 1 },
     iconBox: {
-        width: 48,
-        height: 48,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center',
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2,
     },
-    tileTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-    },
-    tileSubtitle: {
-        fontSize: 12,
-        fontWeight: '500',
-        color: COLORS.clayText,
-        opacity: 0.5,
-        marginTop: 2,
-    },
-
-    // Toggle
+    tileTitle: { fontSize: 16, fontWeight: 'bold', color: COLORS.clayText },
+    tileSubtitle: { fontSize: 12, fontWeight: '500', color: COLORS.clayText, opacity: 0.5, marginTop: 2 },
     toggleSwitch: {
-        width: 44,
-        height: 24,
-        backgroundColor: COLORS.clayAccent2,
-        borderRadius: 12,
-        padding: 2,
-        justifyContent: 'center',
-        alignItems: 'flex-end',
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
+        width: 44, height: 24, backgroundColor: COLORS.clayAccent2, borderRadius: 12,
+        padding: 2, justifyContent: 'center', alignItems: 'flex-end', borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)',
     },
-    toggleKnob: {
-        width: 20,
-        height: 20,
-        backgroundColor: '#FFF',
-        borderRadius: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        elevation: 2,
-    },
-
-    // Logout
+    toggleKnob: { width: 20, height: 20, backgroundColor: '#FFF', borderRadius: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, elevation: 2 },
     logoutBtn: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: COLORS.clayAccent1,
-        paddingVertical: 16,
-        borderRadius: 16,
-        gap: 8,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
-        shadowColor: '#C86464',
-        shadowOffset: { width: 6, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-        elevation: 6,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.clayAccent1,
+        paddingVertical: 16, borderRadius: 16, gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+        shadowColor: '#C86464', shadowOffset: { width: 6, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6,
     },
-    logoutText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#FFF',
-        letterSpacing: 0.5,
-    },
-    versionText: {
-        textAlign: 'center',
-        fontSize: FONT_SIZES.caption,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        opacity: 0.3,
-        marginLeft: 16,
-    },
+    logoutText: { fontSize: 16, fontWeight: 'bold', color: '#FFF', letterSpacing: 0.5 },
+    versionText: { textAlign: 'center', fontSize: FONT_SIZES.caption, fontWeight: 'bold', color: COLORS.clayText, opacity: 0.3, marginLeft: 16 },
 });

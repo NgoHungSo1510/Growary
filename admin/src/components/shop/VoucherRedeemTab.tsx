@@ -26,6 +26,21 @@ const renderVoucherPerks = (v: Voucher): React.ReactNode => {
     );
 };
 
+const renderPendingVoucherCountdown = (v: Voucher): React.ReactNode => {
+    if (v.status !== 'pending_use') return null;
+    if (v.pointCostSnapshot > 500) {
+        return <div className="auto-countdown-pill auto-countdown-pill--manual">🔒 Giá trị cao — Chỉ duyệt tay</div>;
+    }
+    const baseTime = v.pendingSince ? new Date(v.pendingSince).getTime() : new Date(v.purchaseDate).getTime();
+    const remainMs = baseTime + 6 * 3600 * 1000 - Date.now();
+    if (remainMs <= 0) {
+        return <div className="auto-countdown-pill">🤖 Đủ 6h — Sắp tự duyệt</div>;
+    }
+    const h = Math.floor(remainMs / 3600000);
+    const m = Math.floor((remainMs % 3600000) / 60000);
+    return <div className="auto-countdown-pill">⏳ Tự duyệt sau {h}h {m}p</div>;
+};
+
 export const VoucherRedeemTab: React.FC<VoucherRedeemTabProps> = ({ vouchers, fetchVouchers }) => {
     const [redeemCode, setRedeemCode] = useState('');
     const [confirmingCode, setConfirmingCode] = useState<string | null>(null);
@@ -134,9 +149,14 @@ export const VoucherRedeemTab: React.FC<VoucherRedeemTabProps> = ({ vouchers, fe
                                         <td>{new Date(v.purchaseDate).toLocaleDateString('vi-VN')}</td>
                                         <td>
                                             {v.status === 'pending_use' && <span className="badge badge--warning">Chờ trao</span>}
-                                            {v.status === 'used' && <span className="badge badge--success">Đã trao</span>}
+                                            {v.status === 'used' && (
+                                                <span className="badge badge--success">
+                                                    {v.autoApproved ? '🤖 Tự duyệt (Đã chấp nhận)' : 'Đã trao'}
+                                                </span>
+                                            )}
                                             {v.status === 'active' && <span className="badge badge--info">Đang giữ</span>}
                                             {v.status === 'expired' && <span className="badge badge--danger">Hết hạn</span>}
+                                            {renderPendingVoucherCountdown(v)}
                                         </td>
                                         <td>
                                             {v.status === 'pending_use' ? (

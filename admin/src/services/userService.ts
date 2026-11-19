@@ -1,4 +1,5 @@
 import { httpClient } from './client';
+import type { DashboardStats, ActivityData } from '../types';
 
 export const userService = {
     async login(email: string, password: string) {
@@ -17,17 +18,8 @@ export const userService = {
 
     async getStats() {
         return httpClient.get<{
-            stats: {
-                totalUsers: number;
-                newUsersToday: number;
-                pendingVouchers: number;
-                pendingTasks: number;
-                activeUsers: number;
-                totalXPGranted: number;
-                activeUsersToday: number;
-                tasksCompletedToday: number;
-            };
-            activity: { labels: string[]; tasksCompleted: number[]; xpGranted: number[] };
+            stats: DashboardStats;
+            activity: ActivityData;
         }>('/admin/stats');
     },
 

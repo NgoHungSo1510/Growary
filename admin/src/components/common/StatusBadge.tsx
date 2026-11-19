@@ -25,15 +25,21 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, classNa
       case 'active':
       case 'approved':
       case 'completed':
-        return { badgeClass: 'badge--success', defaultLabel: label || 'Hoạt động' };
+      case 'confirmed':
+        return { badgeClass: 'badge--success', defaultLabel: label || 'Đã xác nhận' };
       case 'inactive':
       case 'rejected':
       case 'cancelled':
       case 'expired':
-        return { badgeClass: 'badge--danger', defaultLabel: label || 'Đã hủy / Khóa' };
+      case 'revoked':
+        return { badgeClass: 'badge--danger', defaultLabel: label || 'Đã thu hồi / Hủy' };
       case 'pending':
       case 'in_progress':
-        return { badgeClass: 'badge--warning', defaultLabel: label || 'Đang chờ' };
+      case 'pending_review':
+      case 'flagged':
+        return { badgeClass: 'badge--warning', defaultLabel: label || 'Chờ xem lại' };
+      case 'auto_approved':
+        return { badgeClass: 'badge--info', defaultLabel: label || '🤖 Tự duyệt' };
       default:
         return { badgeClass: 'badge--info', defaultLabel: label || status };
     }

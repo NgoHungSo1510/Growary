@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Chart, registerables } from 'chart.js';
 import { adminApi } from '../services/api';
 import type { DashboardStats, ActivityData } from '../types';
+import '../components/approval/AutoApproval.css';
 
 Chart.register(...registerables);
 
 export default function Dashboard() {
+    const navigate = useNavigate();
     const chartRef = useRef<HTMLCanvasElement>(null);
     const chartInstanceRef = useRef<Chart | null>(null);
 
@@ -124,6 +127,32 @@ export default function Dashboard() {
                 <div style={{ padding: '10px 16px', background: 'var(--danger-light)', color: '#991b1b', borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
                     ❌ {error}
                     <button onClick={() => setError('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>×</button>
+                </div>
+            )}
+
+            {(stats?.autoApprovedPendingReview ?? 0) > 0 && (
+                <div className="dashboard-auto-alert">
+                    <span className="dashboard-auto-alert__text">
+                        🤖 Có {stats?.autoApprovedPendingReview} mục đã được hệ thống tự động duyệt sau 6h (
+                        {stats?.autoApprovedTasksPendingReview ?? 0} nhiệm vụ,{' '}
+                        {stats?.autoApprovedVouchersPendingReview ?? 0} voucher) đang chờ Admin xem lại!
+                    </span>
+                    <div className="auto-review-filter-group">
+                        <button
+                            type="button"
+                            className="btn btn--primary btn--sm"
+                            onClick={() => navigate('/quests?tab=auto_approved')}
+                        >
+                            ⚔️ Xem Nhiệm vụ tự duyệt
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn--secondary btn--sm"
+                            onClick={() => navigate('/shop?tab=auto_approved')}
+                        >
+                            🎁 Xem Voucher tự duyệt
+                        </button>
+                    </div>
                 </div>
             )}
 
