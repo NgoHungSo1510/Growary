@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, Platform, TouchableOpacity, DimensionValue } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, FONT_SIZES } from '../theme';
 import LevelTimelineModal from './LevelTimelineModal';
 import LevelUpModal from './LevelUpModal';
+import { GlobalSyncStatusBar } from './GlobalSyncStatusBar';
 import { apiService } from '../services/api';
+import {
+    getCachedSnapshot,
+    setCachedSnapshot,
+    SNAPSHOT_KEYS,
+} from '../services/offlineSnapshotStore';
+import type { User, LevelConfigDTO } from '@shared';
 
 interface ClayHeaderProps {
     username?: string;
     avatarUrl?: string;
-    user?: any;
+    user?: User | null;
 }
 
 const ClayHeader: React.FC<ClayHeaderProps> = ({
@@ -19,23 +26,33 @@ const ClayHeader: React.FC<ClayHeaderProps> = ({
     avatarUrl = "https://cdn3d.iconscout.com/3d/premium/thumb/cute-robot-waving-hand-6332707-5209353.png"
 }) => {
     const [showTimeline, setShowTimeline] = useState(false);
-    const [levels, setLevels] = useState<any[]>([]);
+    const [levels, setLevels] = useState<LevelConfigDTO[]>([]);
 
     // Level Up tracking purely contained here
     const [showLevelUp, setShowLevelUp] = useState(false);
     const prevLevelRef = React.useRef(user?.level);
 
     React.useEffect(() => {
-        // Fetch levels configuration on mount
-        const fetchLevelData = async () => {
+        let isMounted = true;
+        const loadLevels = async () => {
+            const cached = await getCachedSnapshot<LevelConfigDTO[]>(SNAPSHOT_KEYS.LEVELS);
+            if (cached && isMounted) {
+                setLevels(cached);
+            }
             try {
-                const { levels } = await apiService.getLevels();
-                setLevels(levels);
-            } catch (e) {
-                // ignore
+                const res = await apiService.getLevels();
+                if (res?.levels && isMounted) {
+                    setLevels(res.levels);
+                    await setCachedSnapshot(SNAPSHOT_KEYS.LEVELS, res.levels);
+                }
+            } catch {
+                // offline fallback holds
             }
         };
-        fetchLevelData();
+        loadLevels();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     React.useEffect(() => {
@@ -46,13 +63,13 @@ const ClayHeader: React.FC<ClayHeaderProps> = ({
     }, [user?.level]);
 
     // Calculate XP Progress internally (Delta XP Pattern)
-    const userXP = user?.xp || 0;
+    const userXP = (user as unknown as { xp?: number })?.xp || user?.currentPoints || 0;
     const userLevel = user?.level || 1;
     const currentLvl = levels.find(l => l.level === userLevel);
 
     const displayCurrentXP = userXP;
     const displayMaxXP = currentLvl ? currentLvl.xpRequired : 200;
-    const xpPercent = Math.min((displayCurrentXP / displayMaxXP) * 100, 100) + '%';
+    const xpPercent: DimensionValue = `${Math.min(Math.round((displayCurrentXP / displayMaxXP) * 100), 100)}%`;
 
     // Fallbacks
     const name = user?.username || username;
@@ -62,6 +79,7 @@ const ClayHeader: React.FC<ClayHeaderProps> = ({
 
     return (
         <>
+            <GlobalSyncStatusBar />
             <TouchableOpacity
                 style={styles.headerContainer}
                 activeOpacity={0.9}
@@ -96,7 +114,7 @@ const ClayHeader: React.FC<ClayHeaderProps> = ({
                         </Text>
                     </View>
                     <View style={styles.xpTrack}>
-                        <View style={[styles.xpFill, { width: xpPercent as any }]}>
+                        <View style={[styles.xpFill, { width: xpPercent }]}>
                             <View style={styles.xpShine} />
                         </View>
                     </View>

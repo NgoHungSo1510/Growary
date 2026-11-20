@@ -6,6 +6,7 @@ import { DailyTask, NotificationConfig, AccountNotificationItem } from '../types
 export const ANDROID_REMINDER_CHANNEL_ID = 'growary-reminders-v2';
 export const CACHED_NOTIFICATION_CONFIGS_KEY = '@growary:cached_notification_configs';
 const ANNOUNCED_SERVER_NOTIF_IDS_KEY = '@growary:announced_notif_ids';
+const MAX_SCHEDULED_NOTIFICATIONS = 45; // RV-17: safe headroom below iOS/Android 64-limit
 
 Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -19,7 +20,6 @@ Notifications.setNotificationHandler({
 
 /**
  * Thiết lập kênh thông báo mức ưu tiên cao nhất cho Android 8+ và kiểm tra/xin quyền thông báo.
- * @returns Trạng thái quyền thông báo và kênh Android đã sẵn sàng hay chưa
  */
 export async function ensureNotificationChannelAndPermissions(): Promise<{
     granted: boolean;
@@ -57,19 +57,11 @@ export async function ensureNotificationChannelAndPermissions(): Promise<{
     };
 }
 
-/**
- * Yêu cầu quyền thông báo trên thiết bị (giữ tương thích ngược với các màn hình hiện có).
- * @returns true nếu quyền đã được cấp
- */
 export async function requestNotificationPermissions(): Promise<boolean> {
     const res = await ensureNotificationChannelAndPermissions();
     return res.granted;
 }
 
-/**
- * Lưu danh sách quy tắc NotificationConfig của Admin vào bộ nhớ đệm Offline trên điện thoại.
- * @param configs - Danh sách quy tắc NotificationConfig đang hoạt động
- */
 export async function cacheNotificationConfigs(configs: NotificationConfig[]): Promise<void> {
     try {
         await AsyncStorage.setItem(CACHED_NOTIFICATION_CONFIGS_KEY, JSON.stringify(configs));
@@ -78,10 +70,6 @@ export async function cacheNotificationConfigs(configs: NotificationConfig[]): P
     }
 }
 
-/**
- * Đọc danh sách quy tắc NotificationConfig từ bộ nhớ đệm Offline trên điện thoại.
- * @returns Danh sách NotificationConfig đã lưu
- */
 export async function getCachedNotificationConfigs(): Promise<NotificationConfig[]> {
     try {
         const raw = await AsyncStorage.getItem(CACHED_NOTIFICATION_CONFIGS_KEY);
@@ -93,42 +81,135 @@ export async function getCachedNotificationConfigs(): Promise<NotificationConfig
 }
 
 /**
- * Lập lịch nhắc nhở trước hạn cho một nhiệm vụ đơn lẻ.
- * @param task - Nhiệm vụ cần nhắc
- * @param leadMinutes - Số phút báo trước giờ hẹn (mặc định 30 phút)
- * @returns ID lịch thông báo hoặc null nếu đã qua giờ
+ * Hủy các thông báo đang hẹn của một nhiệm vụ khi nhiệm vụ được nộp hoàn thành.
  */
-export async function scheduleQuestReminder(
+export async function cancelTaskNotificationsOnComplete(taskId?: string): Promise<void> {
+    if (Platform.OS === 'web' || !taskId) return;
+    try {
+        const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+        for (const notif of scheduled) {
+            if (notif.content.data?.taskId === taskId) {
+                await Notifications.cancelScheduledNotificationAsync(notif.identifier).catch(() => {});
+            }
+        }
+    } catch {
+        // ignore
+    }
+}
+
+/**
+ * Lập lịch thông báo 3 mốc thời gian (Nhắc trước, Đúng giờ, Báo quá hạn) cho một nhiệm vụ đơn lẻ.
+ */
+export async function scheduleQuestTimelineNotifications(
     task: DailyTask,
-    leadMinutes = 30
-): Promise<string | null> {
-    if (Platform.OS === 'web') return null;
-    if (!task.scheduledTime || task.isCompleted) return null;
+    leadMinutes = 15
+): Promise<string[]> {
+    if (Platform.OS === 'web') return [];
+    if (!task.scheduledTime || task.isCompleted) return [];
 
     const [hours, minutes] = task.scheduledTime.split(':').map(Number);
-    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null;
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return [];
 
-    const scheduledDate = new Date();
-    scheduledDate.setHours(hours, minutes, 0, 0);
-    scheduledDate.setMinutes(scheduledDate.getMinutes() - leadMinutes);
+    const now = Date.now();
+    const scheduledIds: string[] = [];
 
-    if (scheduledDate.getTime() <= Date.now()) {
-        return null;
+    const startDate = new Date();
+    startDate.setHours(hours, minutes, 0, 0);
+
+    const preReminderDate = new Date(startDate.getTime() - leadMinutes * 60000);
+    const durationMinutes = task.durationMinutes && task.durationMinutes > 0 ? task.durationMinutes : 15;
+    const overdueDate = new Date(startDate.getTime() + durationMinutes * 60000);
+
+    // Mốc 1: Nhắc trước giờ làm
+    if (preReminderDate.getTime() > now) {
+        try {
+            const id = await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: '⏰ Sắp tới giờ nhiệm vụ!',
+                    body: `Nhiệm vụ "${task.title}" sẽ bắt đầu lúc ${task.scheduledTime}. Chuẩn bị hoàn thành đúng giờ để nhận 100% thưởng nhé!`,
+                    sound: true,
+                    data: { taskId: task._id, type: 'pre_reminder' },
+                },
+                trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.DATE,
+                    date: preReminderDate,
+                    ...(Platform.OS === 'android' ? { channelId: ANDROID_REMINDER_CHANNEL_ID } : {}),
+                },
+            });
+            scheduledIds.push(id);
+        } catch {
+            // ignore
+        }
     }
 
-    return Notifications.scheduleNotificationAsync({
-        content: {
-            title: '⏰ Sắp tới giờ nhiệm vụ!',
-            body: `Nhiệm vụ "${task.title}" sẽ bắt đầu sau ${leadMinutes} phút (lúc ${task.scheduledTime}). Hoàn thành đúng giờ để nhận 100% thưởng nhé!`,
-            sound: true,
-            data: { taskId: task._id },
-        },
-        trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.DATE,
-            date: scheduledDate,
-            ...(Platform.OS === 'android' ? { channelId: ANDROID_REMINDER_CHANNEL_ID } : {}),
-        },
-    });
+    // Mốc 2: Báo đúng giờ bắt đầu
+    if (startDate.getTime() > now) {
+        try {
+            const id = await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: '🚀 Đã tới giờ làm nhiệm vụ!',
+                    body: `Đến giờ thực hiện "${task.title}" (${task.scheduledTime}) rồi. Bắt đầu ngay thôi!`,
+                    sound: true,
+                    data: { taskId: task._id, type: 'start_time' },
+                },
+                trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.DATE,
+                    date: startDate,
+                    ...(Platform.OS === 'android' ? { channelId: ANDROID_REMINDER_CHANNEL_ID } : {}),
+                },
+            });
+            scheduledIds.push(id);
+        } catch {
+            // ignore
+        }
+    }
+
+    // Mốc 3: Báo quá hạn (Overdue)
+    if (overdueDate.getTime() > now) {
+        try {
+            const id = await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: '⚠️ Nhiệm vụ đã quá hạn!',
+                    body: `Nhiệm vụ "${task.title}" (hẹn lúc ${task.scheduledTime}) đã quá hạn! Hãy vào app xác nhận hoàn thành ngay trước khi bị trừ thêm điểm phạt trễ hạn!`,
+                    sound: true,
+                    data: { taskId: task._id, type: 'overdue' },
+                },
+                trigger: {
+                    type: Notifications.SchedulableTriggerInputTypes.DATE,
+                    date: overdueDate,
+                    ...(Platform.OS === 'android' ? { channelId: ANDROID_REMINDER_CHANNEL_ID } : {}),
+                },
+            });
+            scheduledIds.push(id);
+        } catch {
+            // ignore
+        }
+    } else if (now > overdueDate.getTime() && now - overdueDate.getTime() < 2 * 3600 * 1000) {
+        // Mở app khi nhiệm vụ vừa quá hạn trong 2 tiếng qua
+        const todayStr = new Date().toISOString().split('T')[0];
+        const key = `@growary:announced_overdue_task_ids_${todayStr}`;
+        try {
+            const raw = await AsyncStorage.getItem(key);
+            const announced = raw ? (JSON.parse(raw) as string[]) : [];
+            if (task._id && !announced.includes(task._id)) {
+                announced.push(task._id);
+                await AsyncStorage.setItem(key, JSON.stringify(announced));
+                await Notifications.scheduleNotificationAsync({
+                    content: {
+                        title: '⚠️ Nhiệm vụ đã quá hạn!',
+                        body: `Nhiệm vụ "${task.title}" (hẹn lúc ${task.scheduledTime}) đã quá hạn! Hãy xác nhận ngay nhé!`,
+                        sound: true,
+                        data: { taskId: task._id, type: 'overdue_instant' },
+                    },
+                    trigger: null,
+                });
+            }
+        } catch {
+            // ignore
+        }
+    }
+
+    return scheduledIds;
 }
 
 /**
@@ -140,10 +221,7 @@ export async function cancelAllQuestReminders(): Promise<void> {
 }
 
 /**
- * Đặt lại toàn bộ lịch nhắc nhiệm vụ trong ngày + Offline Alarm cố định hằng ngày (21:30 & theo NotificationConfig).
- * @param tasks - Danh sách nhiệm vụ hôm nay
- * @param configsOverride - Danh sách NotificationConfig (nếu không truyền sẽ tự đọc từ cache)
- * @returns Tổng số lịch thông báo đã hẹn thành công
+ * Đặt lại toàn bộ lịch nhắc nhiệm vụ trong ngày (3 mốc Timeline) + Offline Alarm cố định (21:30 & config).
  */
 export async function scheduleAllQuestReminders(
     tasks: DailyTask[],
@@ -159,16 +237,17 @@ export async function scheduleAllQuestReminders(
     const configs = configsOverride ?? (await getCachedNotificationConfigs());
     const activeDailyConfigs = configs.filter((c) => c.isActive && c.targetType === 'daily');
     const leadMinutes =
-        activeDailyConfigs.length > 0 ? Math.max(5, activeDailyConfigs[0].triggerBeforeMinutes) : 30;
+        activeDailyConfigs.length > 0 ? Math.max(5, activeDailyConfigs[0].triggerBeforeMinutes) : 15;
 
     let scheduledCount = 0;
 
     for (const task of tasks) {
-        const id = await scheduleQuestReminder(task, leadMinutes);
-        if (id) scheduledCount++;
+        if (scheduledCount >= MAX_SCHEDULED_NOTIFICATIONS - 5) break;
+        const ids = await scheduleQuestTimelineNotifications(task, leadMinutes);
+        scheduledCount += ids.length;
     }
 
-    // R12: Luôn đặt lại Offline Alarm lặp hằng ngày lúc 21:30 sau khi cancelAll để chạy cả khi Server ngủ đông
+    // Luôn đặt Offline Alarm lặp hằng ngày lúc 21:30 để chạy cả khi Server ngủ đông
     try {
         await Notifications.scheduleNotificationAsync({
             content: {
@@ -185,10 +264,11 @@ export async function scheduleAllQuestReminders(
         });
         scheduledCount++;
     } catch {
-        // ignore if platform does not support repeating daily trigger
+        // ignore
     }
 
     for (const cfg of activeDailyConfigs) {
+        if (scheduledCount >= MAX_SCHEDULED_NOTIFICATIONS) break;
         const totalMinsBeforeMidnight = Math.min(360, Math.max(5, cfg.triggerBeforeMinutes));
         const targetMinuteOfDay = 24 * 60 - totalMinsBeforeMidnight;
         const alarmHour = Math.floor(targetMinuteOfDay / 60);
@@ -218,8 +298,7 @@ export async function scheduleAllQuestReminders(
 }
 
 /**
- * Hiển thị các thông báo mới chưa đọc từ hộp thư Account thành Local Notification trên thanh trạng thái điện thoại.
- * @param notifications - Danh sách thông báo từ máy chủ
+ * Hiển thị các thông báo mới chưa đọc từ hộp thư Account thành Local Notification.
  */
 export async function announceUnreadServerNotifications(
     notifications: Pick<AccountNotificationItem, '_id' | 'title' | 'message' | 'isRead'>[]
@@ -266,8 +345,7 @@ export async function announceUnreadServerNotifications(
 }
 
 /**
- * Gửi một thông báo thử nghiệm sau 5 giây để người dùng kiểm tra trực tiếp trên máy Android.
- * @returns ID lịch hẹn thử nghiệm
+ * Gửi một thông báo thử nghiệm sau 5 giây để kiểm tra kênh thông báo.
  */
 export async function triggerTestNotificationIn5Seconds(): Promise<string> {
     const { granted } = await ensureNotificationChannelAndPermissions();
@@ -291,8 +369,7 @@ export async function triggerTestNotificationIn5Seconds(): Promise<string> {
 }
 
 /**
- * Lấy thông tin chẩn đoán trạng thái quyền, kênh thông báo và số lượng lịch hẹn đang lưu trên máy.
- * @returns Đối tượng chẩn đoán hiển thị trong NotificationDiagnosticsModal
+ * Lấy thông tin chẩn đoán trạng thái thông báo đang hẹn trên máy.
  */
 export async function getScheduledNotificationsDiagnostics(): Promise<{
     permissionStatus: string;

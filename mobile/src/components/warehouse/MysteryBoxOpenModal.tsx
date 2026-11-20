@@ -12,7 +12,11 @@ import {
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { apiService } from '../../services/api';
-import { OpenMysteryBoxResult } from '@shared';
+import { OpenMysteryBoxResult, InventoryItem } from '@shared';
+import { isNetworkOrServerSleepError } from '../../services/serverReachability';
+import { getCachedSnapshot, setCachedSnapshot, SNAPSHOT_KEYS } from '../../services/offlineSnapshotStore';
+import { enqueueOfflineAction } from '../../services/offlineSyncService';
+import { applyOfflineCurrencyDelta } from '../../services/offlineEconomyEngine';
 
 interface MysteryBoxOpenModalProps {
     visible: boolean;
@@ -92,6 +96,55 @@ export const MysteryBoxOpenModal: React.FC<MysteryBoxOpenModalProps> = ({
             if (onSuccess) onSuccess(data);
             setStep('revealed');
         } catch (err: unknown) {
+            if (isNetworkOrServerSleepError(err)) {
+                try {
+                    const invData = (await getCachedSnapshot<{ inventory: InventoryItem[]; vouchers: unknown[]; vipStatus: unknown }>(SNAPSHOT_KEYS.INVENTORY)) || {
+                        inventory: [],
+                        vouchers: [],
+                        vipStatus: null,
+                    };
+                    const boxItem = invData.inventory.find((i) => i.boxId === box.boxId || i.id === box.boxId || i.displayName === box.name);
+                    let rem = Math.max(0, remainingQty - 1);
+                    if (boxItem) {
+                        boxItem.quantity -= 1;
+                        rem = Math.max(0, boxItem.quantity);
+                        if (boxItem.quantity <= 0) {
+                            invData.inventory = invData.inventory.filter((i) => i !== boxItem);
+                        }
+                    }
+                    await setCachedSnapshot(SNAPSHOT_KEYS.INVENTORY, invData);
+
+                    const coinsWon = Math.floor(Math.random() * 50) + 50;
+                    await applyOfflineCurrencyDelta({ coinsDelta: coinsWon });
+
+                    const offlineResult: OpenMysteryBoxResult = {
+                        success: true,
+                        rewardType: 'coins',
+                        rewardName: `${coinsWon} Xu`,
+                        amount: coinsWon,
+                        remainingBoxes: rem,
+                        boxId: box.boxId,
+                        boxName: box.name,
+                    };
+
+                    await enqueueOfflineAction({
+                        type: 'OPEN_MYSTERY_BOX_OFFLINE',
+                        payload: {
+                            boxId: box.boxId,
+                            quantity: 1,
+                            awardedCoins: coinsWon,
+                        },
+                    });
+
+                    setResult(offlineResult);
+                    setRemainingQty(rem);
+                    if (onSuccess) onSuccess(offlineResult);
+                    setStep('revealed');
+                    return;
+                } catch {
+                    // fallback to standard error
+                }
+            }
             setErrorMsg(extractBoxErrorMessage(err));
             setStep('idle');
         }

@@ -1,249 +1,51 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, Modal } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as ImagePicker from 'expo-image-picker';
-import { DailyTask, PenaltyConfig } from '../types';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { DailyTask, PenaltyConfig, DailyPlan } from '../types';
 import { COLORS } from '../theme';
 import { apiService } from '../services/api';
-
-const GREEN_SUCCESS = '#4ADE80';
+import { isServerReachable } from '../services/serverReachability';
+import { applyOfflineTaskCompletion } from '../services/offlineEconomyEngine';
+import { AnimatedQuestCard } from './task/AnimatedQuestCard';
+import {
+    QuestProofModal,
+    launchCameraBase64,
+    launchLibraryBase64,
+} from './task/QuestProofModal';
 
 interface QuestListContentProps {
     tasks: DailyTask[];
     planId: string;
-    onPlanUpdated: (plan: any, grantedRewards?: any, offlineTaskIndex?: number) => void;
+    onPlanUpdated: (plan: DailyPlan | null, grantedRewards?: unknown, offlineTaskIndex?: number) => void;
 }
 
-const getCategoryIcon = (category?: string): keyof typeof MaterialIcons.glyphMap => {
-    const icons: Record<string, keyof typeof MaterialIcons.glyphMap> = {
-        health: 'water-drop',
-        study: 'auto-stories',
-        work: 'calculate',
-        personal: 'self-improvement',
-        household: 'home',
-        other: 'task-alt',
-    };
-    return icons[category || 'other'] || 'task-alt';
-};
-
-const getCategoryColor = (category?: string): string => {
-    const colors: Record<string, string> = {
-        health: '#3B82F6',
-        study: '#EC4899',
-        work: '#9333EA',
-        personal: '#F59E0B',
-        household: '#22C55E',
-        other: '#6366F1',
-    };
-    return colors[category || 'other'] || '#6366F1';
-};
-
-
-// Animated quest card wrapper
-const AnimatedQuestCard: React.FC<{
-    task: DailyTask;
-    index: number;
-    planId: string;
-    onComplete: (index: number, proofUrl: string) => void;
-    onUncomplete: (index: number) => void;
-    onShowProofPicker: (index: number) => void;
-    currentTime: Date;
-    penaltyConfig: PenaltyConfig | null;
-    isGlobalLoading: boolean;
-}> = ({ task, index, planId, onComplete, onUncomplete, onShowProofPicker, currentTime, penaltyConfig, isGlobalLoading }) => {
-    const flashAnim = useRef(new Animated.Value(0)).current;
-    const [justCompleted, setJustCompleted] = useState(false);
-
-    useEffect(() => {
-        if (justCompleted) {
-            Animated.sequence([
-                Animated.timing(flashAnim, { toValue: 1, duration: 300, useNativeDriver: false }),
-                Animated.timing(flashAnim, { toValue: 0, duration: 500, useNativeDriver: false }),
-            ]).start(() => setJustCompleted(false));
-        }
-    }, [justCompleted]);
-
-    const borderColor = flashAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['rgba(255,255,255,0.3)', GREEN_SUCCESS],
-    });
-
-    const iconName = getCategoryIcon(task.category);
-    const iconColor = getCategoryColor(task.category);
-    const isPending = task.adminApprovalStatus === 'pending';
-
-    let displayCoin = task.coinReward ?? 5;
-    let displayXp = task.pointsReward;
-    let latePercentage = 0;
-
-    if (task.scheduledTime && currentTime && penaltyConfig && !task.isCompleted && !isPending) {
-        const [h, m] = task.scheduledTime.split(':').map(Number);
-        const scheduledDate = new Date(currentTime);
-        scheduledDate.setHours(h, m, 0, 0);
-
-        if (task.durationMinutes) {
-            scheduledDate.setMinutes(scheduledDate.getMinutes() + task.durationMinutes);
-        }
-
-        const diffMinutes = Math.floor((currentTime.getTime() - scheduledDate.getTime()) / 60000);
-
-        if (diffMinutes >= 15 && penaltyConfig.lateThresholds && penaltyConfig.lateThresholds.length > 0) {
-            // Find the highest threshold that diffMinutes has exceeded
-            let applicableThreshold: { thresholdMinutes: number; deductionPercentage: number } | null = null;
-
-            for (const t of penaltyConfig.lateThresholds) {
-                if (diffMinutes >= t.thresholdMinutes) {
-                    if (!applicableThreshold || t.thresholdMinutes > applicableThreshold.thresholdMinutes) {
-                        applicableThreshold = t;
-                    }
-                }
-            }
-
-            if (applicableThreshold) {
-                latePercentage = applicableThreshold.deductionPercentage;
-                displayCoin = Math.max(0, Math.floor((task.coinReward ?? 5) * (1 - latePercentage / 100)));
-                displayXp = Math.max(0, Math.floor(task.pointsReward * (1 - latePercentage / 100)));
-            }
-        }
-    }
-
-    if (task.isCompleted) {
-        return null; // Completed tasks rendered separately at bottom
-    }
-
-    return (
-        <Animated.View style={[styles.clayCard, { borderColor: borderColor as any, borderWidth: 2 }]}>
-            <View style={styles.cardHeader}>
-                <View style={styles.cardLeft}>
-                    <View style={[styles.iconBox, { backgroundColor: 'rgba(255,255,255,0.3)' }]}>
-                        <MaterialIcons name={iconName} size={24} color={iconColor} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                        <Text style={styles.cardTitle}>{task.title}</Text>
-                        <Text style={styles.cardSubtitle}>
-                            {task.scheduledTime ? `🕐 ${task.scheduledTime}` : (task.category || 'Quest')}
-                        </Text>
-                    </View>
-                </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={styles.rewardBadge}>
-                        {latePercentage > 0 ? (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                                <Text style={[styles.rewardText, { textDecorationLine: 'line-through', opacity: 0.5 }]}>
-                                    {task.coinReward ?? 5} G
-                                </Text>
-                                <Text style={[styles.rewardText, { color: '#B45309' }]}>
-                                    +{displayCoin} G
-                                </Text>
-                            </View>
-                        ) : (
-                            <Text style={styles.rewardText}>+{displayCoin} G</Text>
-                        )}
-                    </View>
-                    {latePercentage > 0 && (
-                        <View style={{ backgroundColor: '#FEF2F2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8, borderWidth: 1, borderColor: '#FCA5A5' }}>
-                            <Text style={{ fontSize: 10, color: '#EF4444', fontWeight: 'bold' }}>-{latePercentage}% Trễ</Text>
-                        </View>
-                    )}
-                </View>
-            </View>
-
-            {isPending && (
-                <View style={styles.pendingBanner}>
-                    <MaterialIcons name="hourglass-empty" size={14} color="#B45309" />
-                    <Text style={styles.pendingText}>Chờ admin duyệt</Text>
-                </View>
-            )}
-
-            {task.penaltyStatus && task.penaltyStatus !== 'none' && (
-                <View style={[styles.pendingBanner, { backgroundColor: '#FEF2F2' }]}>
-                    <MaterialIcons name="warning" size={14} color="#EF4444" />
-                    <Text style={[styles.pendingText, { color: '#EF4444' }]}>
-                        {task.penaltyStatus === 'late' ? 'Nộp trễ hạn' : 'Đã bỏ lỡ'} (-{task.penaltyAmount || 0} 🪙)
-                    </Text>
-                </View>
-            )}
-
-            <View style={styles.cardFooter}>
-                <View style={styles.xpBadge}>
-                    {latePercentage > 0 ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                            <Text style={[styles.xpBadgeText, { textDecorationLine: 'line-through', opacity: 0.5 }]}>
-                                ⚡ {task.pointsReward} XP
-                            </Text>
-                            <Text style={[styles.xpBadgeText, { color: '#B45309' }]}>
-                                ⚡ {displayXp} XP
-                            </Text>
-                        </View>
-                    ) : (
-                        <Text style={styles.xpBadgeText}>⚡ {displayXp} XP</Text>
-                    )}
-                </View>
-
-                {!isPending && (
-                    <TouchableOpacity
-                        style={[styles.actionBtn, isGlobalLoading && { opacity: 0.5 }]}
-                        onPress={() => onShowProofPicker(index)}
-                        disabled={isGlobalLoading}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={styles.actionBtnText}>📸 Hoàn thành</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-        </Animated.View>
-    );
-};
-
-// Image picker helpers
-const launchCamera = async (): Promise<string | null> => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-        Alert.alert('Lỗi', 'Cần quyền camera để chụp ảnh.');
-        return null;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-        quality: 0.6, base64: true, allowsEditing: false,
-    });
-    if (!result.canceled && result.assets[0].base64) {
-        return `data:image/jpeg;base64,${result.assets[0].base64}`;
-    }
-    return null;
-};
-
-const launchLibrary = async (): Promise<string | null> => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-        Alert.alert('Lỗi', 'Cần quyền truy cập thư viện ảnh.');
-        return null;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-        quality: 0.6, base64: true, allowsEditing: false, aspect: [1, 1],
-    });
-    if (!result.canceled && result.assets[0].base64) {
-        return `data:image/jpeg;base64,${result.assets[0].base64}`;
-    }
-    return null;
-};
-
-const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPlanUpdated }) => {
+export const QuestListContent: React.FC<QuestListContentProps> = ({
+    tasks,
+    planId,
+    onPlanUpdated,
+}) => {
     const [loadingIndex, setLoadingIndex] = useState<number | null>(null);
     const [proofPreview, setProofPreview] = useState<string | null>(null);
-    const [celebrationData, setCelebrationData] = useState<{ title: string; xp: number; coin: number; isLate: boolean; latePercentage: number } | null>(null);
     const [proofPickerIndex, setProofPickerIndex] = useState<number | null>(null);
-    const celebrationScale = useRef(new Animated.Value(0)).current;
+    const [celebrationData, setCelebrationData] = useState<{
+        title: string;
+        xp: number;
+        coin: number;
+        isLate: boolean;
+        latePercentage: number;
+    } | null>(null);
 
     const [currentTime, setCurrentTime] = useState<Date>(new Date());
     const [penaltyConfig, setPenaltyConfig] = useState<PenaltyConfig | null>(null);
 
     useEffect(() => {
-        apiService.getPenaltyConfig().then((data) => {
-            if (data.config) setPenaltyConfig(data.config);
-        }).catch(err => console.log('Failed to fetch penalty config', err));
+        apiService
+            .getPenaltyConfig()
+            .then((data) => {
+                if (data.config) setPenaltyConfig(data.config);
+            })
+            .catch(() => {});
 
-        const timer = setInterval(() => setCurrentTime(new Date()), 30000); // Check every 30s
+        const timer = setInterval(() => setCurrentTime(new Date()), 30000);
         return () => clearInterval(timer);
     }, []);
 
@@ -254,73 +56,137 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
         return a.scheduledTime.localeCompare(b.scheduledTime);
     });
 
-    const activeTasks = sortedTasks.filter(t => !t.isCompleted);
-    const completedTasks = sortedTasks.filter(t => t.isCompleted);
+    const activeTasks = sortedTasks.filter((t) => !t.isCompleted);
 
-    const handleProofPick = async (source: 'camera' | 'library') => {
-        const idx = proofPickerIndex;
-        setProofPickerIndex(null);
-        if (idx === null) return;
-        const base64 = source === 'camera' ? await launchCamera() : await launchLibrary();
-        if (base64) handleComplete(idx, base64);
-    };
+    const executeTaskCompletion = async (
+        index: number,
+        base64Image?: string
+    ): Promise<void> => {
+        const taskToComplete = activeTasks[index];
+        const realIndex = tasks.findIndex((t) => t._id === taskToComplete?._id);
+        if (realIndex === -1) return;
 
-    const showCelebration = (title: string, xp: number, coin: number, isLate: boolean, latePercentage: number) => {
-        setCelebrationData({ title, xp, coin, isLate, latePercentage });
-        celebrationScale.setValue(0);
-        Animated.spring(celebrationScale, {
-            toValue: 1,
-            friction: 4,
-            tension: 60,
-            useNativeDriver: true,
-        }).start();
-    };
-
-    const closeCelebration = () => {
-        Animated.timing(celebrationScale, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-        }).start(() => setCelebrationData(null));
-    };
-
-    const handleComplete = async (index: number, base64Image: string) => {
         setLoadingIndex(index);
         try {
-            const taskToComplete = activeTasks[index];
-            const realIndex = tasks.findIndex(t => t._id === taskToComplete?._id);
-            if (realIndex === -1) return;
+            // If server is not reachable, complete immediately offline (< 50ms)
+            if (!isServerReachable()) {
+                const currentPlan: DailyPlan = {
+                    _id: planId,
+                    tasks: [...tasks],
+                } as DailyPlan;
 
-            const res = await apiService.completeTaskWithProofOfflineSafe(planId, realIndex, base64Image);
+                const { updatedPlan, optimisticRewards } = await applyOfflineTaskCompletion({
+                    plan: currentPlan,
+                    taskIndex: realIndex,
+                    proofImageBase64: base64Image,
+                });
+
+                onPlanUpdated(updatedPlan, optimisticRewards, realIndex);
+                setCelebrationData({
+                    title: taskToComplete.title,
+                    xp: optimisticRewards.xp,
+                    coin: optimisticRewards.coins,
+                    isLate: optimisticRewards.isLate,
+                    latePercentage: optimisticRewards.latePercentage,
+                });
+                return;
+            }
+
+            // Try online completion with safe offline fallback
+            const res = await apiService.completeTaskWithProofOfflineSafe(
+                planId,
+                realIndex,
+                base64Image
+            );
+
             if (res.offlineQueued) {
-                onPlanUpdated(null, undefined, realIndex);
-                Alert.alert('Chế độ ngoại tuyến', 'Đã lưu tiến độ hoàn thành. Hệ thống sẽ tự động đồng bộ khi có kết nối mạng!');
+                const currentPlan: DailyPlan = {
+                    _id: planId,
+                    tasks: [...tasks],
+                } as DailyPlan;
+
+                const { updatedPlan, optimisticRewards } = await applyOfflineTaskCompletion({
+                    plan: currentPlan,
+                    taskIndex: realIndex,
+                    proofImageBase64: base64Image,
+                });
+
+                onPlanUpdated(updatedPlan, optimisticRewards, realIndex);
+                setCelebrationData({
+                    title: taskToComplete.title,
+                    xp: optimisticRewards.xp,
+                    coin: optimisticRewards.coins,
+                    isLate: optimisticRewards.isLate,
+                    latePercentage: optimisticRewards.latePercentage,
+                });
                 return;
             }
 
             const { plan, grantedRewards } = res;
             if (plan) onPlanUpdated(plan, grantedRewards);
 
-            // Show celebration using the ACTUAL granted rewards from backend (which includes penalties)
-            const actualXp = grantedRewards?.questXp !== undefined ? grantedRewards.questXp : (grantedRewards?.xp !== undefined ? grantedRewards.xp : taskToComplete.pointsReward);
-            const actualCoin = grantedRewards?.questCoins !== undefined ? grantedRewards.questCoins : (grantedRewards?.coins || (taskToComplete.coinReward ?? 5));
-            const isLate = grantedRewards?.isLate || false;
-            const latePercentage = grantedRewards?.latePercentage || 0;
+            const granted = grantedRewards as Record<string, unknown> | undefined;
+            const actualXp =
+                typeof granted?.questXp === 'number'
+                    ? granted.questXp
+                    : typeof granted?.xp === 'number'
+                    ? granted.xp
+                    : taskToComplete.pointsReward;
+            const actualCoin =
+                typeof granted?.questCoins === 'number'
+                    ? granted.questCoins
+                    : typeof granted?.coins === 'number'
+                    ? granted.coins
+                    : taskToComplete.coinReward ?? 5;
+            const isLate = Boolean(granted?.isLate);
+            const latePercentage = typeof granted?.latePercentage === 'number' ? granted.latePercentage : 0;
 
-            showCelebration(taskToComplete.title, actualXp, actualCoin, isLate, latePercentage);
-        } catch (error: any) {
-            Alert.alert('Lỗi', error.response?.data?.error || 'Không thể hoàn thành quest.');
+            setCelebrationData({
+                title: taskToComplete.title,
+                xp: actualXp,
+                coin: actualCoin,
+                isLate,
+                latePercentage,
+            });
+        } catch (error: unknown) {
+            // On unexpected network catch, complete offline safely
+            const currentPlan: DailyPlan = {
+                _id: planId,
+                tasks: [...tasks],
+            } as DailyPlan;
+
+            const { updatedPlan, optimisticRewards } = await applyOfflineTaskCompletion({
+                plan: currentPlan,
+                taskIndex: realIndex,
+                proofImageBase64: base64Image,
+            });
+
+            onPlanUpdated(updatedPlan, optimisticRewards, realIndex);
+            setCelebrationData({
+                title: taskToComplete.title,
+                xp: optimisticRewards.xp,
+                coin: optimisticRewards.coins,
+                isLate: optimisticRewards.isLate,
+                latePercentage: optimisticRewards.latePercentage,
+            });
         } finally {
             setLoadingIndex(null);
         }
     };
 
-    const handleUncomplete = async (index: number) => {
-        try {
-            const { plan } = await apiService.completeTask(planId, index, false);
-            onPlanUpdated(plan, undefined);
-        } catch (error: any) {
-            Alert.alert('Lỗi', error.response?.data?.error || 'Không thể hoàn tác.');
+    const handleSelectProofSource = async (source: 'camera' | 'library' | 'none') => {
+        const idx = proofPickerIndex;
+        setProofPickerIndex(null);
+        if (idx === null) return;
+
+        if (source === 'none') {
+            await executeTaskCompletion(idx);
+            return;
+        }
+
+        const base64 = source === 'camera' ? await launchCameraBase64() : await launchLibraryBase64();
+        if (base64) {
+            await executeTaskCompletion(idx, base64);
         }
     };
 
@@ -329,42 +195,33 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
             <View style={styles.emptyState}>
                 <Text style={styles.emptyIcon}>📋</Text>
                 <Text style={styles.emptyTitle}>Chưa có quest hôm nay</Text>
-                <Text style={styles.emptySubtitle}>
-                    Nhấn nút + để thêm việc cho ngày mai
-                </Text>
+                <Text style={styles.emptySubtitle}>Nhấn nút + để thêm việc cho ngày mai</Text>
             </View>
         );
     }
 
     return (
         <View>
-            {/* Section Header */}
             <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Daily Quests</Text>
                 <View style={styles.timerBadge}>
-                    <Text style={styles.timerText}>
-                        {activeTasks.length} còn lại
-                    </Text>
+                    <Text style={styles.timerText}>{activeTasks.length} còn lại</Text>
                 </View>
             </View>
 
-            {/* Loading overlay */}
             {loadingIndex !== null && (
                 <View style={styles.loadingOverlay}>
                     <ActivityIndicator size="small" color={COLORS.clayAccent2} />
-                    <Text style={styles.loadingText}>Đang upload ảnh...</Text>
+                    <Text style={styles.loadingText}>Đang lưu tiến độ...</Text>
                 </View>
             )}
 
-            {/* Active Quest Cards */}
             {activeTasks.map((task, index) => (
                 <AnimatedQuestCard
                     key={task._id || `active-${index}`}
                     task={task}
                     index={index}
                     planId={planId}
-                    onComplete={handleComplete}
-                    onUncomplete={handleUncomplete}
                     onShowProofPicker={(i) => setProofPickerIndex(i)}
                     currentTime={currentTime}
                     penaltyConfig={penaltyConfig}
@@ -372,141 +229,25 @@ const QuestListContent: React.FC<QuestListContentProps> = ({ tasks, planId, onPl
                 />
             ))}
 
-
-
-            {/* Proof Image Preview Modal */}
-            <Modal visible={!!proofPreview} transparent animationType="fade">
-                <TouchableOpacity
-                    style={styles.proofOverlay}
-                    activeOpacity={1}
-                    onPress={() => setProofPreview(null)}
-                >
-                    <View style={styles.proofContainer}>
-                        <Text style={styles.proofTitle}>📸 Bằng chứng</Text>
-                        {proofPreview && (
-                            <Image source={{ uri: proofPreview }} style={styles.proofImage} resizeMode="contain" />
-                        )}
-                        <TouchableOpacity style={styles.proofCloseBtn} onPress={() => setProofPreview(null)}>
-                            <Text style={styles.proofCloseText}>Đóng</Text>
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
-
-            {/* 🎉 Celebration Modal */}
-            <Modal visible={!!celebrationData} transparent animationType="fade">
-                <View style={styles.celebrationOverlay}>
-                    <Animated.View style={[
-                        styles.celebrationCard,
-                        { transform: [{ scale: celebrationScale }] },
-                    ]}>
-                        <LinearGradient
-                            colors={[COLORS.clayCard, COLORS.clayAccent1]}
-                            style={styles.celebrationGradient}
-                        >
-                            <Text style={styles.celebrationEmoji}>🎉</Text>
-                            <Text style={styles.celebrationTitle}>Quest hoàn thành!</Text>
-                            <Text style={styles.celebrationQuestName}>
-                                {celebrationData?.title}
-                            </Text>
-
-                            <View style={styles.celebrationXpRow}>
-                                <View style={styles.celebrationXpBadge}>
-                                    <Text style={styles.celebrationXpText}>
-                                        +{celebrationData?.xp} XP
-                                    </Text>
-                                </View>
-                                <View style={[styles.celebrationXpBadge, { marginTop: 8, backgroundColor: 'rgba(254,240,138,0.5)', borderColor: 'rgba(234,179,8,0.5)' }]}>
-                                    <Text style={[styles.celebrationXpText, { color: '#92400E' }]}>
-                                        +{celebrationData?.coin} 🪙
-                                    </Text>
-                                </View>
-                            </View>
-
-                            {celebrationData?.isLate && (
-                                <View style={{ backgroundColor: '#FEF2F2', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: '#FCA5A5', marginBottom: 12 }}>
-                                    <Text style={{ fontSize: 12, color: '#EF4444', fontWeight: 'bold', textAlign: 'center' }}>⏰ Trễ hạn: -{celebrationData.latePercentage}% phạt</Text>
-                                </View>
-                            )}
-
-                            <View style={styles.celebrationStars}>
-                                {['⭐', '🌟', '⭐'].map((star, i) => (
-                                    <Text key={i} style={{ fontSize: 24, marginHorizontal: 4 }}>{star}</Text>
-                                ))}
-                            </View>
-
-                            <TouchableOpacity
-                                style={styles.celebrationBtn}
-                                onPress={closeCelebration}
-                                activeOpacity={0.8}
-                            >
-                                <Text style={styles.celebrationBtnText}>Tuyệt vời! 🚀</Text>
-                            </TouchableOpacity>
-                        </LinearGradient>
-                    </Animated.View>
-                </View>
-            </Modal>
-
-            {/* 📸 Proof Picker Modal */}
-            <Modal visible={proofPickerIndex !== null} transparent animationType="slide">
-                <TouchableOpacity
-                    style={styles.pickerOverlay}
-                    activeOpacity={1}
-                    onPress={() => setProofPickerIndex(null)}
-                >
-                    <View style={styles.pickerSheet}>
-                        <View style={styles.pickerHandle} />
-                        <Text style={styles.pickerTitle}>📸 Gửi bằng chứng</Text>
-                        <Text style={styles.pickerSubtitle}>
-                            Chụp ảnh hoặc chọn từ thư viện để xác nhận hoàn thành quest
-                        </Text>
-
-                        <View style={styles.pickerButtons}>
-                            <TouchableOpacity
-                                style={styles.pickerBtn}
-                                activeOpacity={0.7}
-                                onPress={() => handleProofPick('camera')}
-                            >
-                                <View style={[styles.pickerIconBox, { backgroundColor: 'rgba(251,155,143,0.15)' }]}>
-                                    <MaterialIcons name="photo-camera" size={28} color={COLORS.clayAccent1} />
-                                </View>
-                                <Text style={styles.pickerBtnTitle}>Chụp ảnh</Text>
-                                <Text style={styles.pickerBtnSub}>Mở camera</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={styles.pickerBtn}
-                                activeOpacity={0.7}
-                                onPress={() => handleProofPick('library')}
-                            >
-                                <View style={[styles.pickerIconBox, { backgroundColor: 'rgba(245,119,153,0.12)' }]}>
-                                    <MaterialIcons name="photo-library" size={28} color={COLORS.clayAccent2} />
-                                </View>
-                                <Text style={styles.pickerBtnTitle}>Thư viện</Text>
-                                <Text style={styles.pickerBtnSub}>Chọn ảnh có sẵn</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity
-                            style={styles.pickerCancelBtn}
-                            onPress={() => setProofPickerIndex(null)}
-                        >
-                            <Text style={styles.pickerCancelText}>Hủy</Text>
-                        </TouchableOpacity>
-                    </View>
-                </TouchableOpacity>
-            </Modal>
+            <QuestProofModal
+                pickerIndex={proofPickerIndex}
+                onClosePicker={() => setProofPickerIndex(null)}
+                onSelectProof={handleSelectProofSource}
+                celebrationData={celebrationData}
+                onCloseCelebration={() => setCelebrationData(null)}
+                proofPreviewUrl={proofPreview}
+                onCloseProofPreview={() => setProofPreview(null)}
+            />
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    // Section Header
     sectionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 16,
         paddingHorizontal: 24,
     },
     sectionTitle: {
@@ -527,14 +268,12 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: COLORS.clayAccent2,
     },
-
-    // Loading
     loadingOverlay: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 8,
-        paddingVertical: 12,
+        paddingVertical: 10,
         marginHorizontal: 20,
         marginBottom: 12,
         backgroundColor: 'rgba(255,255,255,0.7)',
@@ -546,409 +285,25 @@ const styles = StyleSheet.create({
         color: COLORS.clayText,
         opacity: 0.7,
     },
-
-    // Clay Card
-    clayCard: {
-        backgroundColor: COLORS.clayCard,
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 20,
-        marginHorizontal: 20,
-        borderWidth: 2,
-        borderColor: COLORS.whiteOp,
-        shadowColor: '#A68A64',
-        shadowOffset: { width: 6, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 16,
-    },
-    cardLeft: {
-        flexDirection: 'row',
-        gap: 16,
-        flex: 1,
-    },
-    iconBox: {
-        width: 48,
-        height: 48,
-        borderRadius: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.whiteOp,
-    },
-    cardTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#FFF',
-        textShadowColor: 'rgba(0,0,0,0.1)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 2,
-    },
-    cardSubtitle: {
-        fontSize: 12,
-        fontWeight: '500',
-        color: 'rgba(93, 64, 55, 0.7)',
-        marginTop: 4,
-    },
-    rewardBadge: {
-        backgroundColor: '#FEF08A',
-        borderColor: '#FEF08A',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 8,
-        borderWidth: 1,
-    },
-    rewardText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#6a7306ff',
-    },
-
-    // Pending banner
-    pendingBanner: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: '#FFFBEB',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 10,
-        marginBottom: 12,
-    },
-    pendingText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#B45309',
-    },
-
-    // Card Footer
-    cardFooter: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    xpBadge: {
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        borderColor: '#22C55E',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
-        borderWidth: 1,
-    },
-    xpBadgeText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#22C55E',
-    },
-    actionBtn: {
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-    },
-    actionBtnText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: COLORS.clayAccent2,
-    },
-
-    // Completed Section
-    completedSection: {
-        marginHorizontal: 20,
-        marginTop: 4,
-        backgroundColor: 'rgba(255,255,255,0.4)',
-        borderRadius: 20,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
-    },
-    completedHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 12,
-    },
-    completedHeaderText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        opacity: 0.7,
-    },
-    completedRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(93,64,55,0.06)',
-    },
-    completedRowLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        flex: 1,
-    },
-    completedRowTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: COLORS.clayText,
-        opacity: 0.5,
-        textDecorationLine: 'line-through',
-        flex: 1,
-    },
-    completedRowRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    completedXp: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: GREEN_SUCCESS,
-    },
-
-    // Proof Preview Modal
-    proofOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    proofContainer: {
-        backgroundColor: COLORS.warmBg,
-        borderRadius: 24,
-        padding: 20,
-        width: '85%',
-        alignItems: 'center',
-    },
-    proofTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        marginBottom: 12,
-    },
-    proofImage: {
-        width: '100%',
-        height: 280,
-        borderRadius: 16,
-        marginBottom: 16,
-    },
-    proofCloseBtn: {
-        backgroundColor: COLORS.clayAccent2,
-        paddingVertical: 10,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-    },
-    proofCloseText: {
-        color: '#FFF',
-        fontWeight: 'bold',
-        fontSize: 14,
-    },
-
-    // 🎉 Celebration Modal
-    celebrationOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    celebrationCard: {
-        width: '80%',
-        borderRadius: 28,
-        overflow: 'hidden',
-        shadowColor: COLORS.clayAccent1,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.5,
-        shadowRadius: 16,
-        elevation: 12,
-    },
-    celebrationGradient: {
-        padding: 32,
-        alignItems: 'center',
-        borderWidth: 2,
-        borderColor: 'rgba(255,255,255,0.4)',
-        borderRadius: 28,
-    },
-    celebrationEmoji: {
-        fontSize: 56,
-        marginBottom: 12,
-    },
-    celebrationTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#FFF',
-        textShadowColor: 'rgba(0,0,0,0.15)',
-        textShadowOffset: { width: 1, height: 1 },
-        textShadowRadius: 3,
-        marginBottom: 8,
-    },
-    celebrationQuestName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: 'rgba(93,64,55,0.8)',
-        textAlign: 'center',
-        marginBottom: 16,
-    },
-    celebrationXpRow: {
-        marginBottom: 16,
-    },
-    celebrationXpBadge: {
-        backgroundColor: 'rgba(255,255,255,0.4)',
-        paddingHorizontal: 20,
-        paddingVertical: 8,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
-    },
-    celebrationXpText: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-    },
-    celebrationStars: {
-        flexDirection: 'row',
-        marginBottom: 20,
-    },
-    celebrationBtn: {
-        backgroundColor: 'rgba(255,255,255,0.9)',
-        paddingVertical: 12,
-        paddingHorizontal: 32,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-    },
-    celebrationBtnText: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: COLORS.clayAccent2,
-    },
-
-    // Proof Picker Modal
-    pickerOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'flex-end',
-    },
-    pickerSheet: {
-        backgroundColor: COLORS.warmBg,
-        borderTopLeftRadius: 28,
-        borderTopRightRadius: 28,
-        padding: 24,
-        paddingBottom: 40,
-        alignItems: 'center',
-        borderTopWidth: 2,
-        borderLeftWidth: 1,
-        borderRightWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
-    },
-    pickerHandle: {
-        width: 40,
-        height: 5,
-        borderRadius: 3,
-        backgroundColor: 'rgba(93,64,55,0.15)',
-        marginBottom: 16,
-    },
-    pickerTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        marginBottom: 6,
-    },
-    pickerSubtitle: {
-        fontSize: 13,
-        color: COLORS.clayText,
-        opacity: 0.5,
-        textAlign: 'center',
-        marginBottom: 24,
-    },
-    pickerButtons: {
-        flexDirection: 'row',
-        gap: 16,
-        marginBottom: 20,
-        width: '100%',
-    },
-    pickerBtn: {
-        flex: 1,
-        backgroundColor: '#FFFDF5',
-        borderRadius: 20,
-        padding: 20,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.6)',
-        shadowColor: '#D29664',
-        shadowOffset: { width: 4, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    pickerIconBox: {
-        width: 56,
-        height: 56,
-        borderRadius: 18,
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
-    },
-    pickerBtnTitle: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-        marginBottom: 2,
-    },
-    pickerBtnSub: {
-        fontSize: 11,
-        color: COLORS.clayText,
-        opacity: 0.4,
-    },
-    pickerCancelBtn: {
-        paddingVertical: 12,
-        paddingHorizontal: 40,
-        borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.6)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.5)',
-    },
-    pickerCancelText: {
-        fontSize: 15,
-        fontWeight: '600',
-        color: COLORS.clayText,
-        opacity: 0.6,
-    },
-
-    // Empty State
     emptyState: {
-        justifyContent: 'center',
         alignItems: 'center',
-        padding: 40,
+        justifyContent: 'center',
+        paddingVertical: 48,
+        paddingHorizontal: 24,
     },
     emptyIcon: {
-        fontSize: 56,
-        marginBottom: 16,
+        fontSize: 48,
+        marginBottom: 12,
     },
     emptyTitle: {
         fontSize: 18,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.clayText,
-        marginBottom: 8,
+        marginBottom: 4,
     },
     emptySubtitle: {
         fontSize: 14,
-        color: COLORS.clayText,
-        opacity: 0.5,
+        color: 'rgba(93, 64, 55, 0.6)',
         textAlign: 'center',
     },
 });
-
-export default React.memo(QuestListContent);

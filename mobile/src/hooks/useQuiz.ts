@@ -5,9 +5,19 @@ import {
     QuizAnswerResult,
     QuizCompleteResult,
     QuizLeaderboardResponse,
+    OfflineQuizPackResponse,
+    OfflineQuizTopicBundle,
+    OfflineQuizAttemptSyncPayload,
 } from '@shared';
 import { quizService } from '../services/quizService';
 import { showApiError } from '../utils/errorHandler';
+import { isNetworkOrServerSleepError } from '../services/serverReachability';
+import { getCachedSnapshot, setCachedSnapshot, SNAPSHOT_KEYS } from '../services/offlineSnapshotStore';
+import {
+    initOfflineQuizSession,
+    verifyOfflineAnswer,
+    completeOfflineQuizAttempt,
+} from '../utils/quizOfflineEngine';
 
 export type QuizPhase = 'loading' | 'lobby' | 'countdown' | 'question' | 'answer_reveal' | 'result';
 
@@ -60,6 +70,12 @@ export function useQuiz(): UseQuizReturn {
     const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const transitionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isMountedRef = useRef<boolean>(true);
+    const offlineContextRef = useRef<{
+        packBundle: OfflineQuizTopicBundle;
+        answers: OfflineQuizAttemptSyncPayload['answers'];
+        startedAt: string;
+        eventId: string;
+    } | null>(null);
 
     const clearTimers = useCallback(() => {
         if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null; }
@@ -69,14 +85,32 @@ export function useQuiz(): UseQuizReturn {
     const fetchStatus = useCallback(async () => {
         try {
             setIsBusy(true);
-            const res = await quizService.getStatus();
-            if (isMountedRef.current) { setStatus(res); setPhase('lobby'); }
+            const cachedStatus = await getCachedSnapshot<QuizStatusResponse>(SNAPSHOT_KEYS.QUIZ_STATUS);
+            if (cachedStatus && isMountedRef.current && !status) {
+                setStatus(cachedStatus);
+                setPhase('lobby');
+            }
+            const [res, packRes] = await Promise.allSettled([
+                quizService.getStatus(),
+                quizService.getOfflinePack(),
+            ]);
+            if (res.status === 'fulfilled' && isMountedRef.current) {
+                setStatus(res.value);
+                setPhase('lobby');
+                await setCachedSnapshot(SNAPSHOT_KEYS.QUIZ_STATUS, res.value);
+            }
+            if (packRes.status === 'fulfilled') {
+                await setCachedSnapshot(SNAPSHOT_KEYS.QUIZ_OFFLINE_PACK, packRes.value);
+            }
         } catch (error) {
-            if (isMountedRef.current) { showApiError(error, 'Không thể tải trạng thái trắc nghiệm'); setPhase('lobby'); }
+            if (isMountedRef.current) {
+                setPhase('lobby');
+                if (!status) showApiError(error, 'Không thể tải trạng thái trắc nghiệm');
+            }
         } finally {
             if (isMountedRef.current) setIsBusy(false);
         }
-    }, []);
+    }, [status]);
 
     useEffect(() => {
         isMountedRef.current = true;
@@ -127,12 +161,39 @@ export function useQuiz(): UseQuizReturn {
         const timeSpent = Math.max(0, Math.min(DEFAULT_QUESTION_TIME_SEC, rawElapsed));
 
         try {
-            const res = await quizService.submitAnswer({
-                attemptId: currentSession.attemptId,
-                questionId: currentQuestion._id,
-                selectedIndex: optionIndex,
-                timeSpent,
-            });
+            let res: QuizAnswerResult;
+            if (offlineContextRef.current) {
+                const offCtx = offlineContextRef.current;
+                const qItem = offCtx.packBundle.questions.find((q) => q._id === currentQuestion._id);
+                const check = qItem
+                    ? await verifyOfflineAnswer(qItem, optionIndex, timeSpent, streakCount)
+                    : {
+                          answerResult: {
+                              isCorrect: optionIndex >= 0,
+                              correctIndex: optionIndex >= 0 ? optionIndex : 0,
+                              isTimeout: optionIndex === -1,
+                              streakCount: optionIndex >= 0 ? streakCount + 1 : 0,
+                              speedBonusCoins: 0,
+                              streakBonusCoins: 0,
+                              alreadyAnswered: false,
+                          },
+                          updatedStreak: optionIndex >= 0 ? streakCount + 1 : 0,
+                      };
+                offCtx.answers.push({
+                    questionId: currentQuestion._id,
+                    selectedIndex: optionIndex,
+                    timeSpent,
+                });
+                res = check.answerResult;
+            } else {
+                res = await quizService.submitAnswer({
+                    attemptId: currentSession.attemptId,
+                    questionId: currentQuestion._id,
+                    selectedIndex: optionIndex,
+                    timeSpent,
+                });
+            }
+
             if (!isMountedRef.current) return;
             setLastAnswer(res);
             setStreakCount(res.streakCount);
@@ -146,11 +207,24 @@ export function useQuiz(): UseQuizReturn {
                 } else {
                     try {
                         setIsBusy(true);
-                        const completeRes = await quizService.completeAttempt(currentSession.attemptId);
+                        let completeRes: QuizCompleteResult;
+                        if (offlineContextRef.current) {
+                            const offCtx = offlineContextRef.current;
+                            completeRes = await completeOfflineQuizAttempt({
+                                eventId: offCtx.eventId,
+                                topicId: offCtx.packBundle.topic._id,
+                                answers: offCtx.answers,
+                                packBundle: offCtx.packBundle,
+                                startedAt: offCtx.startedAt,
+                            });
+                            offlineContextRef.current = null;
+                        } else {
+                            completeRes = await quizService.completeAttempt(currentSession.attemptId);
+                            quizService.getStatus().then((st) => { if (isMountedRef.current) setStatus(st); }).catch(() => undefined);
+                        }
                         if (isMountedRef.current) {
                             setResult(completeRes);
                             setPhase('result');
-                            quizService.getStatus().then((st) => { if (isMountedRef.current) setStatus(st); }).catch(() => undefined);
                         }
                     } catch (err) {
                         if (isMountedRef.current) showApiError(err, 'Không thể hoàn thành lượt chơi');
@@ -162,7 +236,7 @@ export function useQuiz(): UseQuizReturn {
         } catch (error) {
             if (isMountedRef.current) { showApiError(error, 'Không thể gửi đáp án'); isSubmittingRef.current = false; }
         }
-    }, [clearTimers, startQuestion]);
+    }, [clearTimers, startQuestion, streakCount]);
 
     const answer = useCallback(async (index: number) => {
         await submitAnswerInternal(index);
@@ -172,7 +246,30 @@ export function useQuiz(): UseQuizReturn {
         if (isBusy) return;
         try {
             setIsBusy(true);
-            const newSession = await quizService.startAttempt();
+            let newSession: QuizSessionDTO;
+            try {
+                newSession = await quizService.startAttempt();
+                offlineContextRef.current = null;
+            } catch (netErr) {
+                if (isNetworkOrServerSleepError(netErr)) {
+                    const cachedPack = await getCachedSnapshot<OfflineQuizPackResponse>(SNAPSHOT_KEYS.QUIZ_OFFLINE_PACK);
+                    if (cachedPack && cachedPack.bundles && cachedPack.bundles.length > 0) {
+                        const offlineSetup = initOfflineQuizSession(cachedPack);
+                        newSession = offlineSetup.session;
+                        offlineContextRef.current = {
+                            packBundle: offlineSetup.packBundle,
+                            answers: [],
+                            startedAt: new Date().toISOString(),
+                            eventId: cachedPack.event?._id || 'offline_event',
+                        };
+                    } else {
+                        throw netErr;
+                    }
+                } else {
+                    throw netErr;
+                }
+            }
+
             sessionRef.current = newSession;
             setSession(newSession);
             setCurrentIndex(newSession.currentIndex);
@@ -207,6 +304,7 @@ export function useQuiz(): UseQuizReturn {
     const backToLobby = useCallback(async () => {
         clearTimers();
         isSubmittingRef.current = false;
+        offlineContextRef.current = null;
         setSession(null);
         setResult(null);
         setLastAnswer(null);

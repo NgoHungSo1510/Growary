@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions, ActivityIndicator, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -6,6 +6,12 @@ import { apiService } from '../services/api';
 import { InventoryItem } from '../types';
 import { COLORS, FONT_SIZES, SHADOWS } from '../theme';
 import { MysteryBoxOpenModal } from '../components/warehouse';
+import { GlobalSyncStatusBar } from '../components/GlobalSyncStatusBar';
+import {
+    getCachedSnapshot,
+    setCachedSnapshot,
+    SNAPSHOT_KEYS,
+} from '../services/offlineSnapshotStore';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 48 - 48) / 4; // 4 columns, 24 padding horizontal, 16 gap
@@ -38,11 +44,29 @@ export default function InventoryScreen() {
     const boxScale = useRef(new Animated.Value(1)).current;
     const boxRotate = useRef(new Animated.Value(0)).current;
 
+    useEffect(() => {
+        let isMounted = true;
+        const loadCache = async () => {
+            const cached = await getCachedSnapshot<{ inventory: InventoryItem[] }>(
+                SNAPSHOT_KEYS.INVENTORY
+            );
+            if (cached?.inventory && isMounted) {
+                setInventory(cached.inventory.filter((item: InventoryItem) => item.quantity > 0));
+                setLoading(false);
+            }
+        };
+        void loadCache();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
     const loadInventory = useCallback(async () => {
         try {
-            setLoading(true);
             const res = await apiService.getInventory();
-            setInventory((res.inventory || []).filter((item: InventoryItem) => item.quantity > 0));
+            const validItems = (res.inventory || []).filter((item: InventoryItem) => item.quantity > 0);
+            setInventory(validItems);
+            await setCachedSnapshot(SNAPSHOT_KEYS.INVENTORY, { inventory: validItems });
         } catch (e) {
             console.error('Failed to load inventory', e);
         } finally {
@@ -262,6 +286,7 @@ export default function InventoryScreen() {
                 <Text style={styles.headerTitle}>Kho của bạn</Text>
                 <View style={{ width: 24 }} />
             </View>
+            <GlobalSyncStatusBar compact />
 
             <View style={styles.tabBar}>
                 <TouchableOpacity

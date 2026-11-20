@@ -11,6 +11,14 @@ import type {
     SeasonPassMyProgressResponse,
 } from '@shared';
 import { enqueueOfflineTaskAction } from '../utils/offlineQueue';
+import {
+    isNetworkOrServerSleepError,
+    isServerReachable,
+    setServerReachable,
+    wakeServerInBackground,
+} from './serverReachability';
+import { setGlobalSyncState } from './offlineSnapshotStore';
+import { flushOfflineQueue } from './offlineSyncService';
 
 const RENDER_API_URL = 'https://growary-backend-vb86.onrender.com/api';
 
@@ -35,15 +43,18 @@ class ApiService {
     constructor() {
         this.api = axios.create({
             baseURL: API_URL,
-            timeout: 20000,
+            timeout: 5000,
             headers: {
                 'Content-Type': 'application/json',
             },
         });
 
-        // Add auth token to requests
+        // Add auth token to requests with dynamic fast-fail timeout
         this.api.interceptors.request.use(
             async (config) => {
+                if (!isServerReachable()) {
+                    config.timeout = 2500;
+                }
                 const token = await SecureStore.getItemAsync('authToken');
                 if (token) {
                     config.headers.Authorization = `Bearer ${token}`;
@@ -53,10 +64,31 @@ class ApiService {
             (error) => Promise.reject(error)
         );
 
-        // Handle response errors
+        // Handle response errors & automatic server wake on sleep
         this.api.interceptors.response.use(
-            (response) => response,
+            (response) => {
+                if (!isServerReachable()) {
+                    setServerReachable(true);
+                    setGlobalSyncState({ isOffline: false });
+                }
+                return response;
+            },
             (error: AxiosError<{ code?: string }>) => {
+                if (isNetworkOrServerSleepError(error)) {
+                    setServerReachable(false);
+                    setGlobalSyncState({ isOffline: true });
+                    wakeServerInBackground(
+                        () =>
+                            axios.post(
+                                `${API_URL}/auth/session/heartbeat`,
+                                {},
+                                { timeout: 45000 }
+                            ),
+                        async () => {
+                            await flushOfflineQueue();
+                        }
+                    );
+                }
                 const errCode = error.response?.data?.code;
                 if (error.response?.status === 401 && errCode === 'TOKEN_INVALID') {
                     SecureStore.deleteItemAsync('authToken');

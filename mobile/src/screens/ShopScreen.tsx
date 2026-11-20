@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -30,6 +30,16 @@ import {
     FeaturedCarousel,
 } from '../components/shop';
 import { useShopEvent } from '../hooks/useShopEvent';
+import {
+    getCachedSnapshot,
+    setCachedSnapshot,
+    SNAPSHOT_KEYS,
+} from '../services/offlineSnapshotStore';
+import { isServerReachable, isNetworkOrServerSleepError } from '../services/serverReachability';
+import {
+    executeOfflineShopPurchase,
+    extractAvailableCoupons,
+} from '../utils/shopOfflinePurchase';
 
 export default function ShopScreen() {
     const { user, refreshUser } = useAuth();
@@ -70,14 +80,43 @@ export default function ShopScreen() {
 
     const modalScale = useRef(new Animated.Value(0)).current;
 
+    // Instant Cache-First Load (<50ms)
+    useEffect(() => {
+        let isMounted = true;
+        const loadCache = async () => {
+            const cachedShop = await getCachedSnapshot<{ rewards: Reward[]; vipStatus: VipStatus | null }>(
+                SNAPSHOT_KEYS.SHOP_DATA
+            );
+            if (cachedShop && isMounted) {
+                if (cachedShop.rewards) setRewards(cachedShop.rewards);
+                if (cachedShop.vipStatus) setVipStatus(cachedShop.vipStatus);
+                setIsLoading(false);
+            }
+            const cachedInv = await getCachedSnapshot<{ inventory: InventoryItem[]; vouchers: Voucher[] }>(
+                SNAPSHOT_KEYS.INVENTORY
+            );
+            if (cachedInv && isMounted) {
+                if (cachedInv.inventory) setInventory(cachedInv.inventory);
+                if (cachedInv.vouchers) setVouchers(cachedInv.vouchers);
+            }
+        };
+        void loadCache();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
     const fetchRewards = async () => {
         try {
             const [res, vipRes] = await Promise.all([
                 apiService.getRewards(),
                 apiService.getVipStatus().catch(() => null),
             ]);
-            setRewards(res.rewards || []);
-            if (vipRes && vipRes.status) setVipStatus(vipRes.status);
+            const rList = res.rewards || [];
+            const vStatus = vipRes?.status || null;
+            setRewards(rList);
+            if (vStatus) setVipStatus(vStatus);
+            await setCachedSnapshot(SNAPSHOT_KEYS.SHOP_DATA, { rewards: rList, vipStatus: vStatus });
         } catch (error) {
             console.error('Failed to fetch rewards:', error);
         } finally {
@@ -98,7 +137,9 @@ export default function ShopScreen() {
     const fetchInventory = async () => {
         try {
             const res = await apiService.getInventory();
-            setInventory(res.inventory || []);
+            const inv = res.inventory || [];
+            setInventory(inv);
+            await setCachedSnapshot(SNAPSHOT_KEYS.INVENTORY, { inventory: inv, vouchers });
         } catch { }
     };
 
@@ -114,50 +155,11 @@ export default function ShopScreen() {
     const openRewardModal = (reward: Reward) => {
         setSelectedReward(reward);
 
-        let bestDiscount: CouponItem | null = null;
-        let maxDiscountVal = -1;
-        let bestFreeship: CouponItem | null = null;
-        let maxFreeshipVal = -1;
-
         const shippingFee = reward.shippingFee ?? 15000;
-        const discounts: CouponItem[] = [];
-        const freeships: CouponItem[] = [];
-
-        inventory.forEach((item) => {
-            if (item.quantity > 0 && item.itemType === 'special_item' && item.rewardForm === 'full' && item.specialItem && item.specialItem.type) {
-                const spType = item.specialItem.type as string;
-                if (spType === 'coupon_freeship' || spType === 'freeship') {
-                    const c = { type: spType, discount: shippingFee, label: 'Free Ship' };
-                    freeships.push(c);
-                    if (shippingFee > maxFreeshipVal) {
-                        maxFreeshipVal = shippingFee;
-                        bestFreeship = c;
-                    }
-                } else if (spType.includes('ship_')) {
-                    const match = spType.match(/(?:coupon_)?ship_(\d+)k$/);
-                    if (match) {
-                        const discount = parseInt(match[1], 10) * 1000;
-                        const c = { type: spType, discount, label: `Giảm ship ${match[1]}k` };
-                        freeships.push(c);
-                        if (discount > maxFreeshipVal) {
-                            maxFreeshipVal = discount;
-                            bestFreeship = c;
-                        }
-                    }
-                } else if (spType.includes('discount_')) {
-                    const match = spType.match(/(?:coupon_)?discount_(\d+)k$/);
-                    if (match) {
-                        const discount = parseInt(match[1], 10) * 1000;
-                        const c = { type: spType, discount, label: `Giảm ${match[1]}k` };
-                        discounts.push(c);
-                        if (discount > maxDiscountVal) {
-                            maxDiscountVal = discount;
-                            bestDiscount = c;
-                        }
-                    }
-                }
-            }
-        });
+        const { discounts, freeships, bestDiscount, bestFreeship } = extractAvailableCoupons(
+            inventory,
+            shippingFee
+        );
 
         setAvailableDiscountCoupons(discounts);
         setAvailableFreeshipCoupons(freeships);
@@ -186,11 +188,44 @@ export default function ShopScreen() {
         setIsPurchasing(true);
         const reward = selectedReward;
 
-        const selectedCoupons: string[] = [];
-        if (useDiscountCoupon) selectedCoupons.push(useDiscountCoupon.type);
-        if (useFreeshipCoupon) selectedCoupons.push(useFreeshipCoupon.type);
+        const selectedCouponsList: CouponItem[] = [];
+        if (useDiscountCoupon) selectedCouponsList.push(useDiscountCoupon);
+        if (useFreeshipCoupon) selectedCouponsList.push(useFreeshipCoupon);
+
+        const executeOffline = async () => {
+            if (!user) return;
+            const res = await executeOfflineShopPurchase({
+                reward,
+                selectedCoupons: selectedCouponsList,
+                activeEventDiscountPct: shopEvent?.discountPercent,
+                currentUser: user,
+                currentInventory: inventory,
+                currentVouchers: vouchers,
+                currentVipStatus: vipStatus,
+            });
+            setPurchasedTitle(reward.title);
+            setSelectedReward(null);
+            setRedeemVoucher(res.createdVoucher);
+            setInventory(res.updatedInventory);
+            setVouchers(res.updatedVouchers);
+            if (res.updatedVipStatus) setVipStatus(res.updatedVipStatus);
+            void refreshUser();
+        };
+
+        if (!isServerReachable()) {
+            try {
+                await executeOffline();
+            } catch (err: unknown) {
+                const msg = err instanceof Error ? err.message : 'Không thể đổi lúc này';
+                Alert.alert('Thông báo', msg);
+            } finally {
+                setIsPurchasing(false);
+            }
+            return;
+        }
 
         try {
+            const selectedCoupons = selectedCouponsList.map((c) => c.type);
             const data = await apiService.purchaseReward(reward._id, selectedCoupons);
             setPurchasedTitle(reward.title);
             setSelectedReward(null);
@@ -201,6 +236,16 @@ export default function ShopScreen() {
             fetchVouchers();
             fetchInventory();
         } catch (error: any) {
+            if (isNetworkOrServerSleepError(error)) {
+                try {
+                    await executeOffline();
+                    return;
+                } catch (offlineErr: unknown) {
+                    const msg = offlineErr instanceof Error ? offlineErr.message : 'Không thể đổi lúc này';
+                    Alert.alert('Thông báo', msg);
+                    return;
+                }
+            }
             closeRewardModal();
             const msg = error.response?.data?.error || 'Không thể đổi';
             setTimeout(() => Alert.alert('Lỗi', msg), 200);

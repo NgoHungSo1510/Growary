@@ -28,38 +28,64 @@ export const VoucherRedeemModal: React.FC<VoucherRedeemModalProps> = ({
         <Modal visible={visible} transparent animationType="fade">
             <View style={styles.modalOverlay}>
                 <View style={styles.postPurchaseModal}>
-                    <Text style={styles.emojiIcon}>{voucher?.rewardTitleSnapshot ? '🎟️' : '🎉'}</Text>
-                    <Text style={styles.ppTitle}>{purchasedTitle ? 'Đổi thành công!' : 'Dùng Voucher'}</Text>
+                    <Text style={styles.emojiIcon}>
+                        {voucher?.isOfflinePending ? '🚚' : voucher?.rewardTitleSnapshot ? '🎟️' : '🎉'}
+                    </Text>
+                    <Text style={styles.ppTitle}>
+                        {voucher?.isOfflinePending
+                            ? 'Đã đặt hàng (Offline)!'
+                            : purchasedTitle
+                            ? 'Đổi thành công!'
+                            : 'Dùng Voucher'}
+                    </Text>
                     <Text style={styles.ppSubtitle}>
-                        {purchasedTitle
+                        {voucher?.isOfflinePending
+                            ? `"${purchasedTitle || voucher?.rewardTitleSnapshot}" đã được lưu trên máy. Đơn hàng sẽ tự động gửi yêu cầu lên server ngay khi có mạng!`
+                            : purchasedTitle
                             ? `"${purchasedTitle}" đã vào kho của bạn.`
                             : `Bạn có muốn dùng "${voucher?.rewardTitleSnapshot}" ngay không?`}
                     </Text>
 
                     <View style={styles.ppActions}>
-                        <TouchableOpacity style={styles.ppUseLaterBtn} onPress={onUseLater}>
-                            <MaterialIcons name="inventory-2" size={18} color={COLORS.clayText} />
-                            <Text style={styles.ppUseLaterText}>Để sau</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.ppUseNowBtn, isRedeeming && { opacity: 0.7 }]}
-                            disabled={isRedeeming}
-                            onPress={onUseNow}
-                        >
-                            <LinearGradient
-                                colors={[COLORS.clayAccent2, '#EC4899']}
-                                style={styles.ppUseNowGradient}
+                        {voucher?.isOfflinePending ? (
+                            <TouchableOpacity
+                                style={[styles.ppUseNowBtn, { width: '100%', borderRadius: 16 }]}
+                                onPress={onUseLater}
                             >
-                                {isRedeeming ? (
-                                    <ActivityIndicator size="small" color="#FFF" />
-                                ) : (
-                                    <>
-                                        <MaterialIcons name="play-arrow" size={18} color="#FFF" />
-                                        <Text style={styles.ppUseNowText}>Dùng ngay</Text>
-                                    </>
-                                )}
-                            </LinearGradient>
-                        </TouchableOpacity>
+                                <LinearGradient
+                                    colors={[COLORS.clayAccent2, '#EC4899']}
+                                    style={[styles.ppUseNowGradient, { paddingVertical: 12 }]}
+                                >
+                                    <Text style={styles.ppUseNowText}>Đã hiểu (Chờ đồng bộ)</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        ) : (
+                            <>
+                                <TouchableOpacity style={styles.ppUseLaterBtn} onPress={onUseLater}>
+                                    <MaterialIcons name="inventory-2" size={18} color={COLORS.clayText} />
+                                    <Text style={styles.ppUseLaterText}>Để sau</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.ppUseNowBtn, isRedeeming && { opacity: 0.7 }]}
+                                    disabled={isRedeeming}
+                                    onPress={onUseNow}
+                                >
+                                    <LinearGradient
+                                        colors={[COLORS.clayAccent2, '#EC4899']}
+                                        style={styles.ppUseNowGradient}
+                                    >
+                                        {isRedeeming ? (
+                                            <ActivityIndicator size="small" color="#FFF" />
+                                        ) : (
+                                            <>
+                                                <MaterialIcons name="play-arrow" size={18} color="#FFF" />
+                                                <Text style={styles.ppUseNowText}>Dùng ngay</Text>
+                                            </>
+                                        )}
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </>
+                        )}
                     </View>
                 </View>
             </View>

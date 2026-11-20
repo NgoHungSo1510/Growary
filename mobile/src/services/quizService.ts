@@ -8,6 +8,7 @@ import {
     QuizLeaderboardResponse,
     QuizHistoryItem,
     QuizEventDTO,
+    OfflineQuizPackResponse,
 } from '@shared';
 
 /**
@@ -59,6 +60,12 @@ export const quizService = {
      */
     completeAttempt: (attemptId: string): Promise<QuizCompleteResult> =>
         apiService.post<QuizCompleteResult>('/quiz/complete', { attemptId }),
+
+    /**
+     * Gets offline quiz pack with hashed answers for offline mode (RV-12)
+     */
+    getOfflinePack: (): Promise<OfflineQuizPackResponse> =>
+        apiService.get<OfflineQuizPackResponse>('/quiz/offline-pack'),
 
     /**
      * Gets event leaderboard with rankings

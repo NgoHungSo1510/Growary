@@ -19,6 +19,9 @@ import { apiService } from '../services/api';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import ClayHeader from '../components/ClayHeader';
+import { GlobalSyncStatusBar } from '../components/GlobalSyncStatusBar';
+import { isNetworkOrServerSleepError } from '../services/serverReachability';
+import { executeOfflineBossAttack } from '../utils/bossOfflineEngine';
 
 import MiniGameModal from '../components/MiniGameModal';
 import AttackResultModal from '../components/AttackResultModal';
@@ -227,7 +230,18 @@ export default function BossEventScreen({ route }: any) {
                 const qRes = await apiService.get(`/events/boss/quiz?bossId=${targetBoss._id}`);
                 setQuizData(qRes);
             } catch (err) {
-                setMiniGameType('tap');
+                // Offline fallback: Use cached miniGameQuestions directly
+                if (targetBoss.miniGameQuestions && targetBoss.miniGameQuestions.length > 0) {
+                    const qIndex = Math.floor(Math.random() * targetBoss.miniGameQuestions.length);
+                    const q = targetBoss.miniGameQuestions[qIndex];
+                    setQuizData({
+                        questionIndex: qIndex,
+                        question: q.question,
+                        options: q.options,
+                    });
+                } else {
+                    setMiniGameType('tap');
+                }
             }
         }
 
@@ -258,6 +272,33 @@ export default function BossEventScreen({ route }: any) {
             await clearEventCache();
             await fetchData(false);
         } catch (error: any) {
+            if (isNetworkOrServerSleepError(error) && attackBossId) {
+                try {
+                    const offlineRes = await executeOfflineBossAttack({
+                        bosses,
+                        records,
+                        targetBossId: attackBossId,
+                        miniGameType,
+                        miniGameResult: result,
+                        usePercentage: attackPercentage,
+                        questionIndex: extraData?.questionIndex,
+                        answerIndex: extraData?.answerIndex,
+                        userId: user?._id,
+                    });
+                    setBosses(offlineRes.updatedBosses);
+                    setRecords(offlineRes.updatedRecords);
+                    setLastAttackResult({
+                        damage: offlineRes.attackResult.actualDamage,
+                        refund: offlineRes.attackResult.refundPoints,
+                        isCritical: offlineRes.attackResult.isCritical,
+                    });
+                    setIsAttackResultVisible(true);
+                    return;
+                } catch (offlineErr: any) {
+                    Alert.alert('Lỗi', offlineErr.message || 'Không thể tấn công offline.');
+                    return;
+                }
+            }
             Alert.alert('Lỗi', error.response?.data?.message || 'Không thể tấn công. Thử lại.');
         }
     };
@@ -274,6 +315,7 @@ export default function BossEventScreen({ route }: any) {
         return (
             <View style={styles.container}>
                 <ClayHeader user={user} />
+            <GlobalSyncStatusBar />
                 <View style={[styles.header, { paddingTop: 10 }]}>
                     <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                         <MaterialIcons name="arrow-back-ios" size={20} color="rgba(93, 64, 55, 0.6)" />
@@ -293,6 +335,7 @@ export default function BossEventScreen({ route }: any) {
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={COLORS.warmBg} />
             <ClayHeader user={user} />
+            <GlobalSyncStatusBar />
 
             <View style={styles.header}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -401,62 +444,12 @@ export default function BossEventScreen({ route }: any) {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.warmBg },
     scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingHorizontal: 20,
-        marginBottom: 16,
-    },
-    backBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 14,
-        backgroundColor: COLORS.clayCard,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    timerBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: COLORS.clayCard,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 14,
-    },
-    timerText: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: COLORS.clayText,
-    },
-    collectionActionBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 14,
-        backgroundColor: COLORS.clayAccent1,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    unlockedBox: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        backgroundColor: 'rgba(139,92,246,0.1)',
-        padding: 16,
-        borderRadius: 20,
-        borderWidth: 1.5,
-        borderColor: '#8b5cf6',
-        marginBottom: 20,
-    },
-    unlockedTitle: {
-        fontSize: 15,
-        fontWeight: 'bold',
-        color: '#8b5cf6',
-    },
-    unlockedDesc: {
-        fontSize: 12,
-        color: 'rgba(93,64,55,0.7)',
-        marginTop: 2,
-    },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 16 },
+    backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: COLORS.clayCard, alignItems: 'center', justifyContent: 'center' },
+    timerBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.clayCard, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14 },
+    timerText: { fontSize: 13, fontWeight: 'bold', color: COLORS.clayText },
+    collectionActionBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: COLORS.clayAccent1, alignItems: 'center', justifyContent: 'center' },
+    unlockedBox: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(139,92,246,0.1)', padding: 16, borderRadius: 20, borderWidth: 1.5, borderColor: '#8b5cf6', marginBottom: 20 },
+    unlockedTitle: { fontSize: 15, fontWeight: 'bold', color: '#8b5cf6' },
+    unlockedDesc: { fontSize: 12, color: 'rgba(93,64,55,0.7)', marginTop: 2 },
 });

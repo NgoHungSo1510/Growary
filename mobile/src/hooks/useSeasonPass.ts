@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import type {
     PassTrackType,
+    PassGrantedRewards,
     SeasonPassActionResponse,
     SeasonPassLeaderboardResponse,
     SeasonPassMyProgressResponse,
@@ -11,6 +12,9 @@ import { apiService } from '../services/api';
 import { showApiError } from '../utils/errorHandler';
 import { buildEventCacheKey, getEventCache, setEventCache } from '../utils/eventCache';
 import { formatPassRewardSummary } from '../utils/seasonPassHelpers';
+import { isNetworkOrServerSleepError } from '../services/serverReachability';
+import { getCachedSnapshot, setCachedSnapshot, SNAPSHOT_KEYS } from '../services/offlineSnapshotStore';
+import { executeOfflinePassClaim } from '../utils/seasonPassOffline';
 
 export interface UseSeasonPassReturn {
     data: SeasonPassMyProgressResponse | null;
@@ -49,16 +53,22 @@ export function useSeasonPass(): UseSeasonPassReturn {
         async (isPull = false) => {
             if (isPull) setRefreshing(true);
             try {
-                const cached = !isPull ? await getEventCache<SeasonPassMyProgressResponse>(cacheKey) : null;
-                if (cached?.data && !data) {
-                    setData(cached.data);
-                    setLoading(false);
+                if (!isPull && !data) {
+                    const snap = await getCachedSnapshot<SeasonPassMyProgressResponse>(SNAPSHOT_KEYS.SEASON_PASS);
+                    const cached = snap || (await getEventCache<SeasonPassMyProgressResponse>(cacheKey))?.data;
+                    if (cached) {
+                        setData(cached);
+                        setLoading(false);
+                    }
                 }
                 const fresh = await apiService.getSeasonPassProgress();
                 setData(fresh);
-                await setEventCache(cacheKey, fresh);
+                await Promise.all([
+                    setEventCache(cacheKey, fresh),
+                    setCachedSnapshot(SNAPSHOT_KEYS.SEASON_PASS, fresh),
+                ]);
             } catch (err) {
-                if (!isPull) showApiError(err, 'Không thể tải Sổ Sứ Mệnh');
+                if (!isPull && !data) showApiError(err, 'Không thể tải Sổ Sứ Mệnh');
             } finally {
                 setLoading(false);
                 setRefreshing(false);
@@ -75,7 +85,8 @@ export function useSeasonPass(): UseSeasonPassReturn {
         async (
             lockKey: string,
             actionFn: () => Promise<SeasonPassActionResponse>,
-            shouldRefreshUser = true
+            shouldRefreshUser = true,
+            offlineFallback?: () => Promise<{ updatedProgress: SeasonPassMyProgressResponse; grantedRewards: PassGrantedRewards; message: string }>
         ) => {
             if (claimingKey) return;
             setClaimingKey(lockKey);
@@ -87,7 +98,20 @@ export function useSeasonPass(): UseSeasonPassReturn {
                     refresh(false),
                     shouldRefreshUser ? refreshUser() : Promise.resolve(),
                 ]);
-            } catch (err) {
+            } catch (err: unknown) {
+                if (isNetworkOrServerSleepError(err) && offlineFallback) {
+                    try {
+                        const offRes = await offlineFallback();
+                        setData(offRes.updatedProgress);
+                        const summary = formatPassRewardSummary(offRes.grantedRewards);
+                        Alert.alert(offRes.message + ' (Đã lưu Offline)', summary);
+                        return;
+                    } catch (offErr: unknown) {
+                        const msg = (offErr as { message?: string }).message || 'Không thể nhận quà offline';
+                        Alert.alert('Lỗi', msg);
+                        return;
+                    }
+                }
                 showApiError(err, 'Thao tác Sổ Sứ Mệnh thất bại');
             } finally {
                 setClaimingKey(null);
@@ -119,11 +143,33 @@ export function useSeasonPass(): UseSeasonPassReturn {
         loadLeaderboard,
         unlockElite: () => runAction('unlock-elite', () => apiService.unlockElitePass()),
         claimTier: (level, track) =>
-            runAction(`tier:${track}:${level}`, () => apiService.claimPassTierReward(level, track)),
-        claimAll: () => runAction('claim-all', () => apiService.claimAllPassRewards()),
+            runAction(
+                `tier:${track}:${level}`,
+                () => apiService.claimPassTierReward(level, track),
+                true,
+                data ? () => executeOfflinePassClaim({ progressResponse: data, claimKind: 'tier', level, track, userId }) : undefined
+            ),
+        claimAll: () =>
+            runAction(
+                'claim-all',
+                () => apiService.claimAllPassRewards(),
+                true,
+                data ? () => executeOfflinePassClaim({ progressResponse: data, claimKind: 'all', userId }) : undefined
+            ),
         claimQuest: (questCode) =>
-            runAction(`quest:${questCode}`, () => apiService.claimPassQuest(questCode), false),
-        claimOvercap: () => runAction('claim-overcap', () => apiService.claimPassOvercap()),
+            runAction(
+                `quest:${questCode}`,
+                () => apiService.claimPassQuest(questCode),
+                false,
+                data ? () => executeOfflinePassClaim({ progressResponse: data, claimKind: 'quest', questCode, userId }) : undefined
+            ),
+        claimOvercap: () =>
+            runAction(
+                'claim-overcap',
+                () => apiService.claimPassOvercap(),
+                true,
+                data ? () => executeOfflinePassClaim({ progressResponse: data, claimKind: 'overcap', userId }) : undefined
+            ),
         withdrawVault: () => runAction('withdraw-vault', () => apiService.withdrawPassVault()),
     };
 }

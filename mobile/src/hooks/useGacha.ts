@@ -2,6 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { GachaItem, GachaWeeklyEvent, GachaLeaderboardResponse } from '@shared';
+import { getCachedSnapshot, setCachedSnapshot, SNAPSHOT_KEYS } from '../services/offlineSnapshotStore';
+import { enqueueOfflineAction } from '../services/offlineSyncService';
+import { applyOfflineCurrencyDelta } from '../services/offlineEconomyEngine';
+import { isNetworkOrServerSleepError } from '../services/serverReachability';
 
 export interface CountdownState {
     days: number;
@@ -77,7 +81,21 @@ export function useGacha() {
     const fetchGachaData = useCallback(async (options?: { silent?: boolean }) => {
         try {
             if (!options?.silent && items.length === 0) {
-                setLoading(true);
+                const cached = await getCachedSnapshot<{
+                    items: GachaItem[];
+                    currentTier: number;
+                    weeklyEvent: GachaWeeklyEvent | null;
+                    leaderboard: GachaLeaderboardResponse | null;
+                }>(SNAPSHOT_KEYS.GACHA_DATA);
+                if (cached) {
+                    if (cached.items) setItems(cached.items);
+                    if (cached.currentTier) setCurrentTier(cached.currentTier);
+                    if (cached.weeklyEvent) setWeeklyEvent(cached.weeklyEvent);
+                    if (cached.leaderboard) setLeaderboard(cached.leaderboard);
+                    setLoading(false);
+                } else {
+                    setLoading(true);
+                }
             }
             const [itemsRes, eventRes, leaderboardRes] = await Promise.allSettled([
                 apiService.getGachaItems(),
@@ -85,24 +103,40 @@ export function useGacha() {
                 apiService.getGachaLeaderboard(),
             ]);
 
+            let nextItems = items;
+            let nextTier = currentTier;
+            let nextEvent = weeklyEvent;
+            let nextLeaderboard = leaderboard;
+
             if (itemsRes.status === 'fulfilled' && itemsRes.value) {
-                setItems(itemsRes.value.items || []);
-                setCurrentTier(itemsRes.value.currentTier || 1);
+                nextItems = itemsRes.value.items || [];
+                nextTier = itemsRes.value.currentTier || 1;
+                setItems(nextItems);
+                setCurrentTier(nextTier);
             }
 
             if (eventRes.status === 'fulfilled' && eventRes.value) {
-                setWeeklyEvent(eventRes.value.event || null);
+                nextEvent = eventRes.value.event || null;
+                setWeeklyEvent(nextEvent);
             }
 
             if (leaderboardRes.status === 'fulfilled' && leaderboardRes.value) {
-                setLeaderboard(leaderboardRes.value);
+                nextLeaderboard = leaderboardRes.value;
+                setLeaderboard(nextLeaderboard);
             }
+
+            await setCachedSnapshot(SNAPSHOT_KEYS.GACHA_DATA, {
+                items: nextItems,
+                currentTier: nextTier,
+                weeklyEvent: nextEvent,
+                leaderboard: nextLeaderboard,
+            });
         } catch (error) {
             console.error('Error fetching gacha data:', error);
         } finally {
             setLoading(false);
         }
-    }, [items.length]);
+    }, [items, currentTier, weeklyEvent, leaderboard]);
 
     useEffect(() => {
         fetchGachaData();
@@ -112,7 +146,63 @@ export function useGacha() {
         if (spinning) return null;
         try {
             setSpinning(true);
-            const result = await apiService.spinGacha();
+            let result: any;
+            try {
+                result = await apiService.spinGacha();
+            } catch (err: unknown) {
+                if (isNetworkOrServerSleepError(err)) {
+                    if ((user?.gachaTickets ?? 0) < 1) {
+                        throw new Error('Bạn không có đủ vé Gacha để quay');
+                    }
+                    if (items.length === 0) {
+                        throw new Error('Chưa có danh sách vật phẩm gacha');
+                    }
+                    const totalProb = items.reduce((acc, it) => acc + (it.probability || 1), 0);
+                    let rand = Math.random() * totalProb;
+                    let selected = items[0];
+                    for (const it of items) {
+                        rand -= (it.probability || 1);
+                        if (rand <= 0) {
+                            selected = it;
+                            break;
+                        }
+                    }
+
+                    await applyOfflineCurrencyDelta({ ticketsDelta: -1 });
+                    const coinsWon = selected.type === 'coins' ? (selected.rewardAmount || 0) : 0;
+                    const xpWon = selected.type === 'exp' ? (selected.rewardAmount || 0) : 0;
+                    if (coinsWon > 0 || xpWon > 0) {
+                        await applyOfflineCurrencyDelta({ coinsDelta: coinsWon, xpDelta: xpWon });
+                    }
+
+                    await enqueueOfflineAction({
+                        type: 'GACHA_OFFLINE_SPIN',
+                        payload: {
+                            count: 1,
+                            wonItemId: selected._id,
+                            wonItemName: selected.name,
+                            rarity: selected.rarity,
+                        },
+                        userId: user?._id,
+                    });
+
+                    result = {
+                        success: true,
+                        wonItem: selected,
+                        tierUpgraded: false,
+                        scoreGained: 10,
+                        newStats: {
+                            coins: (user?.coins || 0) + coinsWon,
+                            xp: (user?.currentPoints || 0) + xpWon,
+                            gachaTickets: Math.max(0, (user?.gachaTickets || 0) - 1),
+                            gachaTier: currentTier,
+                        },
+                    };
+                } else {
+                    throw err;
+                }
+            }
+
             if (result && result.newStats) {
                 if (result.newStats.gachaTier && result.newStats.gachaTier !== currentTier) {
                     setCurrentTier(result.newStats.gachaTier);

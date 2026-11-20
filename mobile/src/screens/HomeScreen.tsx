@@ -1,77 +1,109 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, RefreshControl, TextInput, Modal, TouchableOpacity } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    RefreshControl,
+    TextInput,
+    Modal,
+    TouchableOpacity,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useOfflineSync } from '../hooks';
 import { DailyPlan, Journal } from '../types';
 import ClayHeader from '../components/ClayHeader';
-import QuestListContent from '../components/QuestListContent';
+import { QuestListContent } from '../components/QuestListContent';
 import AdventureLog from '../components/AdventureLog';
-import RewardCelebrationModal from '../components/RewardCelebrationModal';
 import PenaltyModal from '../components/PenaltyModal';
-import { FloatingEventStack } from '../components/event/FloatingEventStack';
 import { StreakGraceBanner } from '../components/StreakGraceBanner';
 import { TaskSummaryWidget } from '../components/TaskSummaryWidget';
-import { OfflineSyncBanner } from '../components/task/OfflineSyncBanner';
 import {
     ensureNotificationChannelAndPermissions,
     scheduleAllQuestReminders,
     cacheNotificationConfigs,
     announceUnreadServerNotifications,
 } from '../services/notifications';
+import {
+    getCachedSnapshot,
+    setCachedSnapshot,
+    SNAPSHOT_KEYS,
+    setGlobalSyncState,
+} from '../services/offlineSnapshotStore';
 import { syncWidgetSnapshot } from '../utils/widgetSnapshot';
 import { COLORS } from '../theme';
 
 export default function HomeScreen() {
     const { user, refreshUser } = useAuth();
-    const insets = useSafeAreaInsets();
     const [plan, setPlan] = useState<DailyPlan | null>(null);
-    const [, setLevels] = useState<unknown[]>([]);
     const [, setTodayJournal] = useState<Journal | null>(null);
     const [manualContent, setManualContent] = useState('');
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showEditor, setShowEditor] = useState(false);
     const [editorText, setEditorText] = useState('');
-    const [grantedRewards, setGrantedRewards] = useState<unknown | null>(null);
     const [showPenaltyModal, setShowPenaltyModal] = useState(false);
 
-    const { pendingCount, isSyncing, flushNow, queueAction, refreshQueueCount } = useOfflineSync(
+    const { pendingCount, flushNow, queueAction, refreshQueueCount } = useOfflineSync(
         (latestPlan) => {
             setPlan(latestPlan);
+            void setCachedSnapshot(SNAPSHOT_KEYS.TODAY_PLAN, latestPlan);
             void refreshUser();
         }
     );
+
+    // Instant Cache-First load (<50ms)
+    useEffect(() => {
+        let isMounted = true;
+        const loadInstantCache = async () => {
+            const cachedPlan = await getCachedSnapshot<DailyPlan>(SNAPSHOT_KEYS.TODAY_PLAN);
+            if (cachedPlan && isMounted) {
+                setPlan(cachedPlan);
+                setIsLoading(false);
+                if (cachedPlan.tasks?.length) {
+                    void scheduleAllQuestReminders(cachedPlan.tasks);
+                }
+            }
+        };
+        void loadInstantCache();
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     useEffect(() => {
         void syncWidgetSnapshot(plan, user, pendingCount);
     }, [plan, user, pendingCount]);
 
-    const fetchData = async () => {
+    const fetchData = async (isManualRefresh = false) => {
         try {
+            if (isManualRefresh) {
+                setIsRefreshing(true);
+            }
+            setGlobalSyncState({ isSyncing: true });
+
             await flushNow().catch(() => undefined);
 
             const today = new Date().toISOString().split('T')[0];
-            const [planRes, journalRes, levelRes] = await Promise.all([
+            const [planRes, journalRes] = await Promise.all([
                 apiService.getTodayPlan().catch(async () => {
-                    const cached = await AsyncStorage.getItem('@growary:cached_today_plan');
-                    return { plan: cached ? (JSON.parse(cached) as DailyPlan) : null };
+                    const cached = await getCachedSnapshot<DailyPlan>(SNAPSHOT_KEYS.TODAY_PLAN);
+                    return { plan: cached };
                 }),
                 apiService.getJournalByDate(today).catch(() => ({ journal: null })),
-                apiService.getLevels().catch(() => ({ levels: [] })),
             ]);
 
             if (planRes?.plan) {
                 setPlan(planRes.plan);
-                AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(planRes.plan)).catch(() => undefined);
+                await setCachedSnapshot(SNAPSHOT_KEYS.TODAY_PLAN, planRes.plan);
+
                 const [cfgRes, notifRes] = await Promise.all([
                     apiService.get<{ configs?: any[] }>('/notifications/configs').catch(() => ({ configs: undefined })),
                     apiService.get<{ notifications?: any[] }>('/notifications', { page: 1, limit: 5 }).catch(() => ({ notifications: [] })),
                 ]);
+
                 if (cfgRes?.configs) {
                     await cacheNotificationConfigs(cfgRes.configs);
                 }
@@ -82,21 +114,23 @@ export default function HomeScreen() {
                     await scheduleAllQuestReminders(planRes.plan.tasks, cfgRes?.configs);
                 }
             }
-            if (levelRes?.levels) setLevels(levelRes.levels);
+
             if (journalRes?.journal) {
                 setTodayJournal(journalRes.journal);
                 setManualContent(journalRes.journal.manualContent || '');
             }
+
             await refreshQueueCount();
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
+            setGlobalSyncState({ isSyncing: false });
         }
     };
 
     useFocusEffect(
         useCallback(() => {
-            void ensureNotificationChannelAndPermissions().then(() => fetchData());
+            void ensureNotificationChannelAndPermissions().then(() => fetchData(false));
             refreshUser().then((updatedUser) => {
                 if (updatedUser?.pendingPenalties && updatedUser.pendingPenalties.length > 0) {
                     setShowPenaltyModal(true);
@@ -105,37 +139,13 @@ export default function HomeScreen() {
         }, [])
     );
 
-    const handlePlanUpdated = (updatedPlan: DailyPlan | null, newRewards?: any, offlineTaskIndex?: number) => {
+    const handlePlanUpdated = (updatedPlan: DailyPlan | null) => {
         if (updatedPlan) {
             setPlan(updatedPlan);
-            AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(updatedPlan)).catch(() => undefined);
-        } else if (offlineTaskIndex !== undefined) {
-            setPlan((prev) => {
-                if (!prev) return prev;
-                const newTasks = [...prev.tasks];
-                if (newTasks[offlineTaskIndex]) {
-                    newTasks[offlineTaskIndex] = {
-                        ...newTasks[offlineTaskIndex],
-                        isCompleted: true,
-                        completedAt: new Date(),
-                    };
-                }
-                const optimisticPlan: DailyPlan = { ...prev, tasks: newTasks };
-                AsyncStorage.setItem('@growary:cached_today_plan', JSON.stringify(optimisticPlan)).catch(() => undefined);
-                return optimisticPlan;
-            });
-            void refreshQueueCount();
-        }
-
-        if (newRewards) {
-            const hasRewards =
-                newRewards.levelUps?.length > 0 ||
-                newRewards.items?.length > 0 ||
-                newRewards.gachaTickets > 0 ||
-                Boolean(newRewards.isTierUnlock);
-            if (hasRewards) setGrantedRewards(newRewards);
+            void setCachedSnapshot(SNAPSHOT_KEYS.TODAY_PLAN, updatedPlan);
         }
         void refreshUser();
+        void refreshQueueCount();
     };
 
     const handleOpenEditor = () => {
@@ -150,7 +160,7 @@ export default function HomeScreen() {
         const today = new Date().toISOString().split('T')[0];
         try {
             const res = await apiService.updateJournal(today, { manualContent: nextText });
-            if (res.journal) setTodayJournal(res.journal);
+            if (res?.journal) setTodayJournal(res.journal);
         } catch {
             await queueAction('SAVE_JOURNAL', {
                 date: today,
@@ -160,16 +170,11 @@ export default function HomeScreen() {
         }
     };
 
-    const onRefresh = () => {
-        setIsRefreshing(true);
-        void fetchData();
-    };
-
     const completedCount = plan?.tasks.filter((t) => t.isCompleted).length || 0;
     const totalCount = plan?.tasks.length || 0;
     const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
-    if (isLoading) {
+    if (isLoading && !plan) {
         return (
             <View style={styles.centered}>
                 <Text style={{ color: COLORS.clayText }}>Đang tải...</Text>
@@ -181,14 +186,14 @@ export default function HomeScreen() {
         <View style={styles.container}>
             <ClayHeader user={user} />
             <StreakGraceBanner user={user} />
-            <OfflineSyncBanner
-                pendingCount={pendingCount}
-                isSyncing={isSyncing}
-                onRetry={() => void flushNow()}
-            />
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={() => void fetchData(true)}
+                    />
+                }
             >
                 <TaskSummaryWidget
                     tasks={plan?.tasks || []}
@@ -248,97 +253,160 @@ export default function HomeScreen() {
                         <TextInput
                             style={styles.modalInput}
                             multiline
-                            placeholder="Ghi lại điều gì đó về ngày hôm nay..."
-                            placeholderTextColor="rgba(93,64,55,0.4)"
                             value={editorText}
                             onChangeText={setEditorText}
-                            textAlignVertical="top"
-                            autoFocus
+                            placeholder="Hôm nay của bạn thế nào?"
                         />
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowEditor(false)}>
-                                <Text style={styles.cancelBtnText}>Hủy</Text>
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={[styles.modalBtn, styles.modalBtnCancel]}
+                                onPress={() => setShowEditor(false)}
+                            >
+                                <Text style={styles.modalBtnText}>Hủy</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.saveBtn} onPress={() => void handleSaveEditor()}>
-                                <Text style={styles.saveBtnText}>Lưu</Text>
+                            <TouchableOpacity
+                                style={[styles.modalBtn, styles.modalBtnSave]}
+                                onPress={handleSaveEditor}
+                            >
+                                <Text style={[styles.modalBtnText, { color: '#FFF' }]}>Lưu</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
                 </View>
             </Modal>
 
-            <TouchableOpacity
-                style={[styles.fab, { bottom: 90 + insets.bottom }]}
-                activeOpacity={0.8}
-                onPress={handleOpenEditor}
-            >
-                <MaterialIcons name="edit-note" size={28} color="#FFF" />
-                {manualContent.length > 0 && <View style={styles.fabDot} />}
-            </TouchableOpacity>
-
-            <FloatingEventStack />
-
-            <RewardCelebrationModal
-                visible={!!grantedRewards}
-                rewards={grantedRewards as any}
-                onClose={() => setGrantedRewards(null)}
-            />
-
             <PenaltyModal
                 visible={showPenaltyModal}
                 penalties={user?.pendingPenalties || []}
-                onClose={() => {
-                    setShowPenaltyModal(false);
-                    void refreshUser();
-                }}
+                onClose={() => setShowPenaltyModal(false)}
             />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.warmBg },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.warmBg },
-    statsRow: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 12, gap: 12 },
+    container: {
+        flex: 1,
+        backgroundColor: COLORS.warmBg,
+    },
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: COLORS.warmBg,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        gap: 12,
+        marginBottom: 16,
+    },
     statBox: {
-        flex: 1, alignItems: 'center', borderRadius: 16, paddingVertical: 12, borderWidth: 1,
-        shadowOffset: { width: 3, height: 3 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 4,
+        flex: 1,
+        backgroundColor: COLORS.clayCard,
+        borderRadius: 16,
+        padding: 14,
+        alignItems: 'center',
+        elevation: 2,
     },
-    streakBox: { backgroundColor: '#FFF0EE', borderColor: '#FBCFC8', shadowColor: COLORS.clayAccent1 },
-    completedBox: { backgroundColor: '#EEFBF3', borderColor: '#B5E8C8', shadowColor: '#22C55E' },
-    statValue: { fontSize: 20, fontWeight: 'bold' },
-    statLabel: { fontSize: 11, color: COLORS.clayText, opacity: 0.6, marginTop: 2, fontWeight: '600' },
-    progressSection: { paddingHorizontal: 24, marginBottom: 20 },
+    streakBox: {
+        borderLeftWidth: 4,
+        borderLeftColor: COLORS.clayAccent1,
+    },
+    completedBox: {
+        borderLeftWidth: 4,
+        borderLeftColor: '#22C55E',
+    },
+    statValue: {
+        fontSize: 22,
+        fontWeight: 'bold',
+    },
+    statLabel: {
+        fontSize: 12,
+        color: COLORS.clayText,
+        opacity: 0.7,
+        marginTop: 2,
+    },
+    progressSection: {
+        paddingHorizontal: 20,
+        marginBottom: 16,
+    },
     progressTrack: {
-        height: 12, backgroundColor: COLORS.clayInset, borderRadius: 6, padding: 2,
-        borderWidth: 1, borderColor: 'rgba(237, 113, 113, 0.5)',
+        height: 10,
+        backgroundColor: 'rgba(255,255,255,0.4)',
+        borderRadius: 5,
+        overflow: 'hidden',
     },
-    progressFill: { height: '100%', backgroundColor: COLORS.clayAccent1, borderRadius: 4, overflow: 'hidden' },
-    progressShine: { position: 'absolute', top: 0, left: 0, right: 0, height: '40%', backgroundColor: 'rgba(255,255,255,0.3)' },
+    progressFill: {
+        height: '100%',
+        backgroundColor: '#22C55E',
+        borderRadius: 5,
+    },
+    progressShine: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '50%',
+        backgroundColor: 'rgba(255,255,255,0.3)',
+    },
     backlogNotice: {
-        backgroundColor: 'rgba(255,255,255,0.5)', padding: 12, marginHorizontal: 20, marginTop: 8,
-        marginBottom: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,202,40,0.3)',
+        backgroundColor: '#FEF3C7',
+        marginHorizontal: 20,
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 8,
     },
-    backlogText: { color: COLORS.clayText, textAlign: 'center', fontSize: 13 },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-    modalContent: { backgroundColor: COLORS.warmBg, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 300 },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', color: COLORS.clayText, marginBottom: 16 },
+    backlogText: {
+        fontSize: 13,
+        color: '#92400E',
+        fontWeight: '600',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    modalContent: {
+        backgroundColor: '#FFF',
+        borderRadius: 20,
+        padding: 20,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 12,
+        color: COLORS.clayText,
+    },
     modalInput: {
-        backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 16, padding: 14, fontSize: 14,
-        color: COLORS.clayText, minHeight: 150, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)', marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 12,
+        padding: 12,
+        height: 120,
+        textAlignVertical: 'top',
+        marginBottom: 16,
     },
-    modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-    cancelBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.5)' },
-    cancelBtnText: { color: COLORS.clayText, fontWeight: '600' },
-    saveBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, backgroundColor: COLORS.clayAccent2 },
-    saveBtnText: { color: '#FFF', fontWeight: '600' },
-    fab: {
-        position: 'absolute', left: 20, width: 56, height: 56, borderRadius: 28,
-        backgroundColor: COLORS.clayAccent2, alignItems: 'center', justifyContent: 'center',
-        shadowColor: COLORS.clayAccent2, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 8, zIndex: 100,
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
     },
-    fabDot: {
-        position: 'absolute', top: 8, right: 8, width: 10, height: 10, borderRadius: 5,
-        backgroundColor: '#4ADE80', borderWidth: 2, borderColor: '#FFF',
+    modalBtn: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    modalBtnCancel: {
+        backgroundColor: '#F1F5F9',
+    },
+    modalBtnSave: {
+        backgroundColor: COLORS.clayAccent2,
+    },
+    modalBtnText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: COLORS.clayText,
     },
 });
