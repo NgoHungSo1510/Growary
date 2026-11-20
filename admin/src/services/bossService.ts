@@ -36,4 +36,16 @@ export const bossService = {
     async deleteBossCollection(id: string) {
         return httpClient.delete<{ message: string }>(`/admin/boss-collections/${id}`);
     },
+
+    /**
+     * Gán, đổi hoặc gỡ danh sách nhân vật vào/ra khỏi bộ sưu tập
+     * @param bossIds - Danh sách ID nhân vật
+     * @param collectionId - ID bộ sưu tập đích hoặc null để gỡ
+     */
+    async assignCharactersToCollection(bossIds: string[], collectionId: string | null) {
+        return httpClient.patch<{ success: boolean; updatedCount: number; collectionId: string | null }>(
+            '/admin/boss-collections/assign-characters',
+            { bossIds, collectionId }
+        );
+    },
 };
