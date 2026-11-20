@@ -1,44 +1,55 @@
 import { useState, useEffect } from 'react';
 import { adminApi } from '../services/api';
+import { BossCollectionDTO, BossEvent } from '../types';
+import { CollectionCharacterManager } from './boss/CollectionCharacterManager';
 
-interface BossCollection {
-    _id: string;
-    title: string;
-    description: string;
-    month: number;
-    year: number;
-    iconEmoji: string;
-    themeColor?: string;
-    completionStory: string;
-    bonusTickets: number;
-    isActive: boolean;
-    bossCount?: number;
+interface BossCollectionManagementProps {
+    collections?: BossCollectionDTO[];
+    events?: BossEvent[];
+    onEditBoss?: (boss: BossEvent) => void;
+    onCreateBossInCollection?: (collection: BossCollectionDTO) => void;
+    onRefreshData?: () => Promise<void> | void;
 }
 
-export default function BossCollectionManagement({ events = [], onEditBoss }: { events?: Array<any>, onEditBoss?: (boss: any) => void }) {
-    const [collections, setCollections] = useState<BossCollection[]>([]);
-    const [editCol, setEditCol] = useState<Partial<BossCollection> | null>(null);
+export default function BossCollectionManagement({
+    collections: propCollections,
+    events = [],
+    onEditBoss,
+    onCreateBossInCollection,
+    onRefreshData,
+}: BossCollectionManagementProps) {
+    const [collections, setCollections] = useState<BossCollectionDTO[]>(propCollections || []);
+    const [editCol, setEditCol] = useState<Partial<BossCollectionDTO> | null>(null);
     const [showModal, setShowModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    useEffect(() => {
+        if (propCollections && propCollections.length > 0) {
+            setCollections(propCollections);
+        }
+    }, [propCollections]);
+
     const fetchCollections = async () => {
         try {
-            const res = await adminApi.get<{ collections: BossCollection[] }>('/admin/boss-collections');
-            setCollections(res.collections);
+            const res = await adminApi.get<{ collections: BossCollectionDTO[] }>('/admin/boss-collections');
+            setCollections(res.collections || []);
         } catch (error) {
             console.error('Failed to fetch collections', error);
         }
     };
 
     useEffect(() => {
-        fetchCollections();
+        if (!propCollections) {
+            fetchCollections();
+        }
     }, []);
 
     const handleDelete = async (id: string) => {
         if (!window.confirm('Xóa bộ sưu tập này? Các nhân vật thuộc bộ này sẽ bị mất liên kết (collectionId = null).')) return;
         try {
             await adminApi.delete(`/admin/boss-collections/${id}`);
-            fetchCollections();
+            await fetchCollections();
+            if (onRefreshData) await onRefreshData();
         } catch (error) {
             alert('Lỗi khi xóa bộ sưu tập');
         }
@@ -59,9 +70,11 @@ export default function BossCollectionManagement({ events = [], onEditBoss }: { 
             }
             setShowModal(false);
             setEditCol(null);
-            fetchCollections();
-        } catch (error: any) {
-            alert(error.message || 'Lỗi lưu bộ sưu tập');
+            await fetchCollections();
+            if (onRefreshData) await onRefreshData();
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Lỗi lưu bộ sưu tập';
+            alert(message);
         } finally {
             setIsLoading(false);
         }
@@ -76,36 +89,75 @@ export default function BossCollectionManagement({ events = [], onEditBoss }: { 
                 </div>
                 <button 
                     className="btn btn--primary" 
-                    onClick={() => { setEditCol({ title: '', description: '', iconEmoji: '🔥', themeColor: '#ef4444', completionStory: '', bonusTickets: 10, isActive: true }); setShowModal(true); }}
+                    onClick={() => {
+                        const now = new Date();
+                        setEditCol({
+                            title: '',
+                            description: '',
+                            month: now.getMonth() + 1,
+                            year: now.getFullYear(),
+                            iconEmoji: '🔥',
+                            themeColor: '#ef4444',
+                            completionStory: '',
+                            bonusTickets: 10,
+                            isActive: true,
+                        });
+                        setShowModal(true);
+                    }}
                 >
                     + Thêm Bộ Sưu Tập
                 </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-                {collections.map(col => (
-                    <div key={col._id} className="card" style={{ padding: 16, borderTop: `4px solid ${col.isActive ? (col.themeColor || '#10b981') : '#cbd5e1'}` }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                <div style={{ fontSize: 32 }}>{col.iconEmoji}</div>
-                                <div>
-                                    <h3 style={{ margin: 0, fontSize: 16 }}>{col.title}</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+                {collections.map(col => {
+                    const actualCount = events.filter(ev => String(ev.collectionId) === String(col._id)).length;
+                    return (
+                        <div
+                            key={col._id}
+                            className="card hover:shadow-md transition-shadow"
+                            style={{
+                                padding: 16,
+                                borderTop: `4px solid ${col.isActive ? (col.themeColor || '#10b981') : '#cbd5e1'}`,
+                                cursor: 'pointer',
+                            }}
+                            onClick={() => { setEditCol(col); setShowModal(true); }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                    <div style={{ fontSize: 32 }}>{col.iconEmoji}</div>
+                                    <div>
+                                        <h3 style={{ margin: 0, fontSize: 16 }}>{col.title}</h3>
+                                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Tháng {col.month}/{col.year}</span>
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
+                                    <button className="btn btn--secondary btn--sm" onClick={() => { setEditCol(col); setShowModal(true); }} title="Sửa thông tin bộ">✏️</button>
+                                    <button className="btn btn--danger btn--sm" onClick={() => handleDelete(col._id)} title="Xóa bộ">🗑️</button>
                                 </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn btn--secondary btn--sm" onClick={() => { setEditCol(col); setShowModal(true); }}>✏️</button>
-                                <button className="btn btn--danger btn--sm" onClick={() => handleDelete(col._id)}>🗑️</button>
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                {col.description || 'Chưa có mô tả'}
+                            </p>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, fontSize: 13, background: 'var(--bg)', padding: '8px 12px', borderRadius: 8 }}>
+                                <span>Nhân vật: <strong>{actualCount}</strong></span>
+                                <span>Thưởng: <strong>{col.bonusTickets}🎫</strong></span>
+                                <button
+                                    type="button"
+                                    className="btn btn--secondary btn--sm"
+                                    style={{ padding: '2px 8px', fontSize: 12, color: '#16a34a', borderColor: '#86efac' }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onCreateBossInCollection) onCreateBossInCollection(col);
+                                    }}
+                                    title="Tạo nhanh nhân vật mới gắn sẵn vào bộ này"
+                                >
+                                    ➕ Tạo nhân vật
+                                </button>
                             </div>
                         </div>
-                        <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 12, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                            {col.description}
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontSize: 13, background: 'var(--bg)', padding: 8, borderRadius: 8 }}>
-                            <span>Nhân vật: <strong>{col.bossCount || 0}</strong></span>
-                            <span>Thưởng: <strong>{col.bonusTickets}🎫</strong></span>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {collections.length === 0 && (
@@ -117,12 +169,12 @@ export default function BossCollectionManagement({ events = [], onEditBoss }: { 
 
             {showModal && (
                 <div className="modal-backdrop" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
                         <div className="modal__header">
-                            <span className="modal__title">{editCol?._id ? 'Sửa Bộ Sưu Tập' : 'Tạo Bộ Sưu Tập'}</span>
+                            <span className="modal__title">{editCol?._id ? `Quản lý Bộ: ${editCol.title}` : 'Tạo Bộ Sưu Tập'}</span>
                             <button className="modal__close" onClick={() => setShowModal(false)}>×</button>
                         </div>
-                        <div className="modal__body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                        <div className="modal__body" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
                             <div className="form-group">
                                 <label>Tiêu đề</label>
                                 <input 
@@ -132,10 +184,31 @@ export default function BossCollectionManagement({ events = [], onEditBoss }: { 
                                     placeholder="VD: Bộ Tháng 10 - Halloween" 
                                 />
                             </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                <div className="form-group">
+                                    <label>Tháng (1-12)</label>
+                                    <input 
+                                        type="number" 
+                                        min="1" 
+                                        max="12" 
+                                        value={editCol?.month || (new Date().getMonth() + 1)} 
+                                        onChange={e => setEditCol({...editCol, month: Number(e.target.value)})} 
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Năm</label>
+                                    <input 
+                                        type="number" 
+                                        value={editCol?.year || new Date().getFullYear()} 
+                                        onChange={e => setEditCol({...editCol, year: Number(e.target.value)})} 
+                                    />
+                                </div>
+                            </div>
                             
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                                 <div className="form-group">
-                                    <label>Biểu tượng (Emoji)</label>
+                                    <label>Biểu tượng & Màu Theme</label>
                                     <div style={{ display: 'flex', gap: 12 }}>
                                         <input type="text" value={editCol?.iconEmoji || ''} onChange={e => setEditCol({...editCol, iconEmoji: e.target.value})} style={{ flex: 1 }} />
                                         <input type="color" value={editCol?.themeColor || '#ef4444'} onChange={e => setEditCol({...editCol, themeColor: e.target.value})} style={{ width: 50, height: 40, padding: 0 }} />
@@ -172,32 +245,27 @@ export default function BossCollectionManagement({ events = [], onEditBoss }: { 
                                 <label htmlFor="isActiveCol" style={{ margin: 0 }}>Đang hoạt động (Hiển thị trên Mobile)</label>
                             </div>
 
-                            {/* Danh sách các nhân vật thuộc bộ này */}
-                            <div className="form-group" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-                                <label>Các Nhân vật thuộc bộ này:</label>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {editCol?._id && events.filter(ev => ev.collectionId === editCol._id).length > 0 ? (
-                                        events.filter(ev => ev.collectionId === editCol._id).map(ev => (
-                                            <div 
-                                                key={ev._id} 
-                                                onClick={() => onEditBoss && onEditBoss(ev)}
-                                                style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg)', padding: 8, borderRadius: 8, cursor: 'pointer' }}
-                                                className="hover:bg-slate-100 transition-colors"
-                                            >
-                                                {ev.avatarImageUrl ? (
-                                                    <img src={ev.avatarImageUrl} style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} alt="char" />
-                                                ) : (
-                                                    <div style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: ev.colorBg || '#ccc' }} />
-                                                )}
-                                                <div style={{ fontSize: 14, fontWeight: 'bold' }}>{ev.title}</div>
-                                                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>- {ev.status === 'upcoming' ? 'Sắp tới' : ev.status === 'active' ? 'Đang mở' : 'Đã kết thúc'}</div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Chưa có nhân vật nào được thêm vào bộ này.</div>
-                                    )}
-                                </div>
-                            </div>
+                            {/* Quản lý danh sách nhân vật trong bộ & thêm nhân vật chưa có bộ */}
+                            <CollectionCharacterManager
+                                collectionId={editCol?._id}
+                                collectionTitle={editCol?.title}
+                                allCollections={collections}
+                                allBosses={events}
+                                onEditBoss={(boss) => {
+                                    setShowModal(false);
+                                    if (onEditBoss) onEditBoss(boss);
+                                }}
+                                onCreateBossInCollection={() => {
+                                    if (editCol?._id && onCreateBossInCollection) {
+                                        setShowModal(false);
+                                        onCreateBossInCollection(editCol as BossCollectionDTO);
+                                    }
+                                }}
+                                onAssignmentChanged={async () => {
+                                    await fetchCollections();
+                                    if (onRefreshData) await onRefreshData();
+                                }}
+                            />
                         </div>
                         <div className="modal__footer">
                             <button className="btn btn--secondary" onClick={() => setShowModal(false)}>Hủy</button>

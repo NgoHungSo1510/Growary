@@ -139,7 +139,7 @@ export const BossFormModal: React.FC<BossFormModalProps> = ({
                                 <label>Thuộc Bộ sưu tập</label>
                                 <select
                                     value={editEvent?.collectionId || ''}
-                                    onChange={e => setEditEvent({ ...editEvent, collectionId: e.target.value })}
+                                    onChange={e => setEditEvent({ ...editEvent, collectionId: e.target.value ? e.target.value : null })}
                                     style={{ padding: 8, borderRadius: 8, border: '1px solid var(--border)' }}
                                 >
                                     <option value="">-- Không thuộc bộ nào --</option>
@@ -147,6 +147,11 @@ export const BossFormModal: React.FC<BossFormModalProps> = ({
                                         <option key={col._id} value={col._id}>{col.iconEmoji} {col.title}</option>
                                     ))}
                                 </select>
+                                {editEvent?.collectionId && (
+                                    <div style={{ fontSize: 12, color: '#15803d', marginTop: 4 }}>
+                                        🔗 Đang liên kết với bộ sưu tập đã chọn (Có thể đổi sang bộ khác hoặc gỡ ra bất kỳ lúc nào)
+                                    </div>
+                                )}
                             </div>
 
                             <div className="form-group">

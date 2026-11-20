@@ -273,7 +273,26 @@ export default function BossManagementPage() {
                 </div>
             </div>
 
-            <BossCollectionManagement events={events} onEditBoss={ev => { setEditEvent(ev); setShowCreate(true); }} />
+            <BossCollectionManagement
+                collections={collections}
+                events={events}
+                onRefreshData={fetchEvents}
+                onEditBoss={(ev) => {
+                    setEditEvent(ev);
+                    setShowCreate(true);
+                }}
+                onCreateBossInCollection={(col) => {
+                    setEditEvent({
+                        status: 'pool',
+                        collectionId: col._id,
+                        colorBg: col.themeColor || '#ef4444',
+                        rewardItems: [],
+                        isLimited: false,
+                        miniGameQuestions: [],
+                    });
+                    setShowCreate(true);
+                }}
+            />
 
             {/* Boss Form Modal */}
             <BossFormModal
